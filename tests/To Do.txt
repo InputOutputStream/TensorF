@@ -1,0 +1,4 @@
+//Grapth has nodes and edges, 
+//Edges will be tensors and nodes will be
+//Operation 
+

@@ -1,0 +1,31 @@
+#include "types.hpp"
+#include "Operation.hpp"
+
+
+#ifndef __DIVIDE_OPP_INCLUDED__
+#define __DIVIDE_OPP_INCLUDED__
+
+
+template <typename T>
+class DivisionOperation : public Operation<T>
+{
+    public:
+        Tensor_t<T> t1, t2;
+        
+    DivisionOperation(Tensor_t<T> t1, Tensor_t<T> t2)
+    {
+        this->t1 = t1;
+        this->t2 = t2;
+    }  
+
+    void backward(std::vector<T> grad);
+
+    Tensor_t<T> forward(); 
+
+
+    void to_string(){
+        std::cout << "Divide Operation \n";
+    }
+};
+
+#endif
