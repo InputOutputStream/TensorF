@@ -1,0 +1,34 @@
+#include "types.hpp"
+#include "Operation.hpp"
+
+
+#ifndef __MULTIPLY_OPP_INCLUDED__
+#define __MULTIPLY_OPP_INCLUDED__
+
+
+template <typename T>
+class MultiplyOperation : public Operation<T>
+{
+    public:
+        Tensor_t<T> t1, t2;
+        
+    MultiplyOperation(Tensor_t<T> t1, Tensor_t<T> t2)
+    {
+        this->t1 = t1;
+        this->t2 = t2;
+    }  
+
+    void backward(std::vector<T> grad);
+
+    Tensor_t<T> forward(); 
+
+
+    void to_string(){
+        std::cout << "Multiply Operation \n";
+    }
+};
+
+
+
+
+#endif//............................................................................................................
