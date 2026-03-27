@@ -48,23 +48,56 @@ void sigmoidTest()
 
 
 
-//     Matrix(vector<T> val, vector<long> shape)
-
 int main()
 {   
-    sigmoidTest();
-
-    // Matrix<float> m1({1,2}, {1,2});
-
-    // Matrix<float> m2({1,2}, {1, 2});
-
-    // cout << m1<<endl;
-    // cout<<".....................\n";
-    // cout << m2<<endl;
+    // sigmoidTest();
     
-    // Tensor_t<float> m3 = m1.dot(m2);
 
-    // cout<<m3;
+    //  Matrix<float> m1(9.0f); 
+
+    //  Matrix<float> m2(9.0f); 
+     
+
+    Matrix<float> m3({9.0f, 9.0f}); 
+
+    Matrix<float> m4({9.0f, 9.0f}); 
+    
+    Matrix<float> m5({{1,8, 0},{1,6,8},{2,1,1}});
+
+    Matrix<float> m6({{9,9,2}, {1,2,8},{1,0, 2}});
+
+
+    Matrix<float> m7({{1,8}});
+
+    Matrix<float> m8({{9,2}});
+
+    // Matrix<float> m9({{{1,8},{1,8},{2,1}}, {1,8},{1,8},{2,1}}); 
+
+    // Matrix<float> m10({{{9,2}, {1,8},{1, 2}}, {{9,2}, {1,8},{1, 2}}}); 
+
+    // cout << m1<<m1.shape<<"\n\n";
+    // cout << m2<<m2.shape<<"\n\n";
+    // cout<<".....................\n\n";
+
+    cout << m3<<m3.shape<<"\n\n";
+    cout << m4<<m4.shape<<"\n\n";
+    cout<<".....................\n\n";
+
+    cout << m5<<m5.shape<<"\n\n";
+    cout << m6<<m6.shape<<"\n\n";
+    cout<<".....................\n\n";
+    
+    cout << m7<<m7.shape<<"\n\n";
+    cout << m8<<m8.shape<<"\n\n";
+    cout<<".....................\n\n";
+
+    // cout << m9<<m9.shape<<endl;
+    // cout << m10<<m10.shape<<endl;
+    cout<<"Result zone.....................\n\n";
+
+    Matrix<float> res = m5.matmul(m6);
+
+    cout<<res;
 
     return 0;
 }
