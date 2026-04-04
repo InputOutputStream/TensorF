@@ -83,19 +83,19 @@ int main()
     cout << m4<<m4.shape<<"\n\n";
     cout<<".....................\n\n";
 
-    cout << m5<<m5.shape<<"\n\n";
-    cout << m6<<m6.shape<<"\n\n";
-    cout<<".....................\n\n";
+    // cout << m5<<m5.shape<<"\n\n";
+    // cout << m6<<m6.shape<<"\n\n";
+    // cout<<".....................\n\n";
     
-    cout << m7<<m7.shape<<"\n\n";
-    cout << m8<<m8.shape<<"\n\n";
-    cout<<".....................\n\n";
+    // cout << m7<<m7.shape<<"\n\n";
+    // cout << m8<<m8.shape<<"\n\n";
+    // cout<<".....................\n\n";
 
     // cout << m9<<m9.shape<<endl;
     // cout << m10<<m10.shape<<endl;
     cout<<"Result zone.....................\n\n";
 
-    Matrix<float> res = m5.matmul(m6);
+    Matrix<float> res = m3.dot(m4)/ Matrix<float>({6});
 
     cout<<res;
 

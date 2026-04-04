@@ -111,6 +111,26 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
 
         
     // Check if shapes are equal element wise in the std::vector 
+
+
+
+    bool isShape1D()
+    {
+        if(this->shape.size() == 1)
+            return true;
+
+        return false;
+    }
+
+    bool isShape2D()
+    {
+        if(this->shape.size() == 2)
+            return true;
+        
+        return false;
+    }
+
+
     bool areShapes1D(const shape_t &lshape, const shape_t &rshape)
     {
         if(rshape.size() == 1 && lshape.size() == 1)
@@ -125,6 +145,62 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
             return true;
         
         return false;
+    }
+
+    T sum_1D()
+    {
+        T s = 0;
+        for(auto i : this->data)
+            s+=i;
+        return s;
+    }
+
+
+    T sum_1D(std::vector<T> data_1D)
+    {
+        T s = 0;
+        for(auto i: data_1D)
+            s+=i;
+        return s;
+    }
+
+
+    void sum_2D(int axis, size_t lhsStart, std::vector<T> &res)
+    {
+        if(axis == 1)
+        {
+            T s = 0;
+            size_t index = 0;
+            for(size_t i = 0; i<this->shape[this->ndims - 2]; i++)
+            {
+                for(size_t j = 0; j<this->shape[this->ndims - 1]; j++)
+                {
+                    s += this->data[lhsStart + index + j];
+                }
+                index = this->shape[this->ndims - 1] * (i+1);   
+                res.push_back(s); 
+                s = 0;
+
+            }
+
+            // res.shape.push_back(this->shape[0]);
+        }
+
+        else if(axis == 0)
+        {
+            T s = 0;
+            size_t index = 0;
+            for(size_t i = 0; i<this->shape[this->ndims - 1]; i++)
+            {
+                for(size_t j = 0; j<this->shape[this->ndims - 2]; j++)
+                {
+                    s += this->data[lhsStart + j * this->shape[this->ndims - 1] + i];
+                }
+                res.push_back(s); 
+                s = 0;
+            }
+            // res.shape.push_back(this->shape[1]);
+        }
     }
 
 
@@ -166,7 +242,7 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
                         long lhsStart, 
                         long resStart)
         {
-            Matrix<T> res = zeros({lhs.shape[0], rhs.shape[1]});
+            Matrix<T> res = zeros({lhs.shape[lhs.ndims - 2], rhs.shape[rhs.ndims - 1]});
             
             long row1 = lhs.shape[lhs.shape.size()-2];
             long col1 = lhs.shape[lhs.shape.size()-1];
@@ -193,18 +269,108 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
             return res;
         }
 
+
+    Matrix<T> transpose_1D()
+    {            
+        if(this->shape.size() == 2 && (this->shape[0] == 1))
+           return Matrix<T>(this->data, {this->shape[1], 1});
+        else if(this->shape.size() == 2 && (this->shape[1] == 1))
+           return Matrix<T>(this->data, {1, this->shape[0]});
+        else if(this->shape.size() == 1)
+           return Matrix<T>(this->data, {this->shape[0], 1});
+        else
+            assert(1 && "Invalid input shape \n");
+    }
+
+    std::vector<T> transpose_2D()
+        {            
+            long row = this->shape[this->ndims - 2];
+            long col = this->shape[this->ndims - 1];
+
+            std::vector<T> res = this->data;
+
+            for(long i=0; i<row; i++)
+            {
+                for(long j=0; j<col; j++)
+                {
+                    res[j*row + i] = this->data[i*col + j];
+                }
+            }
+
+        return res;
+    }
+
+    shape_t getShape(const std::initializer_list<long> shape)
+    {
+        if (shape.size() == 0) return shape_t{0};
+
+        shape_t s;
+
+        for (const auto& item : shape)
+        {   
+            s.push_back(item);
+        }
+        return s;
+    }
+
+    void transpose(const shape_t resShape, std::vector<T> &res)
+    {
+        for(auto i: resShape)
+        {
+            auto lhsStart = this->numElementsSeen.at(i);
+            for(long j=0; j<resShape.size(); j++)
+            {
+                res[i * lhsStart + j] = this->data[j*lhsStart + i];
+            }
+        }
+    }
+
+
+    void sum(std::vector<T> &res, 
+                shape_t &indexStack, size_t lhsStart,
+                size_t axis,
+                size_t dim)  {
+
+        assert(dim <= this->shape.size() && "Invalid dim\n");
+
+        if(this->isShape1D())
+            {
+                res.push_back(this->sum_1D());
+                return;
+            }
+
+        if(this->isShape2D())
+            {
+                this->sum_2D(axis, 0, res);
+                return;
+            }
+            
+        if(indexStack.size()  == (this->shape.size()-2))
+        {            
+            for(unsigned long i{0}; i<indexStack.size(); i++)
+            {
+                lhsStart += indexStack.at(i) * this->numElementsSeen.at(i);
+            }
+
+            this->sum_2D(axis, lhsStart, res);
+            return;
+        }
+
+        // Push the extra dimensions to the index stack and recursively traverse the indices, then pop one once the operation for that index has been done
+        for(long i=0; i<this->shape[dim]; i++)
+        {
+            indexStack.push_back(i);
+            this->sum(res, indexStack, lhsStart, axis, dim+1);
+            indexStack.pop_back(); 
+        }
+    }
+
     void matmul(const Matrix<T> &rhs,
                 std::vector<T> &res, 
                 shape_t &indexStack, 
                 shape_t &resElements, 
                 long dim)
         {
-
-        if(this->shape.size() == 1 || rhs.shape.size() == 1)
-            {
-                res = this->dot(rhs).data;
-                return;
-            }
 
         if(indexStack.size()  == (this->shape.size()-2))
         {
@@ -233,6 +399,9 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
             indexStack.pop_back(); 
         }
     }
+
+
+
 
     void matProduct2D(const Matrix<T> &rhs, 
                         std::vector<T> &res, 
@@ -268,6 +437,9 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
     public:
     std::vector<T> data;
     shape_t shape;
+    size_t ndims;
+
+    // Constructors 
 
     Matrix()=delete;
 
@@ -279,42 +451,52 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
             this->shape.push_back(1);
         this->flattenReccursive(data, this->data);
         this->numElementsSeen = computeShapes(this->shape);
+        this->ndims = this->shape.size();
     }
 
-    template <typename E>
-    Matrix(std::initializer_list<E> data)
+    Matrix(Matrix<T>* two)
     {
-        this->shape.push_back(data.size());
-        this->extractShape(data, this->shape);
-        if(this->shape.size() == 0)
-            this->shape.push_back(1);
-        this->flattenReccursive(data, this->data);
-        this->numElementsSeen = this->computeShapes(this->shape);
+        assert((two != nullptr) && "Null matrix input\n");
+        this->data = two->data;
+        this->shape = two->shape; 
+        this->numElementsSeen = two->numElementsSeen;
+        this->ndims = two->shape.size();
     }
 
-     Matrix(std::vector<T> data)
+    Matrix(Matrix<T>& two)
+    {
+        this->data = two.data;
+        this->shape = two.shape; 
+        this->numElementsSeen = two.numElementsSeen;
+        this->ndims = two.shape.size();
+    }
+ 
+    Matrix(std::vector<T> data)
     {
         this->data = data;
         this->shape.push_back(data.size()); 
         this->numElementsSeen = this->computeShapes(this->shape);
+        this->ndims = this->shape.size();
     }
 
     Matrix(std::vector<T> data, shape_t shape)
     {
-        assert("Shape and number of elements of matrix do not match" && this->verifyShape(data, shape));
+        assert(this->verifyShape(data, shape) && "Shape and number of elements of matrix do not match");
         this->data = data;
         this->shape = shape; 
         this->numElementsSeen = this->computeShapes(this->shape);
+        this->ndims = this->shape.size();
     }
 
-     Matrix(std::vector<std::vector<T>> data)
+    Matrix(std::vector<std::vector<T>> data)
     {
         this->shape.push_back(data.size());
         this->shape.push_back(data.begin()->size());
-
         assert("Matrix shape must be uniform" && this->isRegular2D(data));
         this->flattenReccursive(data, this->data);
         this->numElementsSeen = this->computeShapes(this->shape);
+        this->ndims = this->shape.size();
+
     }
 
     Matrix(std::initializer_list<T> data)
@@ -322,16 +504,35 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->shape.push_back(data.size());
         this->flattenReccursive(data, this->data);
         this->numElementsSeen = this->computeShapes(this->shape);
+        this->ndims = this->shape.size();
+    }
+    
+    Matrix(std::vector<T> data, std::initializer_list<long> shape)
+    {
+        this->data = data;
+        this->shape = this->getShape(shape); 
+        assert("Shape and number of elements of matrix do not match" && this->verifyShape(this->data, this->shape));
+        this->numElementsSeen = this->computeShapes(this->shape);
+        this->ndims = this->shape.size();
+    }
+
+    Matrix(std::initializer_list<T> data, std::initializer_list<long> shape)
+    {
+        this->flattenReccursive(data, this->data);
+        this->shape = this->getShape(shape); 
+        assert("Shape and number of elements of matrix do not match" && this->verifyShape(this->data, this->shape));
+        this->numElementsSeen = this->computeShapes(this->shape);
+        this->ndims = this->shape.size();
     }
 
     Matrix(std::initializer_list<std::initializer_list<T>> data)
     {
         this->shape.push_back(data.size());
         this->shape.push_back(data.begin()->size());
-        
         assert("Matrix shape must be uniform" && this->isRegular2D(data));
         this->flattenReccursive(data, this->data);
         this->numElementsSeen = this->computeShapes(this->shape);
+        this->ndims = this->shape.size();
     }
     
     // Matrix Arithmetic Operations 
@@ -419,8 +620,52 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
 
     // functions
 
+    //Todo implement transpose based on axis and shapes
+    Matrix<T> transpose(std::initializer_list<T> shape)
+    {
+        if(shape.size() == 1)
+            return this->transpose_1D();
+
+        shape_t resShape = this->getShape(shape);
+        if(shape.size() == 2)
+            return Matrix<T>(this->transpose_2D(), resShape);
+
+        Matrix<T> res(this);
+        assert(this->shape.size() == resShape.size() && "Invalid result shape");
+        transpose(resShape, res.data);
+        return res;
+    }
+
+    const T sum()
+    {
+        assert(this->isShape1D() && "Invalid input shape");
+        return this->sum_1D(this->data);
+    }
+
+    Matrix<T> sum(size_t axis)
+    {
+        shape_t resShape; 
+
+        for(size_t i=0; i<this->shape.size(); i++)
+        { 
+            if (i == axis)
+                continue;
+            resShape.push_back(this->shape.at(i));
+        }
+
+        std::vector<T> res;
+        shape_t indexStack{}; 
+        size_t lhsStart = 0;
+        size_t dim = 0;
+
+        this->sum(res, indexStack, lhsStart, axis, dim);
+        return Matrix<T>(res, resShape); 
+    }
+
     Matrix<T> matmul(const Matrix<T> &rhs)
     {
+        assert(!areShapes1D(this->shape, rhs.shape) && "Shapes 1D and 1D invalid for matrix product");
+
         shape_t resShape{}; 
 
         long numE = 1;
@@ -448,8 +693,11 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
     Matrix<T> dot(const Matrix<T> &rhs)
     {
         if(areShapes1D(this->shape, rhs.shape))
-            return Matrix<T>({this->dotProduct1D(this->data, rhs.data)});
-
+        {
+            Matrix<T> res({this->dotProduct1D(this->data, rhs.data)});
+            return res;
+        }
+        
         if(areShapes2D(this->shape, rhs.shape))
         {
             return this->dotProduct2D(Matrix<T>(this->data, this->shape), rhs, 0, 0);
@@ -498,7 +746,7 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
                 {
                     out<<this->data.at(lhsStart+i)<<",";
                 }
-                out<<"]";
+                out<<"]\n";
                 return out;
             }
 
@@ -510,7 +758,7 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
                 print(out, indexStack, dim+1);
                 indexStack.pop_back(); //pops out of stack
             }
-            out <<"\n]";
+            out <<"]";
             return out;
         }
 
@@ -526,8 +774,9 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
     {
         //out<<m.data<<"\t";
         //out<<"Shape:"<<m.shape;
+        size_t dim = 0;
         shape_t stack;
-        m.print(out, stack, 0);
+        m.print(out, stack, dim);
         return out;
     }
 
