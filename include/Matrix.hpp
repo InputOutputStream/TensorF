@@ -36,8 +36,8 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
     shape_t computeShapes(const shape_t shape)
     {
         shape_t numElementsSeen(shape.size());
-        long p{1};
-        for(long i = (long)shape.size()-1; i>=0 ;i--)
+        size_t p{1};
+        for(size_t i = shape.size()-1; i>=0 ;i--)
         {
             numElementsSeen[i] = p;
             p *= shape.at(i);
@@ -63,6 +63,44 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
 
             return true;
         }
+    
+    shape_t getShape(const std::initializer_list<long> shape)
+    {
+        if (shape.size() == 0) return shape_t{0};
+
+        shape_t s;
+
+        for (const auto& item : shape)
+        {   
+            s.push_back(item);
+        }
+        return s;
+    }
+
+    template <typename U> // cloudy
+    void extractShape(const U& data, shape_t& shape)
+    {
+        if constexpr(std::is_same_v<U, T>){ 
+            return; // scalar
+        }else{
+            this->shape.push_back(data.size());
+            extractShape(*data.begin(), shape);
+        }
+    }
+
+    template <typename U> // cloudy
+    void flattenReccursive(const U& data, std::vector<T> &out )
+    {
+        if constexpr (std::is_same_v<U, T>)
+        {
+            out.push_back(data);
+        }     
+        else
+        {
+            for (const auto& elem : data)
+                flattenReccursive(elem, out);
+        }
+    }
 
 
     bool dotShapesAssert(const shape_t &shape)
@@ -147,6 +185,8 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         return false;
     }
 
+//°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
     T sum_1D()
     {
         T s = 0;
@@ -203,31 +243,115 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         }
     }
 
+    void sum(std::vector<T> &res, 
+                shape_t &indexStack, size_t lhsStart,
+                size_t axis,
+                size_t dim)  {
 
-    template <typename U> // cloudy
-    void extractShape(const U& data, shape_t& shape)
-    {
-        if constexpr(std::is_same_v<U, T>){ 
-            return; // scalar
-        }else{
-            this->shape.push_back(data.size());
-            extractShape(*data.begin(), shape);
+        // assert(this->isShape1D() && "Invalid input shape");
+        assert(dim <= this->shape.size() && "Invalid dim\n");
+
+        if(this->isShape1D())
+            {
+                res.push_back(this->sum_1D());
+                return;
+            }
+
+        if(this->isShape2D())
+            {
+                this->sum_2D(axis, 0, res);
+                return;
+            }
+            
+        if(indexStack.size()  == (this->shape.size()-2))
+        {            
+            for(unsigned long i{0}; i<indexStack.size(); i++)
+            {
+                lhsStart += indexStack.at(i) * this->numElementsSeen.at(i);
+            }
+
+            this->sum_2D(axis, lhsStart, res);
+            return;
+        }
+
+        // Push the extra dimensions to the index stack and recursively traverse the indices, then pop one once the operation for that index has been done
+        for(long i=0; i<this->shape[dim]; i++)
+        {
+            indexStack.push_back(i);
+            this->sum(res, indexStack, lhsStart, axis, dim+1);
+            indexStack.pop_back(); 
         }
     }
 
-    template <typename U> // cloudy
-    void flattenReccursive(const U& data, std::vector<T> &out )
-    {
-        if constexpr (std::is_same_v<U, T>)
-        {
-            out.push_back(data);
-        }     
+//°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+    Matrix<T> transpose_1D()
+    {            
+        if(this->shape.size() == 2 && (this->shape[0] == 1))
+           return Matrix<T>(this->data, {this->shape[1], 1});
+        else if(this->shape.size() == 2 && (this->shape[1] == 1))
+           return Matrix<T>(this->data, {1, this->shape[0]});
+        else if(this->shape.size() == 1)
+           return Matrix<T>(this->data, {this->shape[0], 1});
         else
+            assert(1 && "Invalid input shape \n");
+    }
+
+    std::vector<T> transpose_2D()
+        {            
+            long row = this->shape[this->ndims - 2];
+            long col = this->shape[this->ndims - 1];
+
+            std::vector<T> res = this->data;
+
+            for(long i=0; i<row; i++)
+            {
+                for(long j=0; j<col; j++)
+                {
+                    res[j*row + i] = this->data[i*col + j];
+                }
+            }
+
+        return res;
+    }
+
+    void transpose(const shape_t resShape, std::vector<T> &res)
+    {
+        Matrix<T> temp(this);
+        auto ns = temp->numElementsSeen;
+        auto nr = temp->computeShapes(resShape);
+
+        auto dsize = 1; // num elements
+        for(auto i: resShape)
         {
-            for (const auto& elem : data)
-                flattenReccursive(elem, out);
+            dsize *= i;
+        }
+
+        for(size_t i = 0; i<dsize; i++)
+        {
+            std::vector<T> new_index;
+            auto k = i;
+            for(auto j: nr)
+            {
+                new_index.push_back((size_t)(k / j));
+                k = k%j;
+            }
+
+            std::vector<T> rev;
+            rev.insert(rev.end(), new_index.end(), new_index.begin());
+            size_t npos = 0;
+            for(size_t id = 0; id <temp->shape.size(); i++)
+            {
+                npos += nr[id] * rev[id];
+            }
+
+            auto tval = temp->data[i];
+            temp->data[i] = temp->data[npos];
+            two->data[npos] = tval;
         }
     }
+
+//°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 
     T dotProduct1D(const std::vector<T> &lhs, const std::vector <T> &rhs){
             T sum = 0;
@@ -269,101 +393,36 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
             return res;
         }
 
+    void matProduct2D(const Matrix<T> &rhs, 
+                        std::vector<T> &res, 
+                        long lhsStart, 
+                        long resStart)
+        {
+            
+            long row1 = this->shape[this->shape.size()-2];
+            long col1 = this->shape[this->shape.size()-1];
+            long row2 = rhs.shape[rhs.shape.size()-2];
+            long col2 = rhs.shape[rhs.shape.size()-1];
 
-    Matrix<T> transpose_1D()
-    {            
-        if(this->shape.size() == 2 && (this->shape[0] == 1))
-           return Matrix<T>(this->data, {this->shape[1], 1});
-        else if(this->shape.size() == 2 && (this->shape[1] == 1))
-           return Matrix<T>(this->data, {1, this->shape[0]});
-        else if(this->shape.size() == 1)
-           return Matrix<T>(this->data, {this->shape[0], 1});
-        else
-            assert(1 && "Invalid input shape \n");
-    }
+            assert(row2 == col1 && "FATAL ERRROR, MATRIX PRODUCT ATTEMPTED ON INdataID MATRICES");
+            T sum = 0;
 
-    std::vector<T> transpose_2D()
-        {            
-            long row = this->shape[this->ndims - 2];
-            long col = this->shape[this->ndims - 1];
-
-            std::vector<T> res = this->data;
-
-            for(long i=0; i<row; i++)
+            for(long i=0; i<row1; i++)
             {
-                for(long j=0; j<col; j++)
+                for(long k =0; k<col2; k++)
                 {
-                    res[j*row + i] = this->data[i*col + j];
+                    sum = 0;
+                    for(long j=0; j<col1; j++)
+                    {
+                        sum += this->data[lhsStart + i * col1 + j] * rhs.data[j*col2 + k];
+                    }
+
+                    res[(resStart + i*col2 + k)] = sum;
+
                 }
             }
-
-        return res;
-    }
-
-    shape_t getShape(const std::initializer_list<long> shape)
-    {
-        if (shape.size() == 0) return shape_t{0};
-
-        shape_t s;
-
-        for (const auto& item : shape)
-        {   
-            s.push_back(item);
-        }
-        return s;
-    }
-
-    void transpose(const shape_t resShape, std::vector<T> &res)
-    {
-        for(auto i: resShape)
-        {
-            auto lhsStart = this->numElementsSeen.at(i);
-            for(long j=0; j<resShape.size(); j++)
-            {
-                res[i * lhsStart + j] = this->data[j*lhsStart + i];
-            }
-        }
-    }
-
-
-    void sum(std::vector<T> &res, 
-                shape_t &indexStack, size_t lhsStart,
-                size_t axis,
-                size_t dim)  {
-
-        assert(dim <= this->shape.size() && "Invalid dim\n");
-
-        if(this->isShape1D())
-            {
-                res.push_back(this->sum_1D());
-                return;
-            }
-
-        if(this->isShape2D())
-            {
-                this->sum_2D(axis, 0, res);
-                return;
-            }
-            
-        if(indexStack.size()  == (this->shape.size()-2))
-        {            
-            for(unsigned long i{0}; i<indexStack.size(); i++)
-            {
-                lhsStart += indexStack.at(i) * this->numElementsSeen.at(i);
-            }
-
-            this->sum_2D(axis, lhsStart, res);
-            return;
         }
 
-        // Push the extra dimensions to the index stack and recursively traverse the indices, then pop one once the operation for that index has been done
-        for(long i=0; i<this->shape[dim]; i++)
-        {
-            indexStack.push_back(i);
-            this->sum(res, indexStack, lhsStart, axis, dim+1);
-            indexStack.pop_back(); 
-        }
-    }
 
     void matmul(const Matrix<T> &rhs,
                 std::vector<T> &res, 
@@ -399,40 +458,6 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
             indexStack.pop_back(); 
         }
     }
-
-
-
-
-    void matProduct2D(const Matrix<T> &rhs, 
-                        std::vector<T> &res, 
-                        long lhsStart, 
-                        long resStart)
-        {
-            
-            long row1 = this->shape[this->shape.size()-2];
-            long col1 = this->shape[this->shape.size()-1];
-            long row2 = rhs.shape[rhs.shape.size()-2];
-            long col2 = rhs.shape[rhs.shape.size()-1];
-
-            assert(row2 == col1 && "FATAL ERRROR, MATRIX PRODUCT ATTEMPTED ON INdataID MATRICES");
-            T sum = 0;
-
-            for(long i=0; i<row1; i++)
-            {
-                for(long k =0; k<col2; k++)
-                {
-                    sum = 0;
-                    for(long j=0; j<col1; j++)
-                    {
-                        sum += this->data[lhsStart + i * col1 + j] * rhs.data[j*col2 + k];
-                    }
-
-                    res[(resStart + i*col2 + k)] = sum;
-
-                }
-            }
-        }
-
 
     public:
     std::vector<T> data;
@@ -634,12 +659,6 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         assert(this->shape.size() == resShape.size() && "Invalid result shape");
         transpose(resShape, res.data);
         return res;
-    }
-
-    const T sum()
-    {
-        assert(this->isShape1D() && "Invalid input shape");
-        return this->sum_1D(this->data);
     }
 
     Matrix<T> sum(size_t axis)
