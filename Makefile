@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -g -std=c++20 -Wall -Wextra -Iinclude 
+CFLAGS = -g -std=c++20 -O1 -Wall -Wextra -Iinclude 
 TARGET = main
 SRCS = main.cpp
 OBJS = $(SRCS:.c=.o) 
