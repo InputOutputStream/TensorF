@@ -21,7 +21,9 @@ class DivisionOperation : public Operation<T>
     void backward(std::vector<T> grad);
 
     Tensor_t<T> forward(); 
+    void zero_grad();
 
+    void reset_graph();
 
     void to_string(){
         std::cout << "Divide Operation \n";

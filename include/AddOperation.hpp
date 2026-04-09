@@ -23,6 +23,9 @@ class AddOperation : public Operation<T>
 
     Tensor_t<T> forward();
 
+    void zero_grad();
+    void reset_graph();
+
     void to_string(){
         std::cout << "Add Operation \n";
     }

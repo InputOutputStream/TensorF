@@ -309,6 +309,39 @@ void test_3D_arithmetic()
     mulOk ? PASS("3D mul {2,3,4}") : FAIL("3D mul {2,3,4}");
 }
 
+
+// Sigmoid Test ───────────────────────────────────────────────────────────────────
+
+
+
+void sigmoidTest()
+{
+    Tensor_t<float> w0(make_tensor<float>(vector<float> {2}));
+    Tensor_t<float> x0(make_tensor<float>(vector<float> {-1}));
+    Tensor_t<float> w1(make_tensor<float>(vector<float> {-3}));
+    Tensor_t<float> x1(make_tensor<float>(vector<float> {-2}));
+    Tensor_t<float> bias(make_tensor<float>(vector<float> {-3}));
+
+    Tensor_t<float> neg = make_tensor<float>(vector<float>{-1});
+    Tensor_t<float> one = make_tensor<float>(vector<float>{1});
+
+    Tensor_t<float> b = neg * (w0*x0 + w1*x1 + bias) ;
+
+    Tensor_t<float> c = one / (one + b->exp());
+ 
+    c->backward(vector<float>{1});
+
+    std::cout << w0->grad << "\n";
+
+    std::cout << x0->grad << "\n";
+
+    std::cout << w1->grad << "\n";
+
+    std::cout << x1->grad << "\n";
+
+    std::cout << bias->grad << "\n";
+}
+
 // ─── main ───────────────────────────────────────────────────────────────────
 
 int main()
@@ -338,5 +371,8 @@ int main()
     test_nonuniform_sum_axis2(); // pass
     test_nonuniform_transpose(); 
     test_3D_arithmetic(); // pass
+
+    cout << "\n=== Sigmoid test ===\n";
+    sigmoidTest();
     return 0;
 }

@@ -22,7 +22,9 @@ class MultiplyOperation : public Operation<T>
 
     Tensor_t<T> forward(); 
 
+    void zero_grad();
 
+    void reset_graph();
     void to_string(){
         std::cout << "Multiply Operation \n";
     }

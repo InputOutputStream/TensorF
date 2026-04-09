@@ -133,7 +133,6 @@ std::vector<T> operator / (const std::vector<T> &b, const T a) // scalar Divisio
  * mathematical functions......................................................................................
  */
 
-
 template <typename T>
 std::vector<T> exponent(const std::vector<T> &a) // Exponential of a std::vector
 {
@@ -147,7 +146,7 @@ std::vector<T> exponent(const std::vector<T> &a) // Exponential of a std::vector
 } 
 
 template <typename T>
-std::vector<T> operator ^ (const std::vector<T> &a, const T n) // Power of a std::vector
+std::vector<T> operator ^(const std::vector<T> &a, const T n) // Power of a std::vector
 {
     std::vector<T> arr;
     for(size_t i=0; i<a.size(); i++)
