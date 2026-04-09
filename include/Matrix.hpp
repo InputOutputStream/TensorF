@@ -146,6 +146,28 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         return true;
     }
 
+    bool isRegular3D(const std::initializer_list<std::initializer_list<std::initializer_list<T>>>& data)
+    {
+        if (data.size() == 0) return true;
+
+        size_t dim1 = data.begin()->size();
+        size_t dim2 = data.begin().begin()->size();
+
+        for (const auto& row : data)
+        {
+            if (row.size() != dim1)
+                return false;
+        
+            for (const auto& subrow : row)
+            {
+                if (subrow.size() != dim2)
+                return false;
+            }
+        }
+
+        return true;
+    }
+
         
     // Check if shapes are equal element wise in the std::vector 
 
@@ -523,7 +545,11 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
 
     // Constructors 
 
-    Matrix()=delete;
+    Matrix(){
+        this->data = 0;
+        this->shape = 0;
+        this->ndim = 0; 
+    };
 
     Matrix(std::initializer_list<T> indata, std::initializer_list<long> inshape)
     {
@@ -617,6 +643,18 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->ndims = this->shape.size();
     }
 
+
+    Matrix(std::initializer_list<std::initializer_list<std::initializer_list<T>>> indata)
+    {
+        this->shape.push_back(indata.size());
+        this->shape.push_back(indata.begin()->size());
+        this->shape.push_back(indata.begin().begin()->size());
+        assert("Matrix shape must be uniform" && this->isRegular3D(indata));
+        this->flattenReccursive(indata, this->data);
+        this->numElementsSeen = this->computeShapes(this->shape);
+        this->ndims = this->shape.size();
+    }
+
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 
     // Matrix Arithmetic Operations 
@@ -646,6 +684,11 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
     }
 
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+    Matrix<T> flatten()
+    {
+        return Matrix<T>(this->data);
+    }
 
     // Matrix mathematic functions
 
@@ -881,4 +924,39 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         return out;
     }
 
+    // Matrix Arithmetic Operations 
+   
+    template <typename T>
+    Matrix<T> operator * (const T a, const Matrix<T> &rhs)
+    {
+        return Matrix<T>(rhs.data * a, rhs.shape);
+    }
+
+    template <typename T>
+    Matrix<T> operator * (const Matrix<T> &lhs, const T a)
+    {
+        return Matrix<T>( a * lhs.data, lhs.shape);
+    }
+    
+    template <typename T>
+    Matrix<T> operator / (const Matrix<T> &lhs, const T a)
+    {
+        return Matrix<T>(lhs.data * (1/a), lhs.shape);
+    }
+
+    template <typename T>
+    Matrix<T> operator / (const T a, const Matrix<T> &lhs)
+    {
+        return Matrix<T>( a / lhs.data, lhs.shape);
+    }
+    
+
+    template <typename T>
+    Matrix<T> operator ^(const Matrix<T> &lhs, const T a)
+    {
+        return Matrix<T>( lhs.data^a, lhs.shape);
+    }
+    
+
+    
 #endif

@@ -3,36 +3,38 @@
 
 #include "types.hpp"
 #include "header.hpp"
+#include "tensor_extern.hpp"
 
+//#include "Matrix.hpp"
 template <typename T>
 class Tensor : public std::enable_shared_from_this<Tensor<T>>
 {
     public:
-        std::vector<T> val; //Tensor Value
+        std::vector<T> data; //Tensor value
         std::vector<T> grad; //Tensor gradian
         Operation_t<T> frontOp = nullptr, backOp = nullptr;
 
     //....................................................................................................
     Tensor() //ov
     {
-        this->val = 0;
+        this->data = 0;
     }
 
-    Tensor(std::vector<T> val) // ov
+    Tensor(std::vector<T> data) // ov
     {
-        this->val = val;
+        this->data = data;
     }
 
-    Tensor(std::vector<T> val, Operation_t<T> op)
+    Tensor(std::vector<T> data, Operation_t<T> op)
     {
-        this->val = val;
+        this->data = data;
         this->backOp = op;
     }
 
 
     Tensor(const Tensor_t<T> two) //Const Copy Constructor
     {
-        this->val = two->val;
+        this->data = two->data;
         this->backOp = two->backOp;
         this->frontOp = two->frontOp;
         this->grad = two->grad;
@@ -47,6 +49,33 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         { 
             this->backOp->backward(grad); 
         }
+
+        // this->reset_graph();
+    }
+
+    void zero_grad()
+    {
+        this->grad.clear();
+
+        if(this->backOp != nullptr)
+        { 
+            this->backOp->zero_grad(); 
+        }
+    }
+
+    void reset_graph()
+    {
+        if(this->backOp != nullptr)
+        { 
+            this->backOp->reset_graph(); 
+            this->backOp = nullptr;
+        }
+
+        if(this->frontOp!= nullptr)
+        { 
+            this->frontOp->reset_graph(); 
+            this->frontOp = nullptr;
+        }
     }
 
 
@@ -58,92 +87,15 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return this->frontOp->forward(); 
     }
 
+    /**
+     *  create a friend of a static
+     *    
+     *  template <typename E>
+        friend std::ostream & operator <<(std::ostream &out, Matrix<E> &m);
+
+     */
+
 };
 
-template <typename T>
-Tensor_t<T> make_tensor()
-{
-    return std::make_shared<Tensor<T>>();        
-}
-
-template <typename T>
-Tensor_t<T> make_tensor(std::vector<T> val)
-{
-    return std::make_shared<Tensor<T>>(val);        
-}
-
-template <typename T>
-Tensor_t<T> make_tensor(Tensor<T> ten)
-{
-    return std::make_shared<Tensor<T>>(ten);        
-}
-
-template <typename T>
-Tensor_t<T> make_tensor(std::vector<T> val, Operation_t<T> op)
-{
-    return std::make_shared<Tensor<T>>(val, op);        
-}
-
-template <typename T>
-Tensor_t<T> make_tensor(Tensor_t<T> two)
-{
-    return std::make_shared<Tensor_t<T>>(two);        
-}
-
-
-
-// Overloads to get actual tensors during operations............................................................
-template <typename T>
-Tensor_t<T> operator *(Tensor_t<T> left, Tensor_t<T> right)
-{
-    left->frontOp = std::make_shared<MultiplyOperation<T>>(left, right);
-    right->frontOp = left->frontOp;
-    return left->frontOp->forward(); 
-}
-    
-template <typename T>
-Tensor_t<T> operator +(Tensor_t<T> left, Tensor_t<T> right)
-{
-    left->frontOp = std::make_shared<AddOperation<T>>(left, right);
-    right->frontOp = left->frontOp;
-    return left->frontOp->forward(); 
-}
-
-template <typename T>
-Tensor_t<T> operator -(Tensor_t<T> left, Tensor_t<T> right)
-{
-    left->frontOp = std::make_shared<SubtractOperation<T>>(left, right);
-    right->frontOp = left->frontOp;
-    return left->frontOp->forward(); 
-}
-
-template <typename T>
-Tensor_t<T> operator /(Tensor_t<T> left, Tensor_t<T> right)
-{
-    left->frontOp = std::make_shared<DivisionOperation<T>>(left, right);
-    right->frontOp = left->frontOp;
-    return left->frontOp->forward(); 
-}
-
-
-//Scalar Operations..................................................................
-template <typename S>
-//requires std::is_arithmetic_v<S>
-Tensor_t<S> operator *(Tensor_t<S> left, S a)
-{
-    Tensor_t<S> res = std::make_shared<Tensor<S>>(left);
-    res->val =  a * res->val;
-    return res; 
-}
-
-
-template <typename E>
-//requires std::is_arithmetic_v<S>
-Tensor_t<E> operator *(E a, Tensor_t<E> right)
-{
-    Tensor_t<E> res = std::make_shared<Tensor<E>>(right);
-    res->val =  a * res->val;
-    return res; 
-}
 
 #endif
