@@ -1,16 +1,25 @@
-#include "types.hpp"
-#include "header.hpp"
 
 #ifndef __OPERATION_IMPL_INCLUDED__
 #define __OPERATION_IMPL_INCLUDED__
 
+#include "../Types/types.hpp"
+#include <memory>
+#include <vector>
+#include <iostream>
+
+#include "../Operations/Operation.hpp"
+#include "../Operations/AddOperation.hpp"
+#include "../Operations/MultiplyOperation.hpp"
+#include "../Operations/DivisionOperation.hpp"
+#include "../Operations/ExponentOperation.hpp"
+#include "../Operations/SubtractOperation.hpp"
 
 /**
  * Multiply Operation Implementation
 */
 
     template <typename T>
-    void MultiplyOperation<T>::backward(std::vector<T> grad)
+    void MultiplyOperation<T>::backward(Matrix<T> grad)
     {
         // Switching Gradients when carrying out product
         this->t1->backward(grad * this->t2->data); 
@@ -42,7 +51,7 @@
 */
 
     template <typename T>
-    void AddOperation<T>::backward(std::vector<T> grad)
+    void AddOperation<T>::backward(Matrix<T> grad)
     {
         // Distributing Gradients when carrying out addition
         this->t1->backward(grad);
@@ -73,7 +82,7 @@
 */
 
     template <typename T>
-    void SubtractOperation<T>::backward(std::vector<T> grad)
+    void SubtractOperation<T>::backward(Matrix<T> grad)
     {
         // Distributing Gradients when carrying out subtraction
         this->t1->backward(grad);
@@ -109,7 +118,7 @@
  // wrt y: (grad *x * (-1)) / y^2
 
     template <typename T>
-    void DivisionOperation<T>::backward(std::vector<T> grad)
+    void DivisionOperation<T>::backward(Matrix<T> grad)
     {
         auto temp = ((T)-1) * grad * this->t1->data ;
         this->t1->backward(grad / this->t2->data);  // ok
@@ -131,16 +140,8 @@
     template <typename T>
     Tensor_t<T> DivisionOperation<T>::forward()
     {
-        return std::make_shared<Tensor<T>>(this->t1->data/this->t2->data, this->shared_from_this());
+        return std::make_shared<Tensor<T>>((this->t1->data/this->t2->data), this->shared_from_this());
     }
-
-    void sleep(int n){
-        int stime = 1000000000;
-        for(int i = 0; i<(stime * n); i++)
-        {
-
-        }
-}
 
 
 /**
@@ -148,15 +149,15 @@
 */
 
     template <typename T>
-    void ExponentOperation<T>::backward(std::vector<T> grad)
+    void ExponentOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * exponent(this->t1->data)); 
+        this->t1->backward(grad * this->t1->data.exponent()); 
     }
 
     template <typename T>
     Tensor_t<T> ExponentOperation<T>::forward()
     {
-        return std::make_shared<Tensor<T>>(exponent(this->t1->data), this->shared_from_this());
+        return std::make_shared<Tensor<T>>(this->t1->data.exponent(), this->shared_from_this());
     }
 
     template <typename T>

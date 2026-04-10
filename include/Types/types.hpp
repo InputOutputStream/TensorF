@@ -3,6 +3,9 @@
 
     #include <iostream>
     #include <memory>
+    #include <vector>
+    
+    using shape_t = std::vector<long>;
 
     template <typename T>
     class Tensor;
@@ -16,5 +19,8 @@
 
     template <typename T>
     using Tensor_t=std::shared_ptr<Tensor<T>>;
+
+
+
 
 #endif // !__TYPES__
