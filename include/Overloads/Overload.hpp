@@ -1,9 +1,11 @@
-#include "types.hpp"
-#include "header.hpp"
 
 #ifndef __OVERLOAD_INCLUDED__
 #define __OVERLOAD_INCLUDED__
 
+#include "../Types/types.hpp"
+#include <vector>
+#include <iostream>
+#include <cassert>
 
 /**
  * Arithmetic Operations
@@ -127,7 +129,31 @@ std::vector<T> operator / (const std::vector<T> &b, const T a) // scalar Divisio
     return arr;
 } 
 
+template <typename T>
+std::vector<T> operator % (const std::vector<T> &b, const T a) // scalar Division r
+{
+    std::vector<T> arr;
+    for(size_t i=0; i<b.size(); i++)
+    { 
+        T prod = (T)(b.at(i)%a);
+        arr.push_back(prod);
+    }
 
+    return arr;
+} 
+
+template <typename T>
+std::vector<T> operator % (const T a, const std::vector<T> &b) // Scalar Division l
+{
+    std::vector<T> arr;
+    for(size_t i=0; i<b.size(); i++)
+    { 
+        T prod = (T)(a % b.at(i));
+        arr.push_back(prod);
+    }
+
+    return arr;
+} 
 
 /**
  * mathematical functions......................................................................................

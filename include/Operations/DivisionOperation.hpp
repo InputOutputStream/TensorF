@@ -1,4 +1,4 @@
-#include "types.hpp"
+#include "../Types/types.hpp"
 #include "Operation.hpp"
 
 
@@ -18,7 +18,7 @@ class DivisionOperation : public Operation<T>
         this->t2 = t2;
     }  
 
-    void backward(std::vector<T> grad);
+    void backward(Matrix<T> grad);
 
     Tensor_t<T> forward(); 
     void zero_grad();

@@ -1,9 +1,16 @@
 #ifndef __MATRIX_CLASS_INCLUDED__
 #define __MATRIX_CLASS_INCLUDED__
 
-#include "types.hpp"
-#include "header.hpp"
-#include <stack>
+#include "../Types/types.hpp"
+
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <cassert>
+#include <memory>
+
+#include "../Overloads/Overload.hpp"
+
 
 
 using shape_t = std::vector<long>;
@@ -81,7 +88,8 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
     {
         if constexpr(std::is_same_v<U, T>){ 
             return; // scalar
-        }else{
+        }
+        else{
             this->shape.push_back(data.size());
             extractShape(*data.begin(), shape);
         }
@@ -538,17 +546,22 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
 
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 
+    protected: 
+        size_t size;
+        size_t ndims;
+ 
     public:
     std::vector<T> data;
     shape_t shape;
-    size_t ndims;
-
+    
     // Constructors 
 
     Matrix(){
-        this->data = 0;
-        this->shape = 0;
-        this->ndim = 0; 
+        this->data.clear();
+        this->shape.clear();
+        this->ndims = 0; 
+        this->size  = 0;
+
     };
 
     Matrix(std::initializer_list<T> indata, std::initializer_list<long> inshape)
@@ -558,10 +571,10 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         assert("Shape and number of elements of matrix do not match" && this->verifyShape(this->data, this->shape));
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
+        this->size  = this->data.size();
     }
 
-    template <typename U>
-    Matrix(const U& indata)
+    Matrix(const T& indata)
     {
         this->extractShape(indata, this->shape);
         if(this->shape.size() == 0)
@@ -569,23 +582,48 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->flattenReccursive(indata, this->data);
         this->numElementsSeen = computeShapes(this->shape);
         this->ndims = this->shape.size();
+        this->size  = this->data.size();
     }
 
-    Matrix(Matrix<T>* two)
+    // template <typename U>
+    // Matrix(const U& indata)
+    // {
+    //     if constexpr(std::is_same_v<U, Matrix>){ 
+    //         this->data = indata.data;
+    //         this->shape = indata.shape; 
+    //         this->numElementsSeen = indata.numElementsSeen;
+    //         this->ndims = indata.shape.size();
+    //         this->size  = indata.data.size();
+    //         return;
+    //     } 
+
+    //     this->extractShape(indata, this->shape);
+    //     if(this->shape.size() == 0)
+    //         this->shape.push_back(1);
+    //     this->flattenReccursive(indata, this->data);
+    //     this->numElementsSeen = computeShapes(this->shape);
+    //     this->ndims = this->shape.size();
+    //     this->size  = this->data.size();
+    // }
+
+
+    Matrix(const Matrix<T>* two)
     {
         assert((two != nullptr) && "Null matrix input\n");
         this->data = two->data;
         this->shape = two->shape; 
         this->numElementsSeen = two->numElementsSeen;
         this->ndims = two->shape.size();
+        this->size  = this->data.size();
     }
 
-    Matrix(Matrix<T>& two)
+    Matrix(const Matrix<T>& two)
     {
         this->data = two.data;
         this->shape = two.shape; 
         this->numElementsSeen = two.numElementsSeen;
         this->ndims = two.shape.size();
+        this->size  = two.data.size();
     }
  
     Matrix(std::vector<T> indata)
@@ -594,6 +632,7 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->shape.push_back(this->data.size()); 
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
+        this->size  = this->data.size();
     }
 
     Matrix(std::vector<T> indata, shape_t inshape)
@@ -603,6 +642,7 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->shape = inshape; 
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
+        this->size  = this->data.size();
     }
 
     Matrix(std::vector<std::vector<T>> indata)
@@ -613,7 +653,7 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->flattenReccursive(indata, this->data);
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
-
+        this->size  = this->data.size();
     }
 
     Matrix(std::initializer_list<T> indata)
@@ -622,6 +662,7 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->flattenReccursive(indata, this->data);
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
+        this->size  = this->data.size();
     }
     
     Matrix(std::vector<T> indata, std::initializer_list<long> inshape)
@@ -631,6 +672,7 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         assert("Shape and number of elements of matrix do not match" && this->verifyShape(this->data, this->shape));
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
+        this->size  = this->data.size();
     }
 
     Matrix(std::initializer_list<std::initializer_list<T>> indata)
@@ -641,6 +683,7 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->flattenReccursive(indata, this->data);
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
+        this->size  = this->data.size();
     }
 
 
@@ -653,6 +696,7 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->flattenReccursive(indata, this->data);
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
+        this->size  = this->data.size();
     }
 
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
@@ -683,7 +727,27 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         return Matrix<T>(data / rhs.data, shape);
     }
 
+    Matrix<T> exponent() 
+    {
+        std::vector<T> arr;
+        for(size_t i=0; i< this->data.size(); i++)
+        { 
+            T prod = (T)exp(this->data.at(i));
+            arr.push_back(prod);
+        }
+        return Matrix<T>(arr, this->shape);
+    } 
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+    size_t get_size()
+    {
+        return this->size;
+    }
+
+    size_t get_ndims()
+    {
+        return this->ndims;
+    }
 
     Matrix<T> flatten()
     {
@@ -747,6 +811,27 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
 
     }
 
+    void copy_from(Matrix<T>* two)
+    {
+        assert((two != nullptr) && "Null matrix input\n");
+        this->data = two->data;
+        this->shape = two->shape; 
+        this->numElementsSeen = two->numElementsSeen;
+        this->ndims = two->shape.size();
+    }
+
+    void copy_from(Matrix<T>& two)
+    {
+        this->data = two.data;
+        this->shape = two.shape; 
+        this->numElementsSeen = two.numElementsSeen;
+        this->ndims = two.shape.size();
+    }
+ 
+    Matrix<T> clear(){
+        this->data.clear();
+        return Matrix<T>(this->data, {0});
+    }
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 
     Matrix<T> transpose(std::initializer_list<long> inshape)
@@ -950,7 +1035,6 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         return Matrix<T>( a / lhs.data, lhs.shape);
     }
     
-
     template <typename T>
     Matrix<T> operator ^(const Matrix<T> &lhs, const T a)
     {

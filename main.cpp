@@ -1,7 +1,9 @@
-#include "types.hpp"
-#include "header.hpp"
-#include "Matrix.hpp"
+#include "Types/types.hpp"
+#include "DataStructures/Matrix.hpp"
+#include "DataStructures/Tensor.hpp"
+
 #include <iostream>
+#include <vector>
 #include <cassert>
 using namespace std;
 
@@ -316,30 +318,30 @@ void test_3D_arithmetic()
 
 void sigmoidTest()
 {
-    Tensor_t<float> w0(make_tensor<float>(vector<float> {2}));
-    Tensor_t<float> x0(make_tensor<float>(vector<float> {-1}));
-    Tensor_t<float> w1(make_tensor<float>(vector<float> {-3}));
-    Tensor_t<float> x1(make_tensor<float>(vector<float> {-2}));
-    Tensor_t<float> bias(make_tensor<float>(vector<float> {-3}));
+    Tensor_t<double> w0(make_tensor<double>(2));
+    Tensor_t<double> x0(make_tensor<double>(-1));
+    Tensor_t<double> w1(make_tensor<double>(-3));
+    Tensor_t<double> x1(make_tensor<double>(-2));
+    Tensor_t<double> bias(make_tensor<double>(-3));
 
-    Tensor_t<float> neg = make_tensor<float>(vector<float>{-1});
-    Tensor_t<float> one = make_tensor<float>(vector<float>{1});
+    Tensor_t<double> neg = make_tensor<double>(-1);
+    Tensor_t<double> one = make_tensor<double>(1);
 
-    Tensor_t<float> b = neg * (w0*x0 + w1*x1 + bias) ;
+    Tensor_t<double> b = neg * (w0*x0 + w1*x1 + bias) ;
 
-    Tensor_t<float> c = one / (one + b->exp());
+    Tensor_t<double> c = one / (one + b->exp());
  
-    c->backward(vector<float>{1});
+    c->backward(Matrix<double>(1));
 
-    std::cout << w0->grad << "\n";
+    std::cout << w0->grad;
 
-    std::cout << x0->grad << "\n";
+    std::cout << x0->grad;
 
-    std::cout << w1->grad << "\n";
+    std::cout << w1->grad;
 
-    std::cout << x1->grad << "\n";
+    std::cout << x1->grad;
 
-    std::cout << bias->grad << "\n";
+    std::cout << bias->grad;
 }
 
 // ─── main ───────────────────────────────────────────────────────────────────

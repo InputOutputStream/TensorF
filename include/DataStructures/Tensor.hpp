@@ -1,17 +1,27 @@
 #ifndef __TENSOR_CLASS_INCLUDED__
 #define __TENSOR_CLASS_INCLUDED__
 
-#include "types.hpp"
-#include "header.hpp"
-#include "tensor_extern.hpp"
+#include <memory>
+#include <vector>
+#include "Matrix.hpp"
 
-//#include "Matrix.hpp"
+#include "../Operations/AddOperation.hpp"
+#include "../Operations/MultiplyOperation.hpp"
+#include "../Operations/DivisionOperation.hpp"
+#include "../Operations/ExponentOperation.hpp"
+#include "../Operations/SubtractOperation.hpp"
+
+#include "../Types/types.hpp"
+#include "../Overloads/tensor_overloads.hpp"
+#include "../Overloads/Overload.hpp"
+
+
 template <typename T>
 class Tensor : public std::enable_shared_from_this<Tensor<T>>
 {
     public:
-        std::vector<T> data; //Tensor value
-        std::vector<T> grad; //Tensor gradian
+        Matrix<T> data; //Tensor value
+        Matrix<T> grad; //Tensor gradian
         Operation_t<T> frontOp = nullptr, backOp = nullptr;
 
     //....................................................................................................
@@ -20,30 +30,37 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->data = 0;
     }
 
-    Tensor(std::vector<T> data) // ov
+    Tensor(Matrix<T> data) // ov
     {
-        this->data = data;
+        this->data.copy_from(data);
     }
 
-    Tensor(std::vector<T> data, Operation_t<T> op)
+
+    Tensor(Matrix<T> *data) // ov
     {
-        this->data = data;
+        this->data.copy_from(data);
+    }
+
+    Tensor(Matrix<T> data, Operation_t<T> op)
+    {
+        this->data.copy_from(data);
         this->backOp = op;
     }
 
-
     Tensor(const Tensor_t<T> two) //Const Copy Constructor
     {
-        this->data = two->data;
+        this->data.copy_from(two->data);
         this->backOp = two->backOp;
         this->frontOp = two->frontOp;
-        this->grad = two->grad;
+        this->grad.copy_from(two->grad);
     }
 
-    void backward(std::vector<T> grad)
+
+//.....................................................................................
+    void backward(Matrix<T> grad)
     { // x = x - f`(x)*x
 
-        this->grad = grad;
+        this->grad.copy_from(grad);
 
         if(this->backOp != nullptr)
         { 
@@ -67,6 +84,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     {
         if(this->backOp != nullptr)
         { 
+
             this->backOp->reset_graph(); 
             this->backOp = nullptr;
         }
