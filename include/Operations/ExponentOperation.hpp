@@ -9,6 +9,9 @@
 template <typename T>
 class ExponentOperation : public Operation<T>
 {
+    protected: 
+        Tensor_t<T> tmp;
+
     public:
         Tensor_t<T> t1;
         
@@ -28,5 +31,35 @@ class ExponentOperation : public Operation<T>
         std::cout << "Exp Operation \n";
     }
 };
+
+
+/**
+ * Exponential function Implementation
+*/
+
+    template <typename T>
+    void ExponentOperation<T>::backward(Matrix<T> grad)
+    {
+        this->t1->backward(grad * this->tmp->data); 
+    }
+
+    template <typename T>
+    Tensor_t<T> ExponentOperation<T>::forward()
+    {
+        this->tmp->data = this->t1->data.exponent();
+        return std::make_shared<Tensor<T>>(this->t1->data.exponent(), this->shared_from_this());
+    }
+
+    template <typename T>
+    void ExponentOperation<T>::zero_grad(){
+        this->t1->zero_grad(); 
+        this->tmp->zero_grad();
+    }
+
+    template <typename T>
+    void ExponentOperation<T>::reset_graph(){
+        this->t1->reset_graph(); 
+    }
+
 
 #endif

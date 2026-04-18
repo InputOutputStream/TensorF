@@ -2,25 +2,188 @@
 #define __MATRIX_CLASS_INCLUDED__
 
 #include "../Types/types.hpp"
+#include "../Overloads/Overload.hpp"
 
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <cassert>
 #include <memory>
-
-#include "../Overloads/Overload.hpp"
+#include <algorithm>
 
 
 
 using shape_t = std::vector<long>;
 
+template<typename U>
+class Matrix;
+
+template<typename T>
+class Broadcast{
+
+    protected:
+
+        bool assertBroadcast(Matrix<T> t1, Matrix<T> t2)
+        {
+            shape_t s1 = t1.shape;
+            shape_t s2 = t2.shape;
+
+            if(s1.size() == s2.size())
+            {
+                for(int i = s1.size()-1; i >= 0; i--)
+                {
+                    if(s1[i] != s2[i] && (s2[i] != 1 && s1[i] != 1))
+                        return 0;
+                }
+
+                return 1;
+            }
+
+            if(s1.size() < s2.size())
+            { 
+                int i, j;
+                bool flg=true;
+                for(i = s1.size()-1, j = s2.size()-1; i >= 0 && j >= 0; i--, j--)
+                {
+                    if(s1[i] != s2[i] && (s2[i] != 1 && s1[i] != 1))
+                        flg=false;
+                }
+
+                return flg;
+            }
+
+            return assertBroadcast(t2, t1);
+        }
+
+        shape_t computeBroadcastResultShape(Matrix<T> t1, Matrix<T> t2)
+        {
+            assert(assertBroadcast(t1, t2) && "Invalid broadcast operation\n");
+
+            size_t i, j;
+            shape_t s1 = t1.shape;
+            shape_t s2 = t2.shape;
+            shape_t resShape;
+
+            for(i = s1.size()-1, j = s2.size()-1; i != 0 && j != 0; i--, j--)
+            {
+                // if(s1[i] != s2[i] && (s2[i] != 1 || s1[i] != 1))
+                resShape.push_back(std::max(s1[i], s2[j]));
+            }     
+            
+            if(s1.size() > s2.size())
+            {
+                for(size_t k = s2.size(); k < s1.size(); k++){
+                    resShape.push_back(std::max((long)1, s1[k]));
+                }
+            }
+
+            if(s1.size() < s2.size())
+            {
+                size_t n  =  s2.size() - s1.size();
+                for(size_t k = n-1; k != 0; k--){
+                    resShape.push_back(std::max((long)1, s2[k]));
+                }
+            }
+            
+            std::reverse(resShape.begin(), resShape.end());
+            return resShape;
+        }
+
+        shape_t computeShapes(const shape_t shape)
+        {
+            shape_t numElementsSeen(shape.size());
+            size_t p{1};
+            for(long i = shape.size()-1; i>=0 ;i--)
+            {
+                numElementsSeen[i] = p;
+                p *= shape.at(i);
+            }
+
+            return numElementsSeen;
+        }
+
+    public: 
+        
+        std::pair<Matrix<T>, Matrix<T>> broadcast(Matrix<T> t1, Matrix<T> t2){
+            shape_t resShape = this->computeBroadcastResultShape(t1, t2);
+            return std::make_pair(this->broadcastTo(t1, resShape), this->broadcastTo(t2, resShape));
+        }
+       
+        Matrix<T> broadcastTo(Matrix<T> source, shape_t new_shape)
+        {
+            size_t ne=1;
+            shape_t nr = computeShapes(new_shape);
+            shape_t ns = computeShapes(source.shape);
+            size_t offset = new_shape.size() - source.ndims;
+
+            std::vector<T> res;
+
+            for(auto s: new_shape)
+                ne *= s;
+
+            for(size_t i = 0; i<ne; i++)
+            {
+                shape_t new_index;
+                size_t id = i;
+                for(auto j: nr)
+                {
+                    new_index.push_back((size_t)(id / j));
+                    id = id%j;
+                }
+
+                for(long k = new_shape.size()-1; k >= 0; k--)
+                {
+
+                    if((size_t)k < offset)
+                        new_index[k] = 0;
+                    if((size_t)k >= offset)    
+                    {
+                        if(source.shape[(size_t)k - offset] == 1)
+                            new_index[k] = 0;
+                    }
+                }
+
+                size_t npos = 0;
+                for(size_t t = 0; t <source.shape.size(); t++)
+                {
+                    npos += ns[t] * new_index[t + offset];
+                }
+
+                res.push_back(source.data[npos]);
+            }
+
+            return Matrix<T>(res, new_shape);
+        }
+
+         /**
+         * 
+         * 
+                The algorithm:
+
+                Compute total number of elements in the result shape
+                For each flat index k in 0..total:
+
+                    Convert k to a multi-index in the result shape (this is just repeated division/modulo — you already do this in your transpose code)
+                    For each dimension, if the source size on that dimension is 1, clamp that index component to 0, otherwise keep it
+                    Convert the clamped multi-index back to a flat index in the source
+                    Copy source.data[flat_source_index] into result.data[k]
+
+
+                Return a Matrix with the new data and new_shape
+
+                You already have computeShapes which gives you the stride array (elements per step in each dimension) — 
+                that's exactly what you need for the flat↔multi-index conversion. Look at how your transpose method does it, the index decomposition logic is identical.
+         */
+};
+
+
 template <typename T>
-class Matrix // : public std::enable_shared_from_this<Matrix<T>>
+class Matrix 
 {
 
     protected:
     shape_t numElementsSeen{}; 
+    Broadcast<T> b;
 
     bool verifyShape(const std::vector<T> &data, const shape_t &shape)
     {
@@ -159,7 +322,7 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         if (data.size() == 0) return true;
 
         size_t dim1 = data.begin()->size();
-        size_t dim2 = data.begin().begin()->size();
+        size_t dim2 = data.begin()->begin()->size();
 
         for (const auto& row : data)
         {
@@ -549,11 +712,12 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
     protected: 
         size_t size;
         size_t ndims;
- 
+
     public:
     std::vector<T> data;
     shape_t shape;
-    
+    bool gpu = false;
+
     // Constructors 
 
     Matrix(){
@@ -563,16 +727,6 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->size  = 0;
 
     };
-
-    Matrix(std::initializer_list<T> indata, std::initializer_list<long> inshape)
-    {
-        this->flattenReccursive(indata, this->data);
-        this->shape = this->getShape(inshape); 
-        assert("Shape and number of elements of matrix do not match" && this->verifyShape(this->data, this->shape));
-        this->numElementsSeen = this->computeShapes(this->shape);
-        this->ndims = this->shape.size();
-        this->size  = this->data.size();
-    }
 
     Matrix(const T& indata)
     {
@@ -606,6 +760,15 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
     //     this->size  = this->data.size();
     // }
 
+    // Matrix(std::initializer_list<T> indata)
+    // {
+    //     this->shape.push_back(indata.size());
+    //     this->flattenReccursive(indata, this->data);
+    //     this->numElementsSeen = this->computeShapes(this->shape);
+    //     this->ndims = this->shape.size();
+    //     this->size  = this->data.size();
+    // }
+    
 
     Matrix(const Matrix<T>* two)
     {
@@ -656,15 +819,6 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->size  = this->data.size();
     }
 
-    Matrix(std::initializer_list<T> indata)
-    {
-        this->shape.push_back(indata.size());
-        this->flattenReccursive(indata, this->data);
-        this->numElementsSeen = this->computeShapes(this->shape);
-        this->ndims = this->shape.size();
-        this->size  = this->data.size();
-    }
-    
     Matrix(std::vector<T> indata, std::initializer_list<long> inshape)
     {
         this->data = indata;
@@ -686,12 +840,21 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->size  = this->data.size();
     }
 
+    Matrix(std::initializer_list<T> indata, std::initializer_list<long> inshape)
+    {
+        this->flattenReccursive(indata, this->data);
+        this->shape = this->getShape(inshape); 
+        assert("Shape and number of elements of matrix do not match" && this->verifyShape(this->data, this->shape));
+        this->numElementsSeen = this->computeShapes(this->shape);
+        this->ndims = this->shape.size();
+        this->size  = this->data.size();
+    }
 
     Matrix(std::initializer_list<std::initializer_list<std::initializer_list<T>>> indata)
     {
         this->shape.push_back(indata.size());
         this->shape.push_back(indata.begin()->size());
-        this->shape.push_back(indata.begin().begin()->size());
+        this->shape.push_back(indata.begin()->begin()->size());
         assert("Matrix shape must be uniform" && this->isRegular3D(indata));
         this->flattenReccursive(indata, this->data);
         this->numElementsSeen = this->computeShapes(this->shape);
@@ -705,26 +868,55 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
     
     Matrix<T> operator + (const Matrix<T> &rhs)
     {
-        assert(areShapesEqual(rhs.shape) && "Shape and number of elements do not match matrix dimensions");
-        return Matrix<T>(data + rhs.data, shape);
+        if(this->areShapesEqual(rhs.shape))
+            return Matrix<T>(data + rhs.data, shape);
+        else
+        {
+            auto res = b.broadcast(*this, rhs);
+            return Matrix<T>(res.first.data + res.second.data, res.first.shape);
+
+        }
     }
     
     Matrix<T> operator - (const Matrix<T> &rhs)
     {
-        assert(areShapesEqual(rhs.shape) && "Shape and number of elements do not match matrix dimensions");
-        return Matrix<T>(data - rhs.data, shape);
+        if(this->areShapesEqual(rhs.shape))
+            return Matrix<T>(data - rhs.data, shape);
+        else
+        {
+            auto res = b.broadcast(*this, rhs);
+            return Matrix<T>(res.first.data - res.second.data, res.first.shape);
+
+        }
     }
 
     Matrix<T> operator * (const Matrix<T> &rhs)
     {
-        assert(areShapesEqual(rhs.shape) && "Shape and number of elements do not match matrix dimensions");
-        return Matrix<T>(data * rhs.data, shape);
+        if(this->areShapesEqual(rhs.shape))
+            return Matrix<T>(data * rhs.data, shape);
+        else
+        {
+            auto res = b.broadcast(*this, rhs);
+            return Matrix<T>(res.first.data * res.second.data, res.first.shape);
+
+        }
     }  
     
     Matrix<T> operator / (const Matrix<T> &rhs)
     {
-        assert(areShapesEqual(rhs.shape) && "Shape and number of elements do not match matrix dimensions");
-        return Matrix<T>(data / rhs.data, shape);
+        if(this->areShapesEqual(rhs.shape))
+            return Matrix<T>(data / rhs.data, shape);
+        else
+        {
+            auto res = b.broadcast(*this, rhs);
+            return Matrix<T>(res.first.data / res.second.data, res.first.shape);
+
+        }
+    }
+
+    Matrix<T> operator =(const Matrix<T> &rhs)
+    {
+        return Matrix<T>(rhs.data, rhs.shape);
     }
 
     Matrix<T> exponent() 
@@ -828,11 +1020,37 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         this->ndims = two.shape.size();
     }
  
+    Matrix maximum(const T a){
+        std::vector<T> res;
+        for(auto i : this->data)
+        {
+            if(i < 0)
+                res.push_back(0);
+            else
+                res.push_back(i);
+        }
+        return Matrix<T>(res, this->shape);
+    }
+
     Matrix<T> clear(){
         this->data.clear();
         return Matrix<T>(this->data, {0});
     }
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+    Matrix<T> transpose(shape_t resShape)
+    {
+        if(resShape.size() == 1)
+            return this->transpose_1D();
+
+        if(resShape.size() == 2)
+            return Matrix<T>(this->transpose_2D(), resShape);
+
+        std::vector<T> res;
+        assert(this->shape.size() == resShape.size() && "Invalid result shape");
+        transpose(resShape, res);
+        return Matrix<T>(res, resShape);
+    }
 
     Matrix<T> transpose(std::initializer_list<long> inshape)
     {
@@ -994,6 +1212,8 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
 
     template <typename E>
     friend std::ostream & operator <<(std::ostream &out, Matrix<E> &m);
+
+    friend class Broadcast<T>;
 };
 
 
@@ -1041,6 +1261,57 @@ class Matrix // : public std::enable_shared_from_this<Matrix<T>>
         return Matrix<T>( lhs.data^a, lhs.shape);
     }
     
+    //................................................................................
 
-    
+    template <typename T>
+    Matrix<T> operator < (const T a, const Matrix<T> &rhs)
+    {
+        return Matrix<T>(a < rhs.data, rhs.shape);
+    }
+
+    template <typename T>
+    Matrix<T> operator < (const Matrix<T> &rhs, const T a)
+    {
+        return Matrix<T>(rhs.data < a , rhs.shape);
+    }
+
+    template <typename T>
+    Matrix<T> operator > (const Matrix<T> &lhs, const T a)
+    {
+        return Matrix<T>( lhs.data > a, lhs.shape);
+    }
+
+    template <typename T>
+    Matrix<T> operator > (const T a, const Matrix<T> &lhs)
+    {
+        return Matrix<T>( a > lhs.data, lhs.shape);
+    }
+
+//------------------------------------------------------------------------------------
+
+    template <typename T>
+    Matrix<T> sumGradForBroadcast(Matrix<T> grad, shape_t originalShape){
+        shape_t gradShape = grad.shape;
+        int i = 0, j = 0;
+        Matrix<T> res(grad);
+        j = originalShape.size()-1;
+
+        for(i = gradShape.size()-1; i >= 0; i--)
+        {
+            if(j >=0 && originalShape[j] == 1 && gradShape[i] > 1)
+            {  
+                res = res.sum(i);
+                j--;
+            }
+            else if(j >= 0 && originalShape[j] == gradShape[i])
+            {
+                j--;
+            }
+            else if(j < 0){
+                res = res.sum(i);
+            }
+        }
+
+        return res;
+    }
 #endif

@@ -34,5 +34,39 @@ class AddOperation : public Operation<T>
 
 
 
+/**
+ * Add Operation Implementation
+*/
+
+    template <typename T>
+    void AddOperation<T>::backward(Matrix<T> grad)
+    {
+        // Distributing Gradients when carrying out addition
+        auto grad1 = sumGradForBroadcast(grad, t1->data.shape);
+        auto grad2 = sumGradForBroadcast(grad, t2->data.shape);
+        this->t1->backward(grad1);
+        this->t2->backward(grad2);
+    }
+
+    template<typename T>
+    Tensor_t<T> AddOperation<T>::forward()
+    {
+        return std::make_shared<Tensor<T>>(this->t1->data+this->t2->data, this->shared_from_this());
+    }
+
+    template <typename T>
+    void AddOperation<T>::zero_grad(){
+        this->t1->zero_grad(); 
+        this->t2->zero_grad();
+    }
+
+    template <typename T>
+    void AddOperation<T>::reset_graph(){
+        this->t1->reset_graph(); 
+        this->t2->reset_graph();
+    }
+
+
+
 
 #endif

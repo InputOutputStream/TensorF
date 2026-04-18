@@ -32,5 +32,40 @@ class MultiplyOperation : public Operation<T>
 
 
 
+/**
+ * Multiply Operation Implementation
+*/
+
+    template <typename T>
+    void MultiplyOperation<T>::backward(Matrix<T> grad)
+    {
+        // Switching Gradients when carrying out product
+        auto grad1 = sumGradForBroadcast(grad * this->t2->data, t1->data.shape);
+        auto grad2 = sumGradForBroadcast(grad * this->t1->data, t2->data.shape);
+
+        this->t1->backward(grad1); 
+        this->t2->backward(grad2);
+    }
+
+    template <typename T>
+    Tensor_t<T> MultiplyOperation<T>::forward()
+    {
+        return std::make_shared<Tensor<T>>(this->t1->data*this->t2->data, this->shared_from_this());
+    }
+
+    template <typename T>
+    void MultiplyOperation<T>::zero_grad(){
+        this->t1->zero_grad(); 
+        this->t2->zero_grad();
+    }
+
+    template <typename T>
+    void MultiplyOperation<T>::reset_graph(){
+        this->t1->reset_graph(); 
+        this->t2->reset_graph();
+    }
+
+
+
 
 #endif//............................................................................................................
