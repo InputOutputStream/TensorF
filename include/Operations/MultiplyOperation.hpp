@@ -40,8 +40,8 @@ class MultiplyOperation : public Operation<T>
     void MultiplyOperation<T>::backward(Matrix<T> grad)
     {
         // Switching Gradients when carrying out product
-        auto grad1 = sumGradForBroadcast(grad * this->t2->data, t1->data.shape);
-        auto grad2 = sumGradForBroadcast(grad * this->t1->data, t2->data.shape);
+        Matrix<T> grad1 = sumGradForBroadcast(grad * this->t2->data, t1->data.shape);
+        Matrix<T> grad2 = sumGradForBroadcast(grad * this->t1->data, t2->data.shape);
 
         this->t1->backward(grad1); 
         this->t2->backward(grad2);

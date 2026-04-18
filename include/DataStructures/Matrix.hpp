@@ -25,6 +25,7 @@ class Broadcast{
 
         bool assertBroadcast(Matrix<T> t1, Matrix<T> t2)
         {
+
             shape_t s1 = t1.shape;
             shape_t s2 = t2.shape;
 
@@ -42,14 +43,13 @@ class Broadcast{
             if(s1.size() < s2.size())
             { 
                 int i, j;
-                bool flg=true;
                 for(i = s1.size()-1, j = s2.size()-1; i >= 0 && j >= 0; i--, j--)
                 {
-                    if(s1[i] != s2[i] && (s2[i] != 1 && s1[i] != 1))
-                        flg=false;
+                    if(s1[i] != s2[j] && (s2[j] != 1 && s1[i] != 1))
+                        return false;
                 }
 
-                return flg;
+                return true;
             }
 
             return assertBroadcast(t2, t1);
@@ -59,32 +59,32 @@ class Broadcast{
         {
             assert(assertBroadcast(t1, t2) && "Invalid broadcast operation\n");
 
-            size_t i, j;
+            long i, j;
             shape_t s1 = t1.shape;
             shape_t s2 = t2.shape;
             shape_t resShape;
 
-            for(i = s1.size()-1, j = s2.size()-1; i != 0 && j != 0; i--, j--)
+            for(i = s1.size()-1, j = s2.size()-1; i >= 0 && j >= 0; i--, j--)
             {
-                // if(s1[i] != s2[i] && (s2[i] != 1 || s1[i] != 1))
                 resShape.push_back(std::max(s1[i], s2[j]));
             }     
-            
-            if(s1.size() > s2.size())
-            {
-                for(size_t k = s2.size(); k < s1.size(); k++){
-                    resShape.push_back(std::max((long)1, s1[k]));
-                }
-            }
 
             if(s1.size() < s2.size())
             {
-                size_t n  =  s2.size() - s1.size();
-                for(size_t k = n-1; k != 0; k--){
+                long n  =  s2.size() - s1.size();
+                for(long k = (n-1); k >= 0; k--){
                     resShape.push_back(std::max((long)1, s2[k]));
                 }
             }
-            
+            else if(s1.size() > s2.size())
+            {
+                long n  =  s1.size() - s2.size();
+                for(long k = (n-1); k >= 0; k--){
+                    resShape.push_back(std::max((long)1, s1[k]));
+                }        
+
+            }
+
             std::reverse(resShape.begin(), resShape.end());
             return resShape;
         }
@@ -712,6 +712,8 @@ class Matrix
     protected: 
         size_t size;
         size_t ndims;
+        bool gpu_nv = false;
+        bool gpu_it = false;
 
     public:
     std::vector<T> data;
@@ -914,9 +916,14 @@ class Matrix
         }
     }
 
-    Matrix<T> operator =(const Matrix<T> &rhs)
+    Matrix<T>& operator=(const Matrix<T>& rhs)
     {
-        return Matrix<T>(rhs.data, rhs.shape);
+        this->data = rhs.data;
+        this->shape = rhs.shape;
+        this->numElementsSeen = rhs.numElementsSeen;
+        this->ndims = rhs.ndims;
+        this->size = rhs.size;
+        return *this;
     }
 
     Matrix<T> exponent() 
@@ -1210,16 +1217,17 @@ class Matrix
         }
 
 
+    // template <typename E>
+    // friend std::ostream & operator <<(std::ostream &out, Matrix<E> &m);
+
     template <typename E>
-    friend std::ostream & operator <<(std::ostream &out, Matrix<E> &m);
+    friend std::ostream & operator <<(std::ostream &out, Matrix<E> m);
 
     friend class Broadcast<T>;
 };
 
-
-
     template <typename E>
-    std::ostream& operator << (std::ostream &out, Matrix<E> &m)
+    std::ostream& operator << (std::ostream &out, Matrix<E> m)
     {
         //out<<m.data<<"\t";
         //out<<"Shape:"<<m.shape;
@@ -1228,6 +1236,17 @@ class Matrix
         m.print(out, stack, dim);
         return out;
     }
+
+    // template <typename E>
+    // std::ostream& operator << (std::ostream &out, Matrix<E> &m)
+    // {
+    //     //out<<m.data<<"\t";
+    //     //out<<"Shape:"<<m.shape;
+    //     size_t dim = 0;
+    //     shape_t stack;
+    //     m.print(out, stack, dim);
+    //     return out;
+    // }
 
     // Matrix Arithmetic Operations 
    
@@ -1301,6 +1320,7 @@ class Matrix
             if(j >=0 && originalShape[j] == 1 && gradShape[i] > 1)
             {  
                 res = res.sum(i);
+                gradShape = res.shape;  
                 j--;
             }
             else if(j >= 0 && originalShape[j] == gradShape[i])
@@ -1309,9 +1329,15 @@ class Matrix
             }
             else if(j < 0){
                 res = res.sum(i);
+                gradShape = res.shape;  
             }
         }
 
+        if(res.shape != originalShape)
+        { 
+            res = Matrix<T>(res.data, originalShape);
+        }  
+        
         return res;
     }
 #endif
