@@ -7,6 +7,9 @@
 #include <cassert>
 using namespace std;
 
+
+// TODO intergrate the gtest framework to the tsting chain
+
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 void PASS(const string& name) { cout << "[PASS] " << name << "\n"; }
@@ -311,6 +314,179 @@ void test_3D_arithmetic()
     mulOk ? PASS("3D mul {2,3,4}") : FAIL("3D mul {2,3,4}");
 }
 
+// ============================================================================
+//  BROADCAST FORWARD TESTS
+// ============================================================================
+
+// numpy:
+//   a = np.array([[1],[2],[3]])          shape (3,1)
+//   b = np.array([[10,20,30]])           shape (1,3)
+//   a + b
+//   = [[11,21,31],
+//      [12,22,32],
+//      [13,23,33]]                       shape (3,3)
+void test_broadcast_outer_product_add()
+{
+    Matrix<float> a({{1},{2},{3}});           // shape {3,1}
+    Matrix<float> b({{10,20,30}});            // shape {1,3}
+    Matrix<float> res = a + b;
+
+    bool shapeOk = res.shape[0]==3 && res.shape[1]==3;
+    bool valOk = res.data[0]==11 && res.data[1]==21 && res.data[2]==31
+              && res.data[3]==12 && res.data[4]==22 && res.data[5]==32
+              && res.data[6]==13 && res.data[7]==23 && res.data[8]==33;
+    (shapeOk && valOk) ? PASS("broadcast {3,1}+{1,3}") : FAIL("broadcast {3,1}+{1,3}");
+}
+
+// numpy:
+//   a = np.array([[1,2,3],[4,5,6]])      shape (2,3)
+//   b = np.array([10,20,30])             shape (3,)
+//   a + b
+//   = [[11,22,33],
+//      [14,25,36]]                       shape (2,3)
+void test_broadcast_1D_to_2D()
+{
+    Matrix<float> a({{1,2,3},{4,5,6}});       // shape {2,3}
+    Matrix<float> b({10,20,30});              // shape {3}
+    Matrix<float> res = a + b;
+
+    bool shapeOk = res.shape[0]==2 && res.shape[1]==3;
+    bool valOk = res.data[0]==11 && res.data[1]==22 && res.data[2]==33
+              && res.data[3]==14 && res.data[4]==25 && res.data[5]==36;
+    (shapeOk && valOk) ? PASS("broadcast {2,3}+{3}") : FAIL("broadcast {2,3}+{3}");
+}
+
+// numpy:
+//   a = np.array([[1,2],[3,4]])          shape (2,2)
+//   b = np.array([[10]])                 shape (1,1)
+//   a + b
+//   = [[11,12],
+//      [13,14]]                          shape (2,2)
+void test_broadcast_scalar_matrix()
+{
+    Matrix<float> a({{1,2},{3,4}});           // shape {2,2}
+    Matrix<float> b({{10}});                  // shape {1,1}
+    Matrix<float> res = a + b;
+
+    bool shapeOk = res.shape[0]==2 && res.shape[1]==2;
+    bool valOk = res.data[0]==11 && res.data[1]==12
+              && res.data[2]==13 && res.data[3]==14;
+    (shapeOk && valOk) ? PASS("broadcast {2,2}+{1,1}") : FAIL("broadcast {2,2}+{1,1}");
+}
+
+// numpy:
+//   a = np.array([[[1,2,3]],[[4,5,6]]])          shape (2,1,3)
+//   b = np.arange(24).reshape(2,4,3)             shape (2,4,3)
+//   (a + b)[0,0,:] = [0+1, 1+2, 2+3]   = [1,3,5]
+//   (a + b)[0,3,:] = [9+1, 10+2, 11+3] = [10,12,14]
+//   (a + b)[1,0,:] = [12+4,13+5,14+6]  = [16,18,20]
+void test_broadcast_3D_middle_axis()
+{
+    std::vector<float> adata = {1,2,3,4,5,6};
+    Matrix<float> a(adata, {2,1,3});          // shape {2,1,3}
+
+    std::vector<float> bdata;
+    for(int i=0; i<24; i++) bdata.push_back((float)i);
+    Matrix<float> b(bdata, {2,4,3});          // shape {2,4,3}
+
+    Matrix<float> res = a + b;
+
+    bool shapeOk = res.shape[0]==2 && res.shape[1]==4 && res.shape[2]==3;
+    // res[0,0,:] flat index 0,1,2
+    bool v1 = res.data[0]==1 && res.data[1]==3 && res.data[2]==5;
+    // res[0,3,:] flat index 9,10,11
+    bool v2 = res.data[9]==10 && res.data[10]==12 && res.data[11]==14;
+    // res[1,0,:] flat index 12,13,14
+    bool v3 = res.data[12]==16 && res.data[13]==18 && res.data[14]==20;
+
+    (shapeOk && v1 && v2 && v3) ? PASS("broadcast {2,1,3}+{2,4,3}") : FAIL("broadcast {2,1,3}+{2,4,3}");
+}
+
+// numpy:
+//   a = np.array([[1,2,3],[4,5,6]])      shape (2,3)
+//   b = np.array([[10,20,30]])           shape (1,3)
+//   a * b = [[10,40,90],[40,100,180]]    shape (2,3)
+void test_broadcast_multiply()
+{
+    Matrix<float> a({{1,2,3},{4,5,6}});       // shape {2,3}
+    Matrix<float> b({{10,20,30}});            // shape {1,3}
+    Matrix<float> res = a * b;
+
+    bool shapeOk = res.shape[0]==2 && res.shape[1]==3;
+    bool valOk = res.data[0]==10 && res.data[1]==40  && res.data[2]==90
+              && res.data[3]==40 && res.data[4]==100 && res.data[5]==180;
+    (shapeOk && valOk) ? PASS("broadcast multiply {2,3}*{1,3}") : FAIL("broadcast multiply {2,3}*{1,3}");
+}
+
+// ============================================================================
+//  sumGradForBroadcast TESTS
+// ============================================================================
+
+// numpy:
+//   grad = np.ones((3,3))               shape (3,3)
+//   originalShape = (3,1)
+//   np.sum(grad, axis=1, keepdims=True) = [[3],[3],[3]]   shape (3,1)
+void test_sumgrad_col_vector()
+{
+    std::vector<float> ones(9, 1.0f);
+    Matrix<float> grad(ones, {3,3});
+    shape_t orig = {3,1};
+    Matrix<float> res = sumGradForBroadcast(grad, orig);
+
+    bool shapeOk = res.shape[0]==3 && res.shape[1]==1;
+    bool valOk = res.data[0]==3 && res.data[1]==3 && res.data[2]==3;
+    (shapeOk && valOk) ? PASS("sumGradForBroadcast {3,3}->{3,1}") : FAIL("sumGradForBroadcast {3,3}->{3,1}");
+}
+
+// numpy:
+//   grad = np.ones((2,3))               shape (2,3)
+//   originalShape = (3,)
+//   np.sum(grad, axis=0) = [2,2,2]      shape (3,)
+void test_sumgrad_1D_from_2D()
+{
+    std::vector<float> ones(6, 1.0f);
+    Matrix<float> grad(ones, {2,3});
+    shape_t orig = {3};
+    Matrix<float> res = sumGradForBroadcast(grad, orig);
+
+    bool shapeOk = res.shape[0]==3;
+    bool valOk = res.data[0]==2 && res.data[1]==2 && res.data[2]==2;
+    (shapeOk && valOk) ? PASS("sumGradForBroadcast {2,3}->{3}") : FAIL("sumGradForBroadcast {2,3}->{3}");
+}
+
+// numpy:
+//   grad = np.ones((2,3))               shape (2,3)
+//   originalShape = (2,3)               no broadcast happened
+//   result should be grad unchanged
+void test_sumgrad_no_broadcast()
+{
+    std::vector<float> ones(6, 1.0f);
+    Matrix<float> grad(ones, {2,3});
+    shape_t orig = {2,3};
+    Matrix<float> res = sumGradForBroadcast(grad, orig);
+
+    bool shapeOk = res.shape[0]==2 && res.shape[1]==3;
+    bool valOk = true;
+    for(int i=0; i<6; i++) if(res.data[i] != 1.0f) valOk = false;
+    (shapeOk && valOk) ? PASS("sumGradForBroadcast no-op {2,3}->{2,3}") : FAIL("sumGradForBroadcast no-op {2,3}->{2,3}");
+}
+
+// numpy:
+//   grad = np.ones((3,3))               shape (3,3)
+//   originalShape = (1,3)               row was broadcast along axis 0
+//   np.sum(grad, axis=0, keepdims=True) = [[3,3,3]]  shape (1,3)
+void test_sumgrad_row_vector()
+{
+    std::vector<float> ones(9, 1.0f);
+    Matrix<float> grad(ones, {3,3});
+    shape_t orig = {1,3};
+    Matrix<float> res = sumGradForBroadcast(grad, orig);
+
+    bool shapeOk = res.shape[0]==1 && res.shape[1]==3;
+    bool valOk = res.data[0]==3 && res.data[1]==3 && res.data[2]==3;
+    (shapeOk && valOk) ? PASS("sumGradForBroadcast {3,3}->{1,3}") : FAIL("sumGradForBroadcast {3,3}->{1,3}");
+}
+
 
 // Sigmoid Test ───────────────────────────────────────────────────────────────────
 
@@ -342,6 +518,19 @@ void sigmoidTest()
     std::cout << x1->grad;
 
     std::cout << bias->grad;
+
+}
+
+void nn()
+{
+    Tensor_t<double> w0(make_tensor<double>({2,2,2,2,2,2,2,2,2,2}));
+    Tensor_t<double> x0(make_tensor<double>(-1));
+    Tensor_t<double> w1(make_tensor<double>(-3));
+    Tensor_t<double> x1(make_tensor<double>(-2));
+    Tensor_t<double> bias(make_tensor<double>(-3));
+
+    Tensor_t<double> neg = make_tensor<double>(-1);
+    Tensor_t<double> one = make_tensor<double>(1);
 }
 
 // ─── main ───────────────────────────────────────────────────────────────────
@@ -367,12 +556,25 @@ int main()
     test_3D_transpose();
     
     cout << "\n=== 4D & non-uniform ===\n";
-    test_4D_matmul(); // pass
+    test_4D_matmul(); 
     test_nonuniform_sum_axis0();
-    test_nonuniform_sum_axis1();// pass
-    test_nonuniform_sum_axis2(); // pass
+    test_nonuniform_sum_axis1();
+    test_nonuniform_sum_axis2(); 
     test_nonuniform_transpose(); 
-    test_3D_arithmetic(); // pass
+    test_3D_arithmetic(); 
+
+    cout << "\n=== Broadcast forward ===\n";
+    test_broadcast_outer_product_add();
+    test_broadcast_1D_to_2D();
+    test_broadcast_scalar_matrix();
+    test_broadcast_3D_middle_axis();
+    test_broadcast_multiply();
+
+    cout << "\n=== sumGradForBroadcast ===\n";
+    test_sumgrad_col_vector();
+    test_sumgrad_1D_from_2D();
+    test_sumgrad_no_broadcast();
+    test_sumgrad_row_vector();
 
     cout << "\n=== Sigmoid test ===\n";
     sigmoidTest();

@@ -12,11 +12,10 @@
 #include "../Operations/Operation.hpp"
 #include "../Operations/AddOperation.hpp"
 #include "../Operations/MultiplyOperation.hpp"
+#include "../Operations/PowerOperation.hpp"
 #include "../Operations/DivisionOperation.hpp"
 #include "../Operations/ExponentOperation.hpp"
 #include "../Operations/SubtractOperation.hpp"
-
-#include "../Implementations/operation_impl.hpp"
 
 
 template <typename T>
@@ -33,7 +32,7 @@ Tensor_t<T> make_tensor()
 template <typename T>
 Tensor_t<T> make_tensor(const T a)
 {
-    return std::make_shared<Tensor<T>>(Matrix<T>({a}));        
+    return std::make_shared<Tensor<T>>(Matrix<T>({(T)a}));        
 }
 
 template <typename T>
@@ -209,14 +208,23 @@ Tensor_t<T> operator /(Tensor_t<T> left, Tensor_t<T> right)
     return left->frontOp->forward(); 
 }
 
+template <typename T>
+Tensor_t<T> operator ^(Tensor_t<T> left, Tensor_t<T> right)
+{
+    left->frontOp = std::make_shared<PowerOperation<T>>(left, right);
+    right->frontOp = left->frontOp;
+    return left->frontOp->forward(); 
+}
+
 
 //Scalar Operations..................................................................
 template <typename S>
 //requires std::is_arithmetic_v<S>
 Tensor_t<S> operator *(Tensor_t<S> left, const S a)
 {
+    Tensor_t<S> cte = make_tensor<S>(a);
     Tensor_t<S> res = std::make_shared<Tensor<S>>(left);
-    res->data =  a * res->data;
+    res =  cte * res;
     return res; 
 }
 
@@ -224,9 +232,10 @@ Tensor_t<S> operator *(Tensor_t<S> left, const S a)
 template <typename E>
 //requires std::is_arithmetic_v<S>
 Tensor_t<E> operator *(const E a, Tensor_t<E> right)
-{
+{    
+    Tensor_t<E> cte = make_tensor<E>(a);
     Tensor_t<E> res = std::make_shared<Tensor<E>>(right);
-    res->data =  a * res->data;
+    res =  cte * res;
     return res; 
 }
 
@@ -234,8 +243,9 @@ template <typename S>
 //requires std::is_arithmetic_v<S>
 Tensor_t<S> operator /(Tensor_t<S> left, const S a)
 {
+    Tensor_t<S> cte = make_tensor<S>(a);
     Tensor_t<S> res = std::make_shared<Tensor<S>>(left);
-    res->data =  a / res->data;
+    res =  res/cte;
     return res; 
 }
 
@@ -244,8 +254,29 @@ template <typename E>
 //requires std::is_arithmetic_v<S>
 Tensor_t<E> operator /(const E a, Tensor_t<E> right)
 {
+    Tensor_t<E> cte = make_tensor<E>(a);
     Tensor_t<E> res = std::make_shared<Tensor<E>>(right);
-    res->data =  a / res->data;
+    res = cte / res;
+    return res; 
+}
+
+template <typename E>
+//requires std::is_arithmetic_v<S>
+Tensor_t<E> operator ^(Tensor_t<E> right, const E a)
+{
+    Tensor_t<E> cte = make_tensor<E>(a);
+    Tensor_t<E> res = std::make_shared<Tensor<E>>(right);
+    res =  res^cte;
+    return res; 
+}
+
+template <typename E>
+//requires std::is_arithmetic_v<S>
+Tensor_t<E> operator -(Tensor_t<E> ten)
+{
+    Tensor_t<E> n = make_tensor<E>(-1);
+    Tensor_t<E> res = std::make_shared<Tensor<E>>(ten);
+    res =  res * n;
     return res; 
 }
 

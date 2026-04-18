@@ -65,9 +65,9 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         if(this->backOp != nullptr)
         { 
             this->backOp->backward(grad); 
+            this->backOp = nullptr;
+            this->frontOp = nullptr;
         }
-
-        // this->reset_graph();
     }
 
     void zero_grad()
@@ -82,18 +82,18 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     void reset_graph()
     {
-        if(this->backOp != nullptr)
-        { 
-
-            this->backOp->reset_graph(); 
-            this->backOp = nullptr;
-        }
-
         if(this->frontOp!= nullptr)
         { 
             this->frontOp->reset_graph(); 
             this->frontOp = nullptr;
         }
+    }
+
+    // Overloads..........................................................................
+
+    Tensor_t<T> operator =(const Tensor_t<T> &rhs)
+    {
+        return make_tensor<T>(rhs);
     }
 
 
@@ -103,6 +103,66 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     {
         this->frontOp = std::make_shared<ExponentOperation<T>>((this->shared_from_this()));
         return this->frontOp->forward(); 
+    }
+
+    Tensor_t<T> relu(){
+        return make_tensor<T>(this->data.maximum(0));
+    }
+
+    Tensor_t<T> derivative_RelU()
+    {
+        return make_tensor<T>(this->data > 0);
+    }
+
+    Tensor_t<T> sigmoid(Tensor_t<T> x)
+    {
+        return 1 / (1 + (-1*x)->exp());
+    }
+
+    Tensor_t<T> softmax()
+    {
+        return this->exp() / (this->exp())->sum();
+    }
+
+    Tensor_t<T> mse(Tensor_t<T> yp, Tensor_t<T> yt)
+    {
+        return (yt^2 - yp^2)^(1/2);
+    }
+
+    Tensor_t<T> matmul(Tensor_t<T> x)
+    {
+        return make_tensor<T>(this->data.matmul(x));
+    }
+
+
+    Tensor_t<T> dot(Tensor_t<T> x)
+    {
+        return make_tensor<T>(this->data.dot(x));
+    }
+
+    Tensor_t<T> sum(size_t axis)
+    {
+        return make_tensor<T>(this->data.sum(axis));
+    }
+
+     Tensor_t<T> sum()
+    {
+        return make_tensor<T>(this->data.sum());
+    }
+
+    Tensor_t<T> transpose(std::initializer_list<long> inshape)
+    {
+        return make_tensor<T>(this->data.transpose(inshape));
+    }
+
+    Tensor_t<T> transpose(shape_t inshape)
+    {
+        return make_tensor<T>(this->data.transpose(inshape));
+    }
+
+     Tensor_t<T> transpose()
+    {
+        return make_tensor<T>(this->data.transpose());
     }
 
     /**
