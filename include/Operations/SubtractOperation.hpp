@@ -42,8 +42,9 @@ class SubtractOperation : public Operation<T>
     void SubtractOperation<T>::backward(Matrix<T> grad)
     {
         // Distributing Gradients when carrying out subtraction
-        auto grad1 = sumGradForBroadcast(grad, t1->data.shape);
-        auto grad2 = sumGradForBroadcast(-grad, t2->data.shape);
+        Matrix<T> grad1 = sumGradForBroadcast(grad, t1->data.shape);
+        Matrix<T> grad2 = sumGradForBroadcast(-grad, t2->data.shape);
+        
         this->t1->backward(grad1);
         this->t2->backward(grad2);
     }

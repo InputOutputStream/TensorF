@@ -46,7 +46,7 @@ class ExponentOperation : public Operation<T>
     template <typename T>
     Tensor_t<T> ExponentOperation<T>::forward()
     {
-        this->tmp->data = this->t1->data.exponent();
+        this->tmp = std::make_shared<Tensor<T>>(this->t1->data.exponent());
         return std::make_shared<Tensor<T>>(this->t1->data.exponent(), this->shared_from_this());
     }
 

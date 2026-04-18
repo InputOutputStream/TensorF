@@ -91,9 +91,13 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     // Overloads..........................................................................
 
-    Tensor_t<T> operator =(const Tensor_t<T> &rhs)
+   Tensor<T>& operator=(const Tensor<T>& rhs)
     {
-        return make_tensor<T>(rhs);
+        this->data.copy_from(rhs.data);
+        this->grad.copy_from(rhs.grad);
+        this->backOp = rhs.backOp;
+        this->frontOp = rhs.frontOp;
+        return *this;
     }
 
 
