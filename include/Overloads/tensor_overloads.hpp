@@ -16,6 +16,9 @@
 #include "../Operations/DivisionOperation.hpp"
 #include "../Operations/ExponentOperation.hpp"
 #include "../Operations/SubtractOperation.hpp"
+#include "../Operations/ReluOperation.hpp"
+#include "../Operations/DotOperation.hpp"
+#include "../Operations/MatmulOperation.hpp"
 
 
 template <typename T>
@@ -216,7 +219,6 @@ Tensor_t<T> operator ^(Tensor_t<T> left, Tensor_t<T> right)
     return left->frontOp->forward(); 
 }
 
-
 //Scalar Operations..................................................................
 template <typename S>
 //requires std::is_arithmetic_v<S>
@@ -280,6 +282,40 @@ Tensor_t<E> operator -(Tensor_t<E> ten)
     return res; 
 }
 
+template <typename E>
+Tensor_t<E> operator <(const E a, Tensor_t<E> right)
+{    
+    Matrix<E> cte(a);
+    Matrix<E> res(right);
+    res =  cte < res;
+    return make_tensor<E>(res); 
+}
 
+template <typename E>
+Tensor_t<E> operator <(Tensor_t<E> right, const E a)
+{    
+    Matrix<E> cte(a);
+    Matrix<E> res(right);
+    res =  res < cte;
+    return make_tensor<E>(res); 
+}
+
+template <typename E>
+Tensor_t<E> operator >(const E a, Tensor_t<E> right)
+{    
+    Matrix<E> cte(a);
+    Matrix<E> res(right);
+    res =  cte < res;
+    return make_tensor<E>(res); 
+}
+
+template <typename E>
+Tensor_t<E> operator >(Tensor_t<E> right, const E a)
+{    
+    Matrix<E> cte(a);
+    Matrix<E> res(right);
+    res =  res > cte;
+    return make_tensor<E>(res); 
+}
 
 #endif // !TENSOR_EXTERN__HPP

@@ -10,6 +10,9 @@
 #include "../Operations/DivisionOperation.hpp"
 #include "../Operations/ExponentOperation.hpp"
 #include "../Operations/SubtractOperation.hpp"
+#include "../Operations/ReluOperation.hpp"
+#include "../Operations/DotOperation.hpp"
+#include "../Operations/MatmulOperation.hpp"
 
 #include "../Types/types.hpp"
 #include "../Overloads/tensor_overloads.hpp"
@@ -102,21 +105,33 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
 
         
-    // Functions...........................................................................
+    // Functions In graph...........................................................................
     Tensor_t<T> exp()
     {
         this->frontOp = std::make_shared<ExponentOperation<T>>((this->shared_from_this()));
         return this->frontOp->forward(); 
     }
 
-    Tensor_t<T> relu(){
-        return make_tensor<T>(this->data.maximum(0));
+    Tensor_t<T> relu()
+    {
+        this->frontOp = std::make_shared<ReluOperation<T>>((this->shared_from_this()));
+        return this->frontOp->forward(); 
     }
 
-    Tensor_t<T> derivative_RelU()
+    Tensor_t<T> matmul(Tensor_t<T> x)
     {
-        return make_tensor<T>(this->data > 0);
+        this->frontOp = std::make_shared<MatmulOperation<T>>((this->shared_from_this()), x);
+        return this->frontOp->forward(); 
     }
+
+    Tensor_t<T> dot(Tensor_t<T> x)
+    {
+        this->frontOp = std::make_shared<DotOperation<T>>((this->shared_from_this()), x);
+        return this->frontOp->forward(); 
+    }
+
+    // Functions Off graph...........................................................................
+
 
     Tensor_t<T> sigmoid(Tensor_t<T> x)
     {
@@ -131,17 +146,6 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     Tensor_t<T> mse(Tensor_t<T> yp, Tensor_t<T> yt)
     {
         return (yt^2 - yp^2)^(1/2);
-    }
-
-    Tensor_t<T> matmul(Tensor_t<T> x)
-    {
-        return make_tensor<T>(this->data.matmul(x));
-    }
-
-
-    Tensor_t<T> dot(Tensor_t<T> x)
-    {
-        return make_tensor<T>(this->data.dot(x));
     }
 
     Tensor_t<T> sum(size_t axis)
@@ -173,8 +177,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
      *  create a friend of a static
      *    
      *  template <typename E>
-        friend std::ostream & operator <<(std::ostream &out, Matrix<E> &m);
-
+     *  friend std::ostream & operator <<(std::ostream &out, Matrix<E> &m);
      */
 
 };

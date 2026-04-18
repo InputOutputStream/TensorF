@@ -16,11 +16,7 @@
     template <typename T>
     using Operation_t=std::shared_ptr<Operation<T>>;
 
-
     template <typename T>
     using Tensor_t=std::shared_ptr<Tensor<T>>;
-
-
-
 
 #endif // !__TYPES__

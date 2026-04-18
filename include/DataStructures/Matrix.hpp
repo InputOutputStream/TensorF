@@ -10,10 +10,7 @@
 #include <cassert>
 #include <memory>
 #include <algorithm>
-
-
-
-using shape_t = std::vector<long>;
+#include <random>
 
 template<typename U>
 class Matrix;
@@ -982,6 +979,22 @@ class Matrix
         for(long k=0; k<numElems; k++)
         {
             res.push_back(1);
+        }
+        
+        return Matrix<T>(res, shape);
+    }
+
+    Matrix<T> random(shape_t shape)
+    {
+        std::vector<T> res;
+        long numElems = 1;
+
+        for(auto i: shape)
+            numElems *= i;
+
+        for(long k=0; k<numElems; k++)
+        {
+            res.push_back(std::rand()/RAND_MAX);
         }
         
         return Matrix<T>(res, shape);
