@@ -67,7 +67,6 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->grad.copy_from(grad);
         if(this->backOp != nullptr)
         { 
-            this->backOp->to_string();
             this->backOp->backward(grad); 
             this->backOp = nullptr;
             this->frontOp = nullptr;

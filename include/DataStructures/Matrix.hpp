@@ -799,7 +799,7 @@ class Matrix
 
     Matrix(std::vector<T> indata, shape_t inshape)
     {
-        std::cout << " indata: "<< indata << "inshape: " << inshape << "\n";
+        //std::cout << " indata: "<< indata << "inshape: " << inshape << "\n";
         assert(this->verifyShape(indata, inshape) && "Shape and number of elements of matrix do not match");
         this->data = indata;
         this->shape = inshape; 
@@ -881,8 +881,7 @@ class Matrix
 
     Matrix<T> operator -()
     {
-        Matrix<T> rhs(-1);
-        return Matrix<T>(data * rhs.data, shape);
+        return Matrix<T>(-data, shape);
     }
     
     Matrix<T> operator - (const Matrix<T> &rhs)
@@ -1314,7 +1313,7 @@ class Matrix
     template <typename T>
     Matrix<T> operator / (const Matrix<T> &lhs, const T a)
     {
-        return Matrix<T>(lhs.data * (1/a), lhs.shape);
+        return Matrix<T>(lhs.data/a, lhs.shape);
     }
 
     template <typename T>
@@ -1405,6 +1404,12 @@ class Matrix
         return Matrix<T>( a >= lhs.data, lhs.shape);
     }
 
+    template <typename T>
+    bool operator ==(const Matrix<T> &lhs,  Matrix<T> &rhs)
+    {
+        return  (rhs.data == lhs.data) && (rhs.shape == lhs.shape);
+    }
+
 //------------------------------------------------------------------------------------
 
     template <typename T>
@@ -1439,4 +1444,5 @@ class Matrix
         
         return res;
     }
+
 #endif

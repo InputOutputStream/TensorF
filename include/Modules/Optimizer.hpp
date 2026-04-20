@@ -1,6 +1,3 @@
-
-
-
 #ifndef __OPTIMIZER__HPP_
 #define __OPTIMIZER__HPP_
 

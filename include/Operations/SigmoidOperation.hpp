@@ -9,6 +9,8 @@
 template <typename T>
 class SigmoidOperation : public Operation<T>
 {
+    protected:
+    Tensor_t<T> tmp;
     public:
         Tensor_t<T> t1;
 
@@ -40,14 +42,15 @@ class SigmoidOperation : public Operation<T>
     template <typename T>
     void SigmoidOperation<T>::backward(Matrix<T> grad)
     {
-        Matrix<T> temp = this->t1->data * (Matrix<T>(1) + (Matrix<T>(-1)*this->t1->data));
+        Matrix<T> temp = this->tmp->data * (Matrix<T>(1) + (Matrix<T>(-1)*this->tmp->data));
         this->t1->backward(grad * temp);
     }
 
     template<typename T>
     Tensor_t<T> SigmoidOperation<T>::forward()
     {
-        auto temp = ((T)1 / ((T)1 + ((T)-1*this->t1->data).exponent()));
+        auto temp = (Matrix<T>(1) / ((T)1 + (Matrix<T>(-1)*this->t1->data).exponent()));
+        this->tmp = std::make_shared<Tensor<T>>(temp);
         return std::make_shared<Tensor<T>>(temp, this->shared_from_this());
     }
 

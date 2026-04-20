@@ -32,11 +32,11 @@
             Tensor_t<T> forward(Tensor_t<T> x){
                 if(sbias)
                    {
-                        return x->dot(weight) + bias;
+                        return x->matmul(weight) + bias;
                     }
                 else
                     {
-                        return x->dot(weight);
+                        return x->matmul(weight);
                     }
             }
 

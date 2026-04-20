@@ -158,6 +158,19 @@ std::vector<T> operator + (const std::vector<T> &b, const T a) // scalar  r
 } 
 
 template <typename T>
+std::vector<T> operator -(const std::vector<T> &a) // scalar  r
+{
+    std::vector<T> arr;
+    for(size_t i=0; i<a.size(); i++)
+    { 
+        T prod = (T)(a.at(i)*-1);
+        arr.push_back(prod);
+    }
+
+    return arr;
+} 
+
+template <typename T>
 std::vector<T> operator - (const T a, const std::vector<T> &b) // Scalar  l
 {
     std::vector<T> arr;
@@ -313,6 +326,20 @@ std::vector<T> operator >= (const std::vector<T> &b, const T a)
 
     return arr;
 } 
+
+template <typename T>
+bool operator ==(const std::vector<T> &a, const std::vector<T> &b) //std::Vector equality
+{
+    std::vector<T> arr;
+    int quot = 0;
+    for(size_t i=0; i<a.size(); i++)
+    { 
+        quot += (int)(a.at(i) != b.at(i));
+        arr.push_back(quot);
+    }
+
+    return quot > 0;
+}
 
 /**
  * mathematical functions......................................................................................

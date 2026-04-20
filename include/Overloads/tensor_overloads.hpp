@@ -226,6 +226,13 @@ Tensor_t<T> operator ^(Tensor_t<T> left, Tensor_t<T> right)
     return left->frontOp->forward(); 
 }
 
+template <typename T>
+bool operator ==(Tensor_t<T> left, Tensor_t<T> right)
+{
+    return right->data == left->data; 
+}
+
+//Scalar Operations..................................................................
 template <typename E>
 Tensor_t<E> operator ^(Tensor_t<E> right, const E a)
 {
@@ -235,7 +242,6 @@ Tensor_t<E> operator ^(Tensor_t<E> right, const E a)
     return res; 
 }
 
-//Scalar Operations..................................................................
 template <typename S>
 //requires std::is_arithmetic_v<S>
 Tensor_t<S> operator +(Tensor_t<S> left, const S a)
