@@ -40,8 +40,8 @@ class DotOperation : public Operation<T>
     template <typename T>
     void DotOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * this->t2->data.transpose());
-        this->t2->backward(grad * this->t1->data.transpose());
+        this->t1->backward(grad.dot(this->t2->data.transpose()));
+        this->t2->backward(this->t1->data.transpose().dot(grad));
     }
 
     template<typename T>

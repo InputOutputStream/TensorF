@@ -4,7 +4,6 @@
 #include "../Types/types.hpp"
 
     #include <iostream>
-    #include <memory>
     #include <vector>
 
 template <typename T>

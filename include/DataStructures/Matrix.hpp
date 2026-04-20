@@ -799,6 +799,7 @@ class Matrix
 
     Matrix(std::vector<T> indata, shape_t inshape)
     {
+        std::cout << " indata: "<< indata << "inshape: " << inshape << "\n";
         assert(this->verifyShape(indata, inshape) && "Shape and number of elements of matrix do not match");
         this->data = indata;
         this->shape = inshape; 
@@ -865,6 +866,7 @@ class Matrix
 
     // Matrix Arithmetic Operations 
     
+
     Matrix<T> operator + (const Matrix<T> &rhs)
     {
         if(this->areShapesEqual(rhs.shape))
@@ -875,6 +877,12 @@ class Matrix
             return Matrix<T>(res.first.data + res.second.data, res.first.shape);
 
         }
+    }
+
+    Matrix<T> operator -()
+    {
+        Matrix<T> rhs(-1);
+        return Matrix<T>(data * rhs.data, shape);
     }
     
     Matrix<T> operator - (const Matrix<T> &rhs)
@@ -923,6 +931,16 @@ class Matrix
         return *this;
     }
 
+    Matrix<T> operator ^(const T rhs)
+    {
+        return Matrix<T>(data ^ rhs, shape);
+    }
+
+    Matrix<T> operator ^(const  Matrix<T> rhs)
+    {
+        return Matrix<T>(data ^ rhs.data, shape);
+    }
+
     Matrix<T> exponent() 
     {
         std::vector<T> arr;
@@ -948,6 +966,11 @@ class Matrix
     Matrix<T> flatten()
     {
         return Matrix<T>(this->data);
+    }
+
+    Matrix<T> reshape(shape_t shape)
+    {
+        return Matrix<T>(this->data, shape);
     }
 
     // Matrix mathematic functions
@@ -984,6 +1007,11 @@ class Matrix
         return Matrix<T>(res, shape);
     }
 
+    Matrix<T> random(std::initializer_list<long> inshape)
+    {       
+        return random(getShape(inshape));
+    }
+
     Matrix<T> random(shape_t shape)
     {
         std::vector<T> res;
@@ -994,7 +1022,7 @@ class Matrix
 
         for(long k=0; k<numElems; k++)
         {
-            res.push_back(std::rand()/RAND_MAX);
+            res.push_back((T)std::rand() / (T)RAND_MAX);
         }
         
         return Matrix<T>(res, shape);
@@ -1033,6 +1061,14 @@ class Matrix
     }
 
     void copy_from(Matrix<T>& two)
+    {
+        this->data = two.data;
+        this->shape = two.shape; 
+        this->numElementsSeen = two.numElementsSeen;
+        this->ndims = two.shape.size();
+    }
+
+    void copy_from(const Matrix<T>& two)
     {
         this->data = two.data;
         this->shape = two.shape; 
@@ -1293,6 +1329,32 @@ class Matrix
         return Matrix<T>( lhs.data^a, lhs.shape);
     }
     
+    
+  
+     template <typename T>
+    Matrix<T> operator + (const Matrix<T> &lhs, const T a)
+    {
+        return Matrix<T>(lhs.data + a, lhs.shape);
+    }
+
+    template <typename T>
+    Matrix<T> operator + (const T a, const Matrix<T> &lhs)
+    {
+        return Matrix<T>( a + lhs.data, lhs.shape);
+    }
+  
+     template <typename T>
+    Matrix<T> operator - (const Matrix<T> &lhs, const T a)
+    {
+        return Matrix<T>(lhs.data - a, lhs.shape);
+    }
+
+    template <typename T>
+    Matrix<T> operator - (const T a, const Matrix<T> &lhs)
+    {
+        return Matrix<T>( a - lhs.data, lhs.shape);
+    }
+  
     //................................................................................
 
     template <typename T>
@@ -1317,6 +1379,30 @@ class Matrix
     Matrix<T> operator > (const T a, const Matrix<T> &lhs)
     {
         return Matrix<T>( a > lhs.data, lhs.shape);
+    }
+
+    template <typename T>
+    Matrix<T> operator <= (const Matrix<T> &rhs, const T a)
+    {
+        return Matrix<T>(rhs.data <= a , rhs.shape);
+    }
+
+    template <typename T>
+    Matrix<T> operator <= (const T a, const Matrix<T> &rhs)
+    {
+        return Matrix<T>(rhs.data <= a , rhs.shape);
+    }
+
+    template <typename T>
+    Matrix<T> operator >= (const T a, const Matrix<T> &lhs)
+    {
+        return Matrix<T>( a >= lhs.data, lhs.shape);
+    }
+
+    template <typename T>
+    Matrix<T> operator >= (const Matrix<T> &lhs, const T a)
+    {
+        return Matrix<T>( a >= lhs.data, lhs.shape);
     }
 
 //------------------------------------------------------------------------------------

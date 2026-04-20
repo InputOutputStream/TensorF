@@ -42,14 +42,17 @@ class DivisionOperation : public Operation<T>
     template <typename T>
     void DivisionOperation<T>::backward(Matrix<T> grad)
     {
-        auto temp = ((T)-1) * grad * this->t1->data ;
-
         Matrix<T> grad1 = sumGradForBroadcast(grad / this->t2->data, t1->data.shape);
-        Matrix<T> grad2 = sumGradForBroadcast( temp / ((this->t2->data) * (this->t2->data)), t2->data.shape);
+        
+        Matrix<T> t2_sq = this->t2->data * this->t2->data;  
+        Matrix<T> numerator = Matrix<T>(-1) * grad * this->t1->data;
+        
+        Matrix<T> grad2 = sumGradForBroadcast(numerator / t2_sq, t2->data.shape);
 
-        this->t1->backward(grad1);  // ok
+
+        this->t1->backward(grad1);  
         this->t2->backward(grad2);
-    }        
+    } 
 
     template <typename T>
     void DivisionOperation<T>::zero_grad(){

@@ -26,11 +26,10 @@ class ReluOperation : public Operation<T>
     void reset_graph();
 
     void to_string(){
-        std::cout << "Add Operation \n";
+        std::cout << "Relu Operation \n";
     }
       
 };
-
 
 
 /**

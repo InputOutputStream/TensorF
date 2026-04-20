@@ -42,7 +42,7 @@ class MatmulOperation : public Operation<T>
     void MatmulOperation<T>::backward(Matrix<T> grad)
     {
         this->t1->backward(grad.matmul(this->t2->data.transpose()));
-        this->t2->backward(grad.matmul(this->t1->data.transpose()));
+        this->t2->backward(this->t1->data.transpose().matmul(grad));
     }
 
     template<typename T>

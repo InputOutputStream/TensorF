@@ -7,28 +7,37 @@
 #include "Module.hpp"
 
     #include <iostream>
-    #include <memory>
-    #include <vector>
-
 
     template <typename T>
-    class Linear : Module<T>{
-        protected:
+    class Linear : public Module<T>{
 
         public:
             Tensor_t<T> weight;
             Tensor_t<T> bias;
+            bool sbias;
 
-            Linear(size_t in_features, size_t out_features){
-                this->weight = make_tensor<T>(*Matrix<T>().random(in_features, out_features));
-                this->bias = make_tensor<T>(*Matrix<T>().random(out_features));
+            Linear(long in_features, long out_features, bool sbias){
+                    Matrix<T> tmp;
+                    this->weight = make_tensor<T>(tmp.random({in_features, out_features}) - Matrix<T>(0.5));
+                    this->register_parameter(weight);
+                    this->sbias = sbias;
 
-                this->register_parameter(weight);
-                this->register_parameter(bias);
-            }
+                    if(sbias)
+                    {
+                        this->bias = make_tensor<T>(tmp.random({out_features}) - Matrix<T>(0.5));
+                        this->register_parameter(bias);
+                    }
+                }
 
             Tensor_t<T> forward(Tensor_t<T> x){
-               return x->matmul(weight) + bias;
+                if(sbias)
+                   {
+                        return x->dot(weight) + bias;
+                    }
+                else
+                    {
+                        return x->dot(weight);
+                    }
             }
 
     };

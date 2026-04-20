@@ -1,6 +1,9 @@
 #include "Types/types.hpp"
 #include "DataStructures/Matrix.hpp"
 #include "DataStructures/Tensor.hpp"
+#include "Modules/Linear.hpp"
+#include "Modules/Optimizer.hpp"
+#include "Modules/Relu.hpp"
 
 #include <iostream>
 #include <vector>
@@ -521,62 +524,90 @@ void sigmoidTest()
 
 }
 
-void nn()
+template<typename T>
+void nn(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
 {
-    Tensor_t<double> w0(make_tensor<double>({2,2,2,2,2,2,2,2,2,2}));
-    Tensor_t<double> x0(make_tensor<double>(-1));
-    Tensor_t<double> w1(make_tensor<double>(-3));
-    Tensor_t<double> x1(make_tensor<double>(-2));
-    Tensor_t<double> bias(make_tensor<double>(-3));
+    Linear<T> l1(input->data.shape[0], 2, true);
+    Linear<T> l2(2, 1, true);
 
-    Tensor_t<double> neg = make_tensor<double>(-1);
-    Tensor_t<double> one = make_tensor<double>(1);
+    std::vector<Tensor_t<T>> params(l1.parameters());
+    auto param2 = l2.parameters(); 
+    params.insert(params.end(), param2.begin(), param2.end());
+
+    Optimizer<T> Op(params,0.01, SGD);
+
+    for(int epoch = 0; epoch < epochs; epoch++)
+    {
+        // forward
+        Tensor_t<T> a = l1.forward(input);
+        Tensor_t<T> b = l2.forward(a);
+        Tensor_t<T> out = b->sigmoid();
+
+        // loss
+        Tensor_t<T> loss = ((out-labels)^(T)2)/(T)labels->data.shape[0];
+        std:: cout << "out: " <<out->data<< "labels: "<< labels->data << "loss: "<< loss->data; 
+
+        // backward
+        loss->backward(Matrix<T>(1));
+
+        Op.step();
+
+        // std:: cout << "epoch: " <<epoch<< "loss: "<< loss->data; 
+    }
+
 }
 
 // ─── main ───────────────────────────────────────────────────────────────────
 
 int main()
 {
-    cout << "=== 1D ===\n";
-    test_1D_dot();
-    test_1D_sum();
-    test_1D_arithmetic();
+    // cout << "=== 1D ===\n";
+    // test_1D_dot();
+    // test_1D_sum();
+    // test_1D_arithmetic();
 
-    cout << "\n=== 2D ===\n";
-    test_2D_matmul();
-    test_2D_transpose();
-    test_2D_sum_axis0();
-    test_2D_sum_axis1();
+    // cout << "\n=== 2D ===\n";
+    // test_2D_matmul();
+    // test_2D_transpose();
+    // test_2D_sum_axis0();
+    // test_2D_sum_axis1();
 
-    cout << "\n=== 3D ===\n";
-    test_3D_matmul();
-    test_3D_sum_axis0();
-    test_3D_sum_axis1();
-    test_3D_sum_axis2();
-    test_3D_transpose();
+    // cout << "\n=== 3D ===\n";
+    // test_3D_matmul();
+    // test_3D_sum_axis0();
+    // test_3D_sum_axis1();
+    // test_3D_sum_axis2();
+    // test_3D_transpose();
     
-    cout << "\n=== 4D & non-uniform ===\n";
-    test_4D_matmul(); 
-    test_nonuniform_sum_axis0();
-    test_nonuniform_sum_axis1();
-    test_nonuniform_sum_axis2(); 
-    test_nonuniform_transpose(); 
-    test_3D_arithmetic(); 
+    // cout << "\n=== 4D & non-uniform ===\n";
+    // test_4D_matmul(); 
+    // test_nonuniform_sum_axis0();
+    // test_nonuniform_sum_axis1();
+    // test_nonuniform_sum_axis2(); 
+    // test_nonuniform_transpose(); 
+    // test_3D_arithmetic(); 
 
-    cout << "\n=== Broadcast forward ===\n";
-    test_broadcast_outer_product_add();
-    test_broadcast_1D_to_2D();
-    test_broadcast_scalar_matrix();
-    test_broadcast_3D_middle_axis();
-    test_broadcast_multiply();
+    // cout << "\n=== Broadcast forward ===\n";
+    // test_broadcast_outer_product_add();
+    // test_broadcast_1D_to_2D();
+    // test_broadcast_scalar_matrix();
+    // test_broadcast_3D_middle_axis();
+    // test_broadcast_multiply();
 
-    cout << "\n=== sumGradForBroadcast ===\n";
-    test_sumgrad_col_vector();
-    test_sumgrad_1D_from_2D();
-    test_sumgrad_no_broadcast();
-    test_sumgrad_row_vector();
+    // cout << "\n=== sumGradForBroadcast ===\n";
+    // test_sumgrad_col_vector();
+    // test_sumgrad_1D_from_2D();
+    // test_sumgrad_no_broadcast();
+    // test_sumgrad_row_vector();
 
-    cout << "\n=== Sigmoid test ===\n";
-    sigmoidTest();
+    // cout << "\n=== Sigmoid test ===\n";
+    // sigmoidTest();
+
+    cout << "\n=== nn test ===\n";
+    Tensor_t<double> in = make_tensor<double>({{0,0},{0,1},{1,0},{1, 1}});
+    Tensor_t<double> y = make_tensor<double>({{0}, {1}, {1}, {0}});
+
+    nn(in, y, 1000);
     return 0;
+
 }

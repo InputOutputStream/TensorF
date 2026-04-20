@@ -39,7 +39,7 @@ class PowerOperation : public Operation<T>
     template <typename T>
     void PowerOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * this->t2->data * this->t1->data ^ (this->t2->data - 1)); 
+        this->t1->backward(grad * this->t2->data * this->t1->data ^ (this->t2->data -Matrix<T>(1))); 
     }
 
     template <typename T>

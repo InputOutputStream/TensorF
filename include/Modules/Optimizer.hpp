@@ -10,13 +10,12 @@
 #include "Module.hpp"
 
     #include <iostream>
-    #include <memory>
     #include <vector>
 
-    typedef enum Optimizer_t{
+    enum Optimizer_t{
         SGD,
-        ADAM,
-        ADAMw
+        // ADAM,
+        // ADAMw
     };
 
     template <typename T>
@@ -42,14 +41,13 @@
             }
 
             void step(){
-                switch(this->optim){
+                switch(this->optimizer){
                     case SGD:
                         this->sgd();
                         break;
                 }
 
             }
-
     };
 
 #endif

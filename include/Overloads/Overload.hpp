@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include <cassert>
+#include <cmath>
 
 /**
  * Arithmetic Operations
@@ -129,8 +130,61 @@ std::vector<T> operator / (const std::vector<T> &b, const T a) // scalar Divisio
     return arr;
 } 
 
+
 template <typename T>
-std::vector<T> operator % (const std::vector<T> &b, const T a) // scalar Division r
+std::vector<T> operator + (const T a, const std::vector<T> &b) // Scalar Division l
+{
+    std::vector<T> arr;
+    for(size_t i=0; i<b.size(); i++)
+    { 
+        T prod = (T)(a + b.at(i));
+        arr.push_back(prod);
+    }
+
+    return arr;
+} 
+
+template <typename T>
+std::vector<T> operator + (const std::vector<T> &b, const T a) // scalar  r
+{
+    std::vector<T> arr;
+    for(size_t i=0; i<b.size(); i++)
+    { 
+        T prod = (T)(b.at(i)+a);
+        arr.push_back(prod);
+    }
+
+    return arr;
+} 
+
+template <typename T>
+std::vector<T> operator - (const T a, const std::vector<T> &b) // Scalar  l
+{
+    std::vector<T> arr;
+    for(size_t i=0; i<b.size(); i++)
+    { 
+        T prod = (T)(a - b.at(i));
+        arr.push_back(prod);
+    }
+
+    return arr;
+} 
+
+template <typename T>
+std::vector<T> operator - (const std::vector<T> &b, const T a) // scalar  r
+{
+    std::vector<T> arr;
+    for(size_t i=0; i<b.size(); i++)
+    { 
+        T prod = (T)(b.at(i)-a);
+        arr.push_back(prod);
+    }
+
+    return arr;
+} 
+
+template <typename T>
+std::vector<T> operator % (const std::vector<T> &b, const T a) // scalar mod r
 {
     std::vector<T> arr;
     for(size_t i=0; i<b.size(); i++)
@@ -143,7 +197,7 @@ std::vector<T> operator % (const std::vector<T> &b, const T a) // scalar Divisio
 } 
 
 template <typename T>
-std::vector<T> operator % (const T a, const std::vector<T> &b) // Scalar Division l
+std::vector<T> operator % (const T a, const std::vector<T> &b) // Scalar mod l
 {
     std::vector<T> arr;
     for(size_t i=0; i<b.size(); i++)
@@ -156,7 +210,7 @@ std::vector<T> operator % (const T a, const std::vector<T> &b) // Scalar Divisio
 } 
 
 template <typename T>
-std::vector<T> operator > (const T a, const std::vector<T> &b) // Scalar Division l
+std::vector<T> operator > (const T a, const std::vector<T> &b) // Scalar  l
 {
     std::vector<T> arr;
     for(size_t i=0; i<b.size(); i++)
@@ -207,6 +261,59 @@ std::vector<T> operator < (const std::vector<T> &b, const T a)
     return arr;
 } 
 
+
+template <typename T>
+std::vector<T> operator <= (const T a, const std::vector<T> &b) 
+{
+    std::vector<T> arr;
+    for(size_t i=0; i<b.size(); i++)
+    { 
+        T prod = (T)(a <= b.at(i));
+        arr.push_back(prod);
+    }
+
+    return arr;
+} 
+
+template <typename T>
+std::vector<T> operator <= (const std::vector<T> &b, const T a) 
+{
+    std::vector<T> arr;
+    for(size_t i=0; i<b.size(); i++)
+    { 
+        T prod = (T)(b.at(i) <= a);
+        arr.push_back(prod);
+    }
+
+    return arr;
+} 
+
+template <typename T>
+std::vector<T> operator >= (const T a, const std::vector<T> &b) 
+{
+    std::vector<T> arr;
+    for(size_t i=0; i<b.size(); i++)
+    { 
+        T prod = (T)(a >= b.at(i));
+        arr.push_back(prod);
+    }
+
+    return arr;
+} 
+
+template <typename T>
+std::vector<T> operator >= (const std::vector<T> &b, const T a) 
+{
+    std::vector<T> arr;
+    for(size_t i=0; i<b.size(); i++)
+    { 
+        T prod = (T)(b.at(i) >= a);
+        arr.push_back(prod);
+    }
+
+    return arr;
+} 
+
 /**
  * mathematical functions......................................................................................
  */
@@ -230,6 +337,20 @@ std::vector<T> operator ^(const std::vector<T> &a, const T n) // Power of a std:
     for(size_t i=0; i<a.size(); i++)
     { 
         T prod = (T)pow(a.at(i), n);
+        arr.push_back(prod);
+    }
+
+    return arr;
+} 
+
+template <typename T>
+std::vector<T> operator ^(const std::vector<T> &a, const std::vector<T> &b) // Power of a std::vector
+{
+    std::vector<T> arr;
+    T cte = b[0];
+    for(size_t i=0; i<a.size(); i++)
+    { 
+        T prod = (T)pow(a.at(i), cte);
         arr.push_back(prod);
     }
 

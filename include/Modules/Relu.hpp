@@ -6,11 +6,6 @@
 
 #include "Module.hpp"
 
-    #include <iostream>
-    #include <memory>
-    #include <vector>
-
-
     template <typename T>
     class Relu {
 
