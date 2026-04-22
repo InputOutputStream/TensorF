@@ -16,15 +16,14 @@
             Tensor_t<T> bias;
             bool sbias;
 
-            Linear(long in_features, long out_features, bool sbias){
-                    Matrix<T> tmp;
-                    this->weight = make_tensor<T>(tmp.random({in_features, out_features}) - Matrix<T>(0.5));
+            Linear(long in_features, long out_features, bool sbias = true){
+                    this->weight = make_tensor<T>(Matrix<T>::random({in_features, out_features}));
                     this->register_parameter(weight);
                     this->sbias = sbias;
 
                     if(sbias)
                     {
-                        this->bias = make_tensor<T>(tmp.random({out_features}) - Matrix<T>(0.5));
+                        this->bias = make_tensor<T>(Matrix<T>::zeros({out_features}));
                         this->register_parameter(bias);
                     }
                 }

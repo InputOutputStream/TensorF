@@ -8,15 +8,18 @@
 #include <iostream>
 #include <vector>
 #include <cassert>
+
 using namespace std;
 
 
-// TODO intergrate the gtest framework to the tsting chain
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 void PASS(const string& name) { cout << "[PASS] " << name << "\n"; }
 void FAIL(const string& name) { cout << "[FAIL] " << name << "\n"; }
+
+
+// TODO intergrate the gtest framework to the tsting chain
 
 // ─── 1D tests ───────────────────────────────────────────────────────────────
 
@@ -525,6 +528,50 @@ void sigmoidTest()
 }
 
 template<typename T>
+void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
+{
+    Linear<T> l1(input->data.shape[1], 2, true);
+    Linear<T> l2(2, 1, true);
+
+    std::vector<Tensor_t<T>> params(l1.parameters());
+    auto param2 = l2.parameters(); 
+    params.insert(params.end(), param2.begin(), param2.end());
+
+    Optimizer<T> Op(params, 0.1, SGD);
+
+    for(int epoch = 1; epoch <= epochs; epoch++)
+    {
+        // forward
+        Tensor_t<T> a = l1.forward(input);
+        Tensor_t<T> b = a->sigmoid();
+
+        Tensor_t<T> c = l2.forward(b);
+        Tensor_t<T> out = c->sigmoid();
+
+        // loss
+        Tensor_t<T> loss = Tensor<T>::mse(labels, out);
+
+        
+
+        // backward
+
+        loss->backward(Matrix<T>(1));
+
+        Op.step();
+
+        Op.zero_grad();
+        
+        if(epoch % 1000 == 0)
+        {
+            std:: cerr << "out" << out->data;
+            std:: cerr << "epoch: " <<epoch << " "<< "loss: "<< loss->data;    
+        }
+    }
+
+}
+
+
+template<typename T>
 void nn(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
 {
     Linear<T> l1(input->data.shape[1], 2, true);
@@ -541,13 +588,17 @@ void nn(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
         // forward
         Tensor_t<T> a = l1.forward(input);
         Tensor_t<T> b = l2.forward(a);
-        Tensor_t<T> out = b->sigmoid();
+        Tensor_t<T> out = b->sigmod();
+
 
         // loss
         Tensor_t<T> loss = ((out-labels)^(T)2)/(T)labels->data.shape[0];
 
-        if(epoch % 10000 == 0)
-            std:: cout << "epoch: " <<epoch << " "<< "loss: "<< ((loss->sum())/(T)labels->data.shape[0])->data; 
+        if(epoch % 1000 == 0)
+        {
+            std:: cerr << "out" << out;
+            std:: cerr << "epoch: " <<epoch << " "<< "loss: "<< (T)100 * ((loss->sum())/(T)labels->data.shape[0])->data; 
+        }
 
         // backward
         loss->backward(Matrix<T>(1));
@@ -608,7 +659,7 @@ int main()
     Tensor_t<double> in = make_tensor<double>({{0,0},{0,1},{1,0},{1, 1}});
     Tensor_t<double> y = make_tensor<double>({{0}, {1}, {1}, {0}});
 
-    nn(in, y, 100000);
+    nn_xor(in, y, 10000);
     return 0;
 
 }

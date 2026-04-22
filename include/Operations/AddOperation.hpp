@@ -42,17 +42,12 @@ class AddOperation : public Operation<T>
     void AddOperation<T>::backward(Matrix<T> grad)
     {
         // Distributing Gradients when carrying out addition
-        if(grad.shape == this->t1->data.shape)
-        {
-            this->t1->backward(grad);
-            this->t2->backward(grad);   
-        }else{
-            Matrix<T> grad1 = sumGradForBroadcast(grad, t1->data.shape);       
-            Matrix<T> grad2 = sumGradForBroadcast(grad, t2->data.shape);
+        
+        Matrix<T> grad1 = sumGradForBroadcast(grad, t1->data.shape);       
+        Matrix<T> grad2 = sumGradForBroadcast(grad, t2->data.shape);
 
-            this->t1->backward(grad1);
-            this->t2->backward(grad2);
-        }
+        this->t1->backward(grad1);
+        this->t2->backward(grad2);
     }
 
     template<typename T>

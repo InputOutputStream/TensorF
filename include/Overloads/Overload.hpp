@@ -148,6 +148,7 @@ template <typename T>
 std::vector<T> operator + (const std::vector<T> &b, const T a) // scalar  r
 {
     std::vector<T> arr;
+
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(b.at(i)+a);
@@ -328,17 +329,13 @@ std::vector<T> operator >= (const std::vector<T> &b, const T a)
 } 
 
 template <typename T>
-bool operator ==(const std::vector<T> &a, const std::vector<T> &b) //std::Vector equality
+bool operator ==(const std::vector<T> &a, const std::vector<T> &b)
 {
-    std::vector<T> arr;
-    int quot = 0;
-    for(size_t i=0; i<a.size(); i++)
-    { 
-        quot += (int)(a.at(i) != b.at(i));
-        arr.push_back(quot);
-    }
-
-    return quot > 0;
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); i++)
+        if (a[i] != b[i]) return false;
+        
+    return true;
 }
 
 /**

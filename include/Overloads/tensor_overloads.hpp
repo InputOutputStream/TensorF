@@ -20,6 +20,7 @@
 #include "../Operations/DotOperation.hpp"
 #include "../Operations/MatmulOperation.hpp"
 #include "../Operations/SigmoidOperation.hpp"
+#include "../Operations/SumOperation.hpp"
 
 template <typename T>
 class Tensor;
@@ -229,8 +230,34 @@ Tensor_t<T> operator ^(Tensor_t<T> left, Tensor_t<T> right)
 template <typename T>
 bool operator ==(Tensor_t<T> left, Tensor_t<T> right)
 {
-    return right->data == left->data; 
+    if (!left || !right) return left == right; 
+    return left->data == right->data;
 }
+
+
+// template <typename T>
+// Tensor_t<T> operator +=(Tensor_t<T> left, Tensor_t<T> right)
+// {
+//     return left + right;
+// }
+
+// template <typename T>
+// Tensor_t<T> operator -=(Tensor_t<T> left, Tensor_t<T> right)
+// {
+//     return left - right;
+// }
+
+// template <typename T>
+// Tensor_t<T> operator *=(Tensor_t<T> left, Tensor_t<T> right)
+// {
+//     return left * right;
+// }
+
+// template <typename T>
+// Tensor_t<T> operator /=(Tensor_t<T> left, Tensor_t<T> right)
+// {
+//     return left / right;
+// }
 
 //Scalar Operations..................................................................
 template <typename E>

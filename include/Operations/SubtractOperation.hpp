@@ -41,21 +41,14 @@ class SubtractOperation : public Operation<T>
     template <typename T>
     void SubtractOperation<T>::backward(Matrix<T> grad)
     {
-        if(grad.shape == this->t1->data.shape)
-        {
-
-            this->t1->backward(grad);
-            this->t2->backward(-grad);
-        }else
-        {
-            Matrix<T> grad1 = sumGradForBroadcast(grad, t1->data.shape);
-            Matrix<T> grad2 = sumGradForBroadcast(-grad, t2->data.shape);
-            
-            this->t1->backward(grad1);
-            this->t2->backward(grad2);
-        }
-        
         // Distributing Gradients when carrying out subtraction
+        
+        Matrix<T> grad1 = sumGradForBroadcast(grad, t1->data.shape);
+        Matrix<T> grad2 = sumGradForBroadcast(-grad, t2->data.shape);
+        
+        this->t1->backward(grad1);
+        this->t2->backward(grad2);
+        
     }
 
     

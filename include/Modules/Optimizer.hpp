@@ -37,6 +37,11 @@
                 this->optimizer = optim;
             }
 
+            void zero_grad(){
+                for(auto p : parameters)
+                    p->zero_grad();
+            }
+
             void step(){
                 switch(this->optimizer){
                     case SGD:

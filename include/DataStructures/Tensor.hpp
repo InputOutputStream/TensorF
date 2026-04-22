@@ -14,6 +14,7 @@
 #include "../Operations/DotOperation.hpp"
 #include "../Operations/MatmulOperation.hpp"
 #include "../Operations/SigmoidOperation.hpp"
+#include "../Operations/SumOperation.hpp"
 
 #include "../Types/types.hpp"
 #include "../Overloads/tensor_overloads.hpp"
@@ -61,39 +62,33 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
 
 //.....................................................................................
-    void backward(Matrix<T> grad)
+    void backward(Matrix<T> ingrad)
     { // x = x - f`(x)*x
+        if(this->grad.get_size() > 0)
+            this->grad = this->grad + ingrad;
+        else
+            this->grad.copy_from(ingrad);
 
-        this->grad.copy_from(grad);
         if(this->backOp != nullptr)
         { 
-            this->backOp->backward(grad); 
+            // this->backOp->to_string();
+            this->backOp->backward(ingrad); 
             this->backOp = nullptr;
             this->frontOp = nullptr;
         }
     }
 
-    void backward()
+    void backward(Tensor_t<T> ingrad)
     { // x = x - f`(x)*x
-
-        this->grad.copy_from(this->data);
+        if(this->grad.get_size() > 0)
+            this->grad = this->grad + ingrad->data;
+        else
+            this->grad.copy_from(ingrad->data);
 
         if(this->backOp != nullptr)
         { 
-            this->backOp->backward(this->data); 
-            this->backOp = nullptr;
-            this->frontOp = nullptr;
-        }
-    }
-
-    void backward(Tensor_t<T> grad)
-    { // x = x - f`(x)*x
-
-        this->grad->data.copy_from(grad->data);
-
-        if(this->backOp != nullptr)
-        { 
-            this->backOp->backward(grad->data); 
+            // this->backOp->to_string();
+            this->backOp->backward(ingrad->data); 
             this->backOp = nullptr;
             this->frontOp = nullptr;
         }
@@ -129,7 +124,6 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return *this;
     }
 
-
         
     // Functions In graph...........................................................................
     Tensor_t<T> exp()
@@ -162,27 +156,32 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return this->frontOp->forward();
     }
     
+    Tensor_t<T> sum()
+    {
+        this->frontOp = std::make_shared<SumOperation<T>>(this->shared_from_this());
+        return this->frontOp->forward();
+    }
     // Functions Off graph...........................................................................
+
+    // Tensor_t<T> sigmoid()
+    // {
+    //     auto temp = (Matrix<T>(1) / ((T)1 + (Matrix<T>(-1)*this->data).exponent()));
+    //     return make_tensor<T>(temp);
+    // }
 
     Tensor_t<T> softmax()
     {
         return this->exp() / (this->exp())->sum();
     }
 
-    Tensor_t<T> mse(Tensor_t<T> yt)
+    static Tensor_t<T> mse(Tensor_t<T> ytrue, Tensor_t<T> ypred)
     {
-        T n = static_cast<T>(yt->data.shape[0]);
-        return (((yt - this->shared_from_this()) ^ (T)2)->sum()) / n;
+        return (((ytrue - ypred) ^ (T)2)->sum()) / (T)(ytrue->data.shape[0]);
     }
 
     Tensor_t<T> sum(size_t axis)
     {
         return make_tensor<T>(this->data.sum(axis));
-    }
-
-     Tensor_t<T> sum()
-    {
-        return make_tensor<T>(this->data.sum());
     }
 
     Tensor_t<T> transpose(std::initializer_list<long> inshape)
