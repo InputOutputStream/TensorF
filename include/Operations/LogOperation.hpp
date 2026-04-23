@@ -2,12 +2,12 @@
 #include "Operation.hpp"
 
 
-#ifndef __EXP_OPP_INCLUDED__
-#define __EXP_OPP_INCLUDED__
+#ifndef __LOG_OPP_INCLUDED__
+#define __LOG_OPP_INCLUDED__
 
 
 template <typename T>
-class ExponentOperation : public Operation<T>
+class LogOperation : public Operation<T>
 {
     protected: 
         Tensor_t<T> tmp;
@@ -15,7 +15,7 @@ class ExponentOperation : public Operation<T>
     public:
         Tensor_t<T> t1;
         
-    ExponentOperation(Tensor_t<T> t1)
+    LogOperation(Tensor_t<T> t1)
     {
         this->t1 = t1;
     }  
@@ -28,37 +28,38 @@ class ExponentOperation : public Operation<T>
 
     void reset_graph();
     void to_string(){
-        std::cout << "Exp Operation \n";
+        std::cout << "Log Operation \n";
     }
 };
 
 
 /**
- * Exponential function Implementation
+ * Naperian Log function Implementation
 */
 
     template <typename T>
-    void ExponentOperation<T>::backward(Matrix<T> grad)
+    void LogOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * this->tmp->data); 
+        this->t1->backward(grad * (1/this->tmp->data)); 
     }
 
     template <typename T>
-    Tensor_t<T> ExponentOperation<T>::forward()
+    Tensor_t<T> LogOperation<T>::forward()
     {
-        this->tmp = std::make_shared<Tensor<T>>(this->t1->data.exponent());
+        this->tmp = std::make_shared<Tensor<T>>(this->t1->data.ln());
         return std::make_shared<Tensor<T>>(this->tmp->data, this->shared_from_this());
     }
 
     template <typename T>
-    void ExponentOperation<T>::zero_grad(){
+    void LogOperation<T>::zero_grad(){
         this->t1->zero_grad(); 
         this->tmp->zero_grad();
     }
 
     template <typename T>
-    void ExponentOperation<T>::reset_graph(){
+    void LogOperation<T>::reset_graph(){
         this->t1->reset_graph(); 
+        this->tmp->reset_graph(); 
     }
 
 

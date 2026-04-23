@@ -967,18 +967,20 @@ class Matrix
         return Matrix<T>(this->data);
     }
 
-    static Matrix<T> ravel(Matrix<T> mat)
-    {
-        return Matrix<T>(mat.data);
-    }
 
     Matrix<T> reshape(shape_t shape)
     {
         return Matrix<T>(this->data, shape);
     }
 
-    // Matrix mathematic functions
+    // Matrix static functions
+    //********************************************************************************* */
 
+    static Matrix<T> ravel(Matrix<T> mat)
+    {
+        return Matrix<T>(mat.data);
+    }
+    
     static Matrix<T> zeros(shape_t shape)
     {
         long n = 1;
@@ -997,8 +999,30 @@ class Matrix
     {
         return  Matrix<T>::random(Matrix<T>::getShape(inshape));
     }
-
+    
     static Matrix<T> random(shape_t shape)
+    {
+        std::vector<T> res;
+        long numElems = 1;
+
+        for(auto i: shape)
+            numElems *= i;
+
+        for(long k=0; k<numElems; k++)
+        {
+            res.push_back((T)std::rand());
+        }
+        
+        return Matrix<T>(res, shape);
+    }
+
+    // impl rand n
+    static Matrix<T> randomn(std::initializer_list<long> inshape)
+    {
+        return  Matrix<T>::randomn(Matrix<T>::getShape(inshape));
+    }
+
+    static Matrix<T> randomn(shape_t shape)
     {
         std::vector<T> res;
         long numElems = 1;
@@ -1012,6 +1036,30 @@ class Matrix
         }
         
         return Matrix<T>(res, shape);
+    }
+
+    static Matrix<T> log(Matrix<T> mat)
+    {
+        for (int i=0; i<mat.get_size(); i++)
+        {   
+            mat.at(i) = (std::log(mat.at(i)));
+        }
+    }
+
+    static Matrix<T> eye(size_t inshape){
+        long numElems = 1;
+        std::vector<T> res;
+
+        for(auto i=0; i<inshape; i++)
+        {
+            res.push_back(1);
+            for(auto j=0; j<inshape; j++){
+                res.push_back(0);
+            }
+        }
+
+
+        return Matrix<T>(res);
     }
 
     void ones()

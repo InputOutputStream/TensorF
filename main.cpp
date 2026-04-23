@@ -39,6 +39,7 @@ void test_1D_sum()
     (a.sum() == 10) ? PASS("1D sum") : FAIL("1D sum");
 }
 
+
 void test_1D_arithmetic()
 {
     // numpy: [1,2,3] + [4,5,6] = [5,7,9]
@@ -537,7 +538,7 @@ void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
     auto param2 = l2.parameters(); 
     params.insert(params.end(), param2.begin(), param2.end());
 
-    Optimizer<T> Op(params, 0.1, SGD);
+    Optimizer<T> Op(params, 0.5, SGD);
 
     for(int epoch = 1; epoch <= epochs; epoch++)
     {
@@ -551,20 +552,17 @@ void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
         // loss
         Tensor_t<T> loss = Tensor<T>::mse(labels, out);
 
-        
-
         // backward
-
         loss->backward(Matrix<T>(1));
 
         Op.step();
 
         Op.zero_grad();
         
-        if(epoch % 1000 == 0)
+        if(epoch % 100 == 0)
         {
             std:: cerr << "out" << out->data;
-            std:: cerr << "epoch: " <<epoch << " "<< "loss: "<< loss->data;    
+            std:: cerr << "epoch: " <<epoch << " "<< "loss: "<< loss->data * 100;    
         }
     }
 
@@ -613,47 +611,47 @@ void nn(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
 
 int main()
 {
-    // cout << "=== 1D ===\n";
-    // test_1D_dot();
-    // test_1D_sum();
-    // test_1D_arithmetic();
+    cout << "=== 1D ===\n";
+    test_1D_dot();
+    test_1D_sum();
+    test_1D_arithmetic();
 
-    // cout << "\n=== 2D ===\n";
-    // test_2D_matmul();
-    // test_2D_transpose();
-    // test_2D_sum_axis0();
-    // test_2D_sum_axis1();
+    cout << "\n=== 2D ===\n";
+    test_2D_matmul();
+    test_2D_transpose();
+    test_2D_sum_axis0();
+    test_2D_sum_axis1();
 
-    // cout << "\n=== 3D ===\n";
-    // test_3D_matmul();
-    // test_3D_sum_axis0();
-    // test_3D_sum_axis1();
-    // test_3D_sum_axis2();
-    // test_3D_transpose();
+    cout << "\n=== 3D ===\n";
+    test_3D_matmul();
+    test_3D_sum_axis0();
+    test_3D_sum_axis1();
+    test_3D_sum_axis2();
+    test_3D_transpose();
     
-    // cout << "\n=== 4D & non-uniform ===\n";
-    // test_4D_matmul(); 
-    // test_nonuniform_sum_axis0();
-    // test_nonuniform_sum_axis1();
-    // test_nonuniform_sum_axis2(); 
-    // test_nonuniform_transpose(); 
-    // test_3D_arithmetic(); 
+    cout << "\n=== 4D & non-uniform ===\n";
+    test_4D_matmul(); 
+    test_nonuniform_sum_axis0();
+    test_nonuniform_sum_axis1();
+    test_nonuniform_sum_axis2(); 
+    test_nonuniform_transpose(); 
+    test_3D_arithmetic(); 
 
-    // cout << "\n=== Broadcast forward ===\n";
-    // test_broadcast_outer_product_add();
-    // test_broadcast_1D_to_2D();
-    // test_broadcast_scalar_matrix();
-    // test_broadcast_3D_middle_axis();
-    // test_broadcast_multiply();
+    cout << "\n=== Broadcast forward ===\n";
+    test_broadcast_outer_product_add();
+    test_broadcast_1D_to_2D();
+    test_broadcast_scalar_matrix();
+    test_broadcast_3D_middle_axis();
+    test_broadcast_multiply();
 
-    // cout << "\n=== sumGradForBroadcast ===\n";
-    // test_sumgrad_col_vector();
-    // test_sumgrad_1D_from_2D();
-    // test_sumgrad_no_broadcast();
-    // test_sumgrad_row_vector();
+    cout << "\n=== sumGradForBroadcast ===\n";
+    test_sumgrad_col_vector();
+    test_sumgrad_1D_from_2D();
+    test_sumgrad_no_broadcast();
+    test_sumgrad_row_vector();
 
-    // cout << "\n=== Sigmoid test ===\n";
-    // sigmoidTest();
+    cout << "\n=== Sigmoid test ===\n";
+    sigmoidTest();
 
     cout << "\n=== nn test ===\n";
     Tensor_t<double> in = make_tensor<double>({{0,0},{0,1},{1,0},{1, 1}});

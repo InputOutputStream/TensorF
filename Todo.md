@@ -1,9 +1,6 @@
 
 // With statics you'd write:
-Tensor<double>::zeros({4, 2});
-Tensor<double>::ones({4, 2});
 Tensor<double>::randn({4, 2});
-Tensor<double>::eye(4);
 Tensor<double>::from({{0,0},{0,1},{1,0},{1,1}});
 
 
@@ -58,13 +55,8 @@ These are the ones you'll actually call in training code:
 
 cpp
 // Currently you write:
-make_tensor<double>({{0,0},{0,1},{1,0},{1,1}});
 
-// With statics you'd write:
-Tensor<double>::zeros({4, 2});
-Tensor<double>::ones({4, 2});
 Tensor<double>::randn({4, 2});
-Tensor<double>::eye(4);
 Tensor<double>::from({{0,0},{0,1},{1,0},{1,1}});
 cpp
 template <typename T>
@@ -108,11 +100,7 @@ static Matrix<T> eye(long n);            // identity, useful for grad checks
 What to do with make_tensor helpers
 Keep them as free functions for internal use inside operations (they're already everywhere). The Tensor statics are just a cleaner public API on top. You don't need to delete make_tensor — let the statics call it:
 
-cpp
-static Tensor_t<T> zeros(shape_t shape)
-{
-    return make_tensor<T>(Matrix<T>::zeros(shape));  // Matrix static does the work
-}
+
 Summary
 Method	Where
 zeros, ones, randn, eye, from	Tensor static — public API
@@ -120,7 +108,6 @@ zeros, ones, eye (returning Matrix)	Matrix static — internal use
 make_tensor<T>(...) free functions	Keep as-is — used inside ops
 This way your user-facing code becomes clean (Tensor<double>::randn({4,2})) while the internals stay unchanged.
 
-You said: the next thigd will be this,,
 the next thigd will be this,,
 
 ### Loss functions

@@ -17,7 +17,7 @@
             bool sbias;
 
             Linear(long in_features, long out_features, bool sbias = true){
-                    this->weight = make_tensor<T>(Matrix<T>::random({in_features, out_features}));
+                    this->weight = make_tensor<T>(Matrix<T>::randomn({in_features, out_features}));
                     this->register_parameter(weight);
                     this->sbias = sbias;
 

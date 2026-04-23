@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <vector>
+#include <ranges>
 #include "Matrix.hpp"
 
 #include "../Operations/AddOperation.hpp"
@@ -15,6 +16,8 @@
 #include "../Operations/MatmulOperation.hpp"
 #include "../Operations/SigmoidOperation.hpp"
 #include "../Operations/SumOperation.hpp"
+#include "../Operations/LogOperation.hpp"
+#include "../Operations/TransposeOperation.hpp"
 
 #include "../Types/types.hpp"
 #include "../Overloads/tensor_overloads.hpp"
@@ -132,6 +135,12 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return this->frontOp->forward(); 
     }
 
+    Tensor_t<T> ln()
+    {
+        this->frontOp = std::make_shared<LogOperation<T>>((this->shared_from_this()));
+        return this->frontOp->forward(); 
+    }
+
     Tensor_t<T> relu()
     {
         this->frontOp = std::make_shared<ReluOperation<T>>((this->shared_from_this()));
@@ -161,17 +170,62 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->frontOp = std::make_shared<SumOperation<T>>(this->shared_from_this());
         return this->frontOp->forward();
     }
+
+     Tensor_t<T> transpose(std::initializer_list<long> inshape)
+    {
+        this->frontOp = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
+        return this->frontOp->forward(inshape);
+    }
+
+    Tensor_t<T> transpose(shape_t inshape)
+    {
+        this->frontOp = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
+        return this->frontOp->forward(inshape);
+    }
+
+     Tensor_t<T> transpose()
+    {
+        this->frontOp = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
+        return this->frontOp->forward();
+    }
     // Functions Off graph...........................................................................
 
-    // Tensor_t<T> sigmoid()
-    // {
-    //     auto temp = (Matrix<T>(1) / ((T)1 + (Matrix<T>(-1)*this->data).exponent()));
-    //     return make_tensor<T>(temp);
-    // }
 
     Tensor_t<T> softmax()
     {
         return this->exp() / (this->exp())->sum();
+    }
+    
+    Tensor_t<T> sum(size_t axis)
+    {
+        return make_tensor<T>(this->data.sum(axis));
+    }
+
+    // Static functions ********************************************************
+
+    // loss functions 
+    static T cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred)
+    {
+        T loss;
+        for(auto [yt, yp] : std::views::zip(ypred, ytrue))
+        {
+            loss += yt * yp->ln();
+        }
+
+        return -loss;
+    }
+
+    static T binary_cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred)
+    {
+        T loss;
+        auto n = ytrue->size();
+
+        for(auto [yt, yp] : std::views::zip(ypred, ytrue))
+        {
+            loss += yt * yt->ln() + (1 - yt)*(1 - yp)->ln(); 
+        }
+
+        return -loss;
     }
 
     static Tensor_t<T> mse(Tensor_t<T> ytrue, Tensor_t<T> ypred)
@@ -179,25 +233,32 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return (((ytrue - ypred) ^ (T)2)->sum()) / (T)(ytrue->data.shape[0]);
     }
 
-    Tensor_t<T> sum(size_t axis)
-    {
-        return make_tensor<T>(this->data.sum(axis));
+
+    static Tensor_t<T> zeros(std::initializer_list<long> shape){
+        return make_tensor<T>(Matrix<T>::zeros(shape));
     }
 
-    Tensor_t<T> transpose(std::initializer_list<long> inshape)
-    {
-        return make_tensor<T>(this->data.transpose(inshape));
+    static Tensor_t<T> ones(std::initializer_list<long> shape){
+        return make_tensor<T>(Matrix<T>::ones(shape));
     }
 
-    Tensor_t<T> transpose(shape_t inshape)
-    {
-        return make_tensor<T>(this->data.transpose(inshape));
+    static Tensor_t<T> randn(std::initializer_list<long> shape){
+        return make_tensor<T>(Matrix<T>::randomn(shape));
     }
 
-     Tensor_t<T> transpose()
-    {
-        return make_tensor<T>(this->data.transpose());
+    static Tensor_t<T> random(std::initializer_list<long> shape){
+        return make_tensor<T>(Matrix<T>::random(shape));
     }
+
+    static Tensor_t<T> eye(std::initializer_list<long> shape){
+        return make_tensor<T>(Matrix<T>::eye(shape));
+    }
+
+    template<typename k>
+    static Tensor_t<T> from(k in){
+        return make_tensor<T>(Matrix<T>::from(in));
+    }
+
 
     /**
      *  create a friend of a static
