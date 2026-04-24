@@ -538,7 +538,7 @@ void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
     auto param2 = l2.parameters(); 
     params.insert(params.end(), param2.begin(), param2.end());
 
-    Optimizer<T> Op(params, 0.5, SGD);
+    Optimizer<T> Op(params, 0.01, ADAM, 0.9, 0.999, 1e-8);
 
     for(int epoch = 1; epoch <= epochs; epoch++)
     {
@@ -559,7 +559,7 @@ void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
 
         Op.zero_grad();
         
-        if(epoch % 100 == 0)
+        if(epoch % 1000 == 0)
         {
             std:: cerr << "out" << out->data;
             std:: cerr << "epoch: " <<epoch << " "<< "loss: "<< loss->data * 100;    

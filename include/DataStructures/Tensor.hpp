@@ -171,7 +171,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return this->frontOp->forward();
     }
 
-     Tensor_t<T> transpose(std::initializer_list<long> inshape)
+    Tensor_t<T> transpose(std::initializer_list<long> inshape)
     {
         this->frontOp = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
         return this->frontOp->forward(inshape);
@@ -183,11 +183,33 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return this->frontOp->forward(inshape);
     }
 
-     Tensor_t<T> transpose()
+    Tensor_t<T> transpose()
     {
         this->frontOp = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
         return this->frontOp->forward();
     }
+
+    Tensor_t<T> sqrt()
+    {
+        auto p = make_tensor<T>(1/2);
+        this->frontOp = std::make_shared<PowerOperation<T>>(this->shared_from_this(), p);
+        return this->frontOp->forward();
+    }
+
+    Tensor_t<T> cbrt()
+    {
+        auto p = make_tensor<T>(1/3);
+        this->frontOp = std::make_shared<PowerOperation<T>>(this->shared_from_this(), p);
+        return this->frontOp->forward();
+    }
+
+    Tensor_t<T> power(int n)
+    {
+        auto p = make_tensor<T>(n);
+        this->frontOp = std::make_shared<PowerOperation<T>>(this->shared_from_this(), p);
+        return this->frontOp->forward();
+    }
+
     // Functions Off graph...........................................................................
 
 
@@ -201,36 +223,50 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return make_tensor<T>(this->data.sum(axis));
     }
 
+
     // Static functions ********************************************************
 
     // loss functions 
-    static T cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred)
-    {
-        T loss;
-        for(auto [yt, yp] : std::views::zip(ypred, ytrue))
-        {
-            loss += yt * yp->ln();
-        }
+    // static T cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred)
+    // {
+    //     T loss;
+    //     for(auto [yt, yp] : std::views::zip(ypred, ytrue))
+    //     {
+    //         loss += yt * yp->ln();
+    //     }
 
-        return -loss;
-    }
+    //     return -loss;
+    // }
 
-    static T binary_cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred)
-    {
-        T loss;
-        auto n = ytrue->size();
+    // static T binary_cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred)
+    // {
+    //     T loss;
+    //     auto n = ytrue->size();
+        
+    //     for(auto [yt, yp] : std::views::zip(ypred, ytrue))
+    //     {
+    //         loss += yt * yt->ln() + (1 - yt)*(1 - yp)->ln(); 
+    //     }
 
-        for(auto [yt, yp] : std::views::zip(ypred, ytrue))
-        {
-            loss += yt * yt->ln() + (1 - yt)*(1 - yp)->ln(); 
-        }
-
-        return -loss;
-    }
+    //     return -loss;
+    // }
 
     static Tensor_t<T> mse(Tensor_t<T> ytrue, Tensor_t<T> ypred)
     {
         return (((ytrue - ypred) ^ (T)2)->sum()) / (T)(ytrue->data.shape[0]);
+    }
+
+
+    static Tensor_t<T> transpose(Tensor_t<T> ten){
+        return ten->transpose();
+    }
+
+    static Tensor_t<T> transpose(Tensor_t<T> ten, std::initializer_list<long> inshape){
+        return ten->transpose(inshape);
+    }
+
+    static Tensor_t<T> transpose(Tensor_t<T> ten,  shape_t inshape){
+        return ten->transpose(inshape);
     }
 
 

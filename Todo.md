@@ -1,119 +1,4 @@
 
-// With statics you'd write:
-Tensor<double>::randn({4, 2});
-Tensor<double>::from({{0,0},{0,1},{1,0},{1,1}});
-
-
-
-
-
-
-### Loss functions
-
-These compose entirely from your primitives once the graph works. MSE is subtract + power + mean. Cross-entropy is log + multiply + sum + negate. You don't need special Operation classes for these — they're just functions that take tensors and return tensors, using your existing ops. The graph builds itself automatically.
-
-### DataLoader
-
-This is pure CPU bookkeeping — a class that holds your dataset, shuffles indices each epoch, and yields batches as pairs of `(Tensor_t<T> X, Tensor_t<T> y)`. No autograd involvement at all.
-
----
-
-## Layer 3 — GPU with SYCL
-
-### The architecture decision
-
-The cleanest approach is to make `Matrix` backend-agnostic by introducing a storage abstraction. Your `Matrix` currently owns a `std::vector<T> data` directly. Instead, you want something like a `Storage` that can be either CPU or GPU-backed, with the Matrix not caring which.
-
-In practice for a learning project, a simpler approach works: add a device flag to Matrix (`CPU` or `GPU`), and have each operation check the flag and dispatch to either the CPU implementation or a SYCL kernel. Ugly but transparent.
-
-### SYCL setup
-
-oneAPI uses `sycl::queue` as the execution context. You create one queue per device. The memory model uses `sycl::buffer` + `sycl::accessor`, or the simpler Unified Shared Memory (USM) model where you allocate with `sycl::malloc_device` and pass raw pointers to kernels — much closer to CUDA mentally.
-
-For your matmul kernel, the naive GPU version is each output element computed by one work-item. Then you optimize with tiling into local (shared) memory — each work-group loads a tile of A and a tile of B into fast local memory, computes partial products, then moves to the next tile. This is the fundamental GPU matmul optimization and the pattern is identical in CUDA and SYCL.
-
-The ops you need to port first, in order of importance: elementwise multiply, elementwise add, matmul, exp, sum-reduction. Everything else composes from those.
-
-### What stays on CPU
-
-The graph traversal, backward pass logic, optimizer step — all of these stay on CPU. Only the heavy arithmetic (the actual tensor math inside forward and backward) goes to GPU. This is exactly what PyTorch does — the autograd engine is CPU C++, only kernels run on device.
-
----
-
-it works ******************************************************************************************************************************************************************************
-
-now there are a bunch of methods that are to be static forusability but dont know if i should make then static on the matrix class or on the tensor class
-
-1:39 AM
-Claude responded: Good question.
-Good question. Here's the clean way to think about it:
-
-Rule of thumb: static factories go on the class users interact with — which is Tensor. Matrix statics are implementation details.
-
-What should be static on Tensor
-These are the ones you'll actually call in training code:
-
-cpp
-// Currently you write:
-
-Tensor<double>::randn({4, 2});
-Tensor<double>::from({{0,0},{0,1},{1,0},{1,1}});
-cpp
-template <typename T>
-class Tensor : public std::enable_shared_from_this<Tensor<T>>
-{
-public:
-    // ...existing members...
-
-    static Tensor_t<T> zeros(shape_t shape)
-    {
-        long n = 1;
-        for (auto d : shape) n *= d;
-        return make_tensor<T>(Matrix<T>(std::vector<T>(n, (T)0), shape));
-    }
-
-    static Tensor_t<T> ones(shape_t shape)
-    {
-        long n = 1;
-        for (auto d : shape) n *= d;
-        return make_tensor<T>(Matrix<T>(std::vector<T>(n, (T)1), shape));
-    }
-
-    static Tensor_t<T> randn(shape_t shape)
-    {
-        Matrix<T> tmp;
-        return make_tensor<T>(tmp.random(shape));
-    }
-
-    static Tensor_t<T> from(std::initializer_list<std::initializer_list<T>> data)
-    {
-        return make_tensor<T>(data);
-    }
-};
-What should stay static on Matrix
-Keep the low-level ones on Matrix since Tensor statics will call them internally — and you already use Matrix directly in operations:
-
-cpp
-static Matrix<T> zeros(shape_t shape);   // used in matmul, sumGrad etc.
-static Matrix<T> ones(shape_t shape);    // used in SumOperation backward
-static Matrix<T> eye(long n);            // identity, useful for grad checks
-What to do with make_tensor helpers
-Keep them as free functions for internal use inside operations (they're already everywhere). The Tensor statics are just a cleaner public API on top. You don't need to delete make_tensor — let the statics call it:
-
-
-Summary
-Method	Where
-zeros, ones, randn, eye, from	Tensor static — public API
-zeros, ones, eye (returning Matrix)	Matrix static — internal use
-make_tensor<T>(...) free functions	Keep as-is — used inside ops
-This way your user-facing code becomes clean (Tensor<double>::randn({4,2})) while the internals stay unchanged.
-
-the next thigd will be this,,
-
-### Loss functions
-
-These compose entirely from your primitives once the graph works. MSE is subtract + power + mean. Cross-entropy is log + multiply + sum + negate. You don't need special Operation classes for these — they're just functions that take tensors and return tensors, using your existing ops. The graph builds itself automatically.
-
 ### DataLoader
 
 This is pure CPU bookkeeping — a class that holds your dataset, shuffles indices each epoch, and yields batches as pairs of `(Tensor_t<T> X, Tensor_t<T> y)`. No autograd involvement at all.
@@ -266,7 +151,7 @@ Show more
 Claude responded: Good roadmap.
 Good roadmap. Honest advice on both:
 
-Layer 4 — Optimizations
+# Layer 4 — Optimizations
 Do tiling first, everything else second. It's the highest ROI change and it's pure algorithmic — no compiler magic, no new dependencies. You'll feel the difference immediately on anything above 256×256.
 
 The pragma hints are worth adding but don't chase them. Modern GCC/Clang auto-vectorizes clean loops already. Write clean code, check the assembly once with -O2 -mavx2 -S, and only add pragmas if the compiler missed something obvious. Don't guess.

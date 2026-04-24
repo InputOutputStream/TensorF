@@ -950,6 +950,29 @@ class Matrix
         }
         return Matrix<T>(arr, this->shape);
     } 
+
+    Matrix<T> sqrt() 
+    {
+        std::vector<T> arr;
+        for(size_t i=0; i< this->data.size(); i++)
+        { 
+            
+            T prod = (T)std::sqrt(this->data.at(i));
+            arr.push_back(prod);
+        }
+        return Matrix<T>(arr, this->shape);
+    } 
+
+    Matrix<T> cbrt() 
+    {
+        std::vector<T> arr;
+        for(size_t i=0; i< this->data.size(); i++)
+        { 
+            T prod = (T)cbrt(this->data.at(i));
+            arr.push_back(prod);
+        }
+        return Matrix<T>(arr, this->shape);
+    } 
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 
     size_t get_size()
@@ -979,6 +1002,9 @@ class Matrix
     static Matrix<T> ravel(Matrix<T> mat)
     {
         return Matrix<T>(mat.data);
+    }
+
+    static Matrix<T> slice(size_t start, size_t end, size_t axis){
     }
     
     static Matrix<T> zeros(shape_t shape)
