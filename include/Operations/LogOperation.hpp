@@ -9,9 +9,6 @@
 template <typename T>
 class LogOperation : public Operation<T>
 {
-    protected: 
-        Tensor_t<T> tmp;
-
     public:
         Tensor_t<T> t1;
         
@@ -40,26 +37,23 @@ class LogOperation : public Operation<T>
     template <typename T>
     void LogOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * (1/this->tmp->data)); 
+        this->t1->backward(grad * (1/this->t1->data)); 
     }
 
     template <typename T>
     Tensor_t<T> LogOperation<T>::forward()
     {
-        this->tmp = std::make_shared<Tensor<T>>(this->t1->data.ln());
-        return std::make_shared<Tensor<T>>(this->tmp->data, this->shared_from_this());
+        return std::make_shared<Tensor<T>>(this->t1->data, this->shared_from_this());
     }
 
     template <typename T>
     void LogOperation<T>::zero_grad(){
         this->t1->zero_grad(); 
-        this->tmp->zero_grad();
     }
 
     template <typename T>
     void LogOperation<T>::reset_graph(){
         this->t1->reset_graph(); 
-        this->tmp->reset_graph(); 
     }
 
 

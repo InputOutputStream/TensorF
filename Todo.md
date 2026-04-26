@@ -1,25 +1,4 @@
 
-### DataLoader
-
-This is pure CPU bookkeeping — a class that holds your dataset, shuffles indices each epoch, and yields batches as pairs of `(Tensor_t<T> X, Tensor_t<T> y)`. No autograd involvement at all.
-
-what are you advicing me, you are not authorise to code
-Show more
-1:45 AM
-Claude responded: Good plan.
-Good plan. Here's my advice on both:
-
-Loss Functions
-Don't create new Operation classes. You're right that they compose from primitives. The key insight is: the graph builds itself through the ops you already have.
-
-The only thing you're missing is an on-graph log() — you'll need a LogOperation for cross-entropy since log doesn't decompose into your current primitives. Everything else you have.
-
-Priority order to implement:
-
-MSE — you basically have it already in mse(), just clean it up as a standalone function
-Binary Cross-Entropy — needs log, then it's just -( y*log(p) + (1-y)*log(1-p) ) averaged
-Categorical Cross-Entropy — needs BCE working first plus softmax, which you also have
-Keep them as free functions (not methods, not classes), same pattern as your existing nn_xor:
 
 cpp
 // loss.hpp — just free functions
@@ -64,13 +43,7 @@ The ops you need to port first, in order of importance: elementwise multiply, el
 
 The graph traversal, backward pass logic, optimizer step — all of these stay on CPU. Only the heavy arithmetic (the actual tensor math inside forward and backward) goes to GPU. This is exactly what PyTorch does — the autograd engine is CPU C++, only kernels run on device.
 
-
-
-from the is the plan, for low tier or rather no nvdia gpu pcs, pc with intel 520, 630 0r 4400 but really nothing fancy
-Show more
-1:48 AM
-Claude responded: Good target.
-Good target. Intel integrated graphics (520/630/4400) are exactly what oneAPI/SYCL was built for. Here's my honest advice:
+Intel integrated graphics (520/630/4400) are exactly what oneAPI/SYCL was built for. Here's my honest advice:
 
 Reality check first
 Intel iGPUs are memory-bandwidth constrained — they share RAM with the CPU. For small tensors (like your XOR net) you'll actually be slower on GPU than CPU because the data transfer overhead dominates. The speedup only shows up at larger batch sizes and bigger weight matrices. Set your expectations accordingly when benchmarking.
@@ -118,8 +91,6 @@ Synchronization. SYCL kernels are asynchronous. After a kernel launches, your CP
 What I'd actually do in your position
 Get the toolkit installed, write a standalone matmul SYCL program that works on your iGPU, benchmark it against your CPU matmul with a 512x512 matrix. That single experiment will tell you whether the integration is worth it for your use case before you restructure Matrix at all.
 
-You said: second to the last thing will be this
-second to the last thing will be this 
 
 ## Layer 4 — Optimizations
 
@@ -144,12 +115,6 @@ More advanced: instead of executing the graph node by node, you inspect sequence
 The key dependency chain is: **broadcasting correctness → Module system → training loop → then GPU**. Don't touch GPU until you've trained a small network successfully on CPU. Everything built on a broken foundation just hides the bugs deeper.
 
 
-
-and the last will be to actually make a disbruted system
-Show more
-1:50 AM
-Claude responded: Good roadmap.
-Good roadmap. Honest advice on both:
 
 # Layer 4 — Optimizations
 Do tiling first, everything else second. It's the highest ROI change and it's pure algorithmic — no compiler magic, no new dependencies. You'll feel the difference immediately on anything above 256×256.
@@ -176,10 +141,7 @@ The one thing that will force a real redesign: your Optimizer::step() currently 
 Don't use raw sockets. Use MPI. It handles topology, buffering, collective ops, and process management. Writing your own communication layer is a semester-long project that teaches you networking, not ML systems.
 
 The honest priority order
-broadcasting correctness  ← you're here, nearly done
-↓
-loss functions + DataLoader
-↓
+
 train something real (MNIST, not just XOR)
 ↓
 CPU tiling
