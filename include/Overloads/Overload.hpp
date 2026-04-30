@@ -5,8 +5,9 @@
 #include "../Types/types.hpp"
 #include <vector>
 #include <iostream>
-#include <cassert>
 #include <cmath>
+#include <algorithm>
+#include <stdexcept>
 
 /**
  * Arithmetic Operations
@@ -15,7 +16,9 @@
 template <typename T>
 std::vector<T> operator *(const std::vector<T> &a, const std::vector<T> &b) //std::Vector Multiplication
 {
-    assert("Tensors are not of the same size!!!" && a.size() == b.size());
+    if(a.size() != b.size())
+        throw std::runtime_error("Tensors are not of the same size!!!\n");
+
     std::vector<T> arr;
     for(size_t i=0; i<a.size(); i++)
     {
@@ -30,7 +33,9 @@ std::vector<T> operator *(const std::vector<T> &a, const std::vector<T> &b) //st
 template <typename T>
 std::vector<T> operator +(const std::vector<T> &a, const std::vector<T> &b) //std::Vector Addition
 {
-    assert("Tensors are not of the same size!!!" && a.size() == b.size());
+    if(a.size() != b.size())
+        throw std::runtime_error("Tensors are not of the same size!!!\n");
+
     std::vector<T> arr;
     for(size_t i=0; i< a.size(); i++)
     {
@@ -45,7 +50,9 @@ std::vector<T> operator +(const std::vector<T> &a, const std::vector<T> &b) //st
 template <typename T>
 std::vector<T> operator -(const std::vector<T> &a, const std::vector<T> &b) //std::Vector Subtraction
 {
-    assert("Tensors are not of the same size!!!" && a.size() == b.size());
+    if(a.size() != b.size())
+        throw std::runtime_error("Tensors are not of the same size!!!\n");
+
     std::vector<T> arr;
     for(size_t i=0; i< a.size(); i++)
     {
@@ -60,10 +67,14 @@ std::vector<T> operator -(const std::vector<T> &a, const std::vector<T> &b) //st
 template <typename T>
 std::vector<T> operator /(const std::vector<T> &a, const std::vector<T> &b) //std::Vector Division
 {
-    assert("Tensors are not of the same size!!!" && a.size() == b.size());
+    if(a.size() != b.size())
+        throw std::runtime_error("Tensors are not of the same size!!!\n");
+
     std::vector<T> arr;
     for(size_t i=0; i<a.size(); i++)
     { 
+        if (b.at(i) == T(0))
+            throw std::runtime_error("Division by zero in vector division\n");
         T quot = (T)(a.at(i) / b.at(i));
         arr.push_back(quot);
     }
@@ -108,8 +119,13 @@ template <typename T>
 std::vector<T> operator / (const T a, const std::vector<T> &b) // Scalar Division l
 {
     std::vector<T> arr;
+    if (std::find(b.begin(), b.end(), (double)0) != b.end())
+        throw std::runtime_error("Division by zero in vector division");
+    
     for(size_t i=0; i<b.size(); i++)
     { 
+        if (b.at(i) == T(0))
+            throw std::runtime_error("Division by zero in vector division\n");
         T prod = (T)(a / b.at(i));
         arr.push_back(prod);
     }
@@ -117,18 +133,19 @@ std::vector<T> operator / (const T a, const std::vector<T> &b) // Scalar Divisio
     return arr;
 } 
 
-template <typename T>
-std::vector<T> operator / (const std::vector<T> &b, const T a) // scalar Division r
-{
-    std::vector<T> arr;
-    for(size_t i=0; i<b.size(); i++)
-    { 
-        T prod = (T)(b.at(i)/a);
-        arr.push_back(prod);
-    }
 
+template <typename T>
+std::vector<T> operator/(const std::vector<T> &b, const T a)
+{
+    if (a == T(0))
+        throw std::runtime_error("Division by zero in vector/scalar division\n");
+
+    std::vector<T> arr;
+    arr.reserve(b.size());
+    for (size_t i = 0; i < b.size(); i++)
+        arr.push_back(b.at(i) / a);
     return arr;
-} 
+}
 
 
 template <typename T>
@@ -358,9 +375,39 @@ template <typename T>
 std::vector<T> operator ^(const std::vector<T> &a, const T n) // Power of a std::vector
 {
     std::vector<T> arr;
+    if (n == T(2))
+    {    // a[i] * a[i] instead of pow(a[i], 2)
+        for(size_t i=0; i<a.size(); i++)
+        { 
+            T prod = a.at(i) * a.at(i);
+            arr.push_back(prod);
+        }
+        return arr;
+    }    
+
+    if (n == T(3))
+    {    // a[i] * a[i] instead of pow(a[i], 3)
+        for(size_t i=0; i<a.size(); i++)
+        { 
+            T prod = a.at(i) * a.at(i) * a.at(i);
+            arr.push_back(prod);
+        }
+        return arr;
+    }    
+
+    if (n == T(4))
+    {    
+        for(size_t i=0; i<a.size(); i++)
+        { 
+            T prod = a.at(i) * a.at(i) * a.at(i)* a.at(i);
+            arr.push_back(prod);
+        }
+        return arr;
+    }
+    
     for(size_t i=0; i<a.size(); i++)
     { 
-        T prod = (T)pow(a.at(i), n);
+        T prod = (T)std::pow(a.at(i), n);
         arr.push_back(prod);
     }
 
@@ -389,7 +436,7 @@ template <typename T>
 std::ostream& operator << (std::ostream &out , const std::vector<T> &a) // Print
 {
     char C[] = "[]";
-    if (std::is_same<T, long>::value) {
+    if (std::is_same<T, size_t>::value) {
         C[0] = '(';
         C[1] = ')';
         

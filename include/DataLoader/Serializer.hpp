@@ -29,8 +29,8 @@
  * └────────────────────────────────────────────┘
  */
 
-static constexpr char     MAGIC[4]   = {'T','N','S','F'};
-static constexpr uint32_t VERSION     = 1;
+static inline constexpr char     MAGIC[4]   = {'T','N','S','F'};
+static inline constexpr uint32_t VERSION     = 1;
 
 template<typename T>
 class Serializer {
@@ -82,7 +82,7 @@ public:
 
         // Tensors
         for (const auto& tensor : model) {
-            const shape_t& shape = tensor->data.shape;
+            const shape_t& shape = tensor->val.shape;
 
             uint32_t rank = static_cast<uint32_t>(shape.size());
             write_val<uint32_t>(file, rank);
@@ -90,10 +90,10 @@ public:
             for (auto dim : shape)
                 write_val<int64_t>(file, static_cast<int64_t>(dim));
 
-            uint64_t n_elem = static_cast<uint64_t>(tensor->data.data.size());
+            uint64_t n_elem = static_cast<uint64_t>(tensor->val.data.size());
             write_val<uint64_t>(file, n_elem);
 
-            write_bytes(file, tensor->data.data.data(), n_elem * sizeof(T));
+            write_bytes(file, tensor->val.data.data(), n_elem * sizeof(T));
         }
 
         file.close();

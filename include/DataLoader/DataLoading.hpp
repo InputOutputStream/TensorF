@@ -4,6 +4,6 @@
 #include "Tabular.hpp"
 #include "Serializer.hpp"
 #include "Dataset.hpp"
-#include "NpyLoader.hpp"
+#include "NPYLoader.hpp"
 
 #endif

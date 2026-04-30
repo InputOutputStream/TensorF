@@ -41,17 +41,17 @@ class MultiplyOperation : public Operation<T>
     {
         // Switching Gradients when carrying out product
         
-        Matrix<T> grad1 = sumGradForBroadcast(grad * this->t2->data, t1->data.shape);
-        Matrix<T> grad2 = sumGradForBroadcast(grad * this->t1->data, t2->data.shape);
+        Matrix<T> grad1 = sumGradForBroadcast(grad * this->t2->val, t1->val.shape);
+        Matrix<T> grad2 = sumGradForBroadcast(grad * this->t1->val, t2->val.shape);
 
-        this->t1->backward(grad1); 
-        this->t2->backward(grad2);
+        this->t1->backward(grad1);         
+        this->t2->backward(grad2);        
     }
 
     template <typename T>
     Tensor_t<T> MultiplyOperation<T>::forward()
     {
-        return std::make_shared<Tensor<T>>(this->t1->data*this->t2->data, this->shared_from_this());
+        return std::make_shared<Tensor<T>>(this->t1->val*this->t2->val, this->shared_from_this());
     }
 
     template <typename T>

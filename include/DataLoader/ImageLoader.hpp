@@ -233,7 +233,7 @@ public:
     // ────────────────────────────────────────────────────────────────────────
     Matrix<T> load(const std::string& path) {
         RawImage img = load_raw(path);
-        return Matrix<T>(img.data, { (long)img.h, (long)img.w, (long)img.c });
+        return Matrix<T>(img.data, { img.h, img.w, img.c });
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -275,8 +275,8 @@ public:
             batch_data.insert(batch_data.end(), img.data.begin(), img.data.end());
         }
 
-        long N = static_cast<long>(paths.size());
-        return Matrix<T>(batch_data, { N, (long)ref_h, (long)ref_w, (long)ref_c });
+        size_t N = paths.size();
+        return Matrix<T>(batch_data, { N, ref_h, ref_w, ref_c });
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -335,7 +335,7 @@ public:
         int actual_c = (desired == 0) ? c : desired;
         int fh = (target_h > 0) ? target_h : h;
         int fw = (target_w > 0) ? target_w : w;
-        return { (long)fh, (long)fw, (long)actual_c };
+        return { fh, fw, actual_c };
     }
 };
 

@@ -40,14 +40,14 @@ class ExponentOperation : public Operation<T>
     template <typename T>
     void ExponentOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * this->tmp->data); 
+        this->t1->backward(grad * this->tmp->val); 
     }
 
     template <typename T>
     Tensor_t<T> ExponentOperation<T>::forward()
     {
-        this->tmp = std::make_shared<Tensor<T>>(this->t1->data.exponent());
-        return std::make_shared<Tensor<T>>(this->tmp->data, this->shared_from_this());
+        this->tmp = std::make_shared<Tensor<T>>(this->t1->val.exponent());
+        return std::make_shared<Tensor<T>>(this->tmp->val, this->shared_from_this());
     }
 
     template <typename T>

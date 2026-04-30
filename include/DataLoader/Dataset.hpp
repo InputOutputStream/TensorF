@@ -40,8 +40,8 @@ public:
         if (idx >= size())
             throw std::out_of_range("Dataset index out of range.");
 
-        long n_feat = X.shape[1];
-        long n_out  = Y.shape[1];
+        size_t n_feat = X.shape[1];
+        size_t n_out  = Y.shape[1];
 
         std::vector<T> x_row(X.data.begin() + idx * n_feat,
                               X.data.begin() + idx * n_feat + n_feat);
@@ -108,10 +108,10 @@ public:
         // Returns {X_batch [batch, n_feat], Y_batch [batch, n_out]}
         std::pair<Matrix<T>, Matrix<T>> operator*() const {
             size_t end  = std::min(cursor + loader.batch_size, loader.dataset.size());
-            size_t n    = end - cursor;
+            size_t n  = end - cursor;
 
-            long n_feat = loader.dataset.X.shape[1];
-            long n_out  = loader.dataset.Y.shape[1];
+            size_t n_feat = loader.dataset.X.shape[1];
+            size_t n_out  = loader.dataset.Y.shape[1];
 
             std::vector<T> xb, yb;
             xb.reserve(n * n_feat);
@@ -125,8 +125,8 @@ public:
             }
 
             return {
-                Matrix<T>(xb, {(long)n, n_feat}),
-                Matrix<T>(yb, {(long)n, n_out})
+                Matrix<T>(xb, {n, n_feat}),
+                Matrix<T>(yb, {n, n_out})
             };
         }
     };

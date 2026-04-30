@@ -11,7 +11,7 @@ class TransposeOperation : public Operation<T>
 {
     protected: 
         Tensor_t<T> tmp;
-        shape_t shape;
+        shape_t inperm;
 
     public:
         Tensor_t<T> t1;
@@ -24,8 +24,8 @@ class TransposeOperation : public Operation<T>
     void backward(Matrix<T> grad);
 
     Tensor_t<T> forward(); 
-    Tensor_t<T> forward(std::initializer_list<long> inshape);
-    Tensor_t<T> forward(shape_t shape);
+    Tensor_t<T> forward(std::initializer_list<size_t> inperm);
+    Tensor_t<T> forward(shape_t inperm);
    
     void zero_grad();
 
@@ -44,8 +44,8 @@ class TransposeOperation : public Operation<T>
     template <typename T>
     void TransposeOperation<T>::backward(Matrix<T> grad)
     {
-        if(this->shape.size() > 0)
-            this->t1->backward(grad.transpose(this->shape)); 
+        if(this->inperm.size() > 0)
+            this->t1->backward(grad.transpose(this->inperm)); 
         else 
             this->t1->backward(grad.transpose()); 
     }
@@ -53,24 +53,24 @@ class TransposeOperation : public Operation<T>
     template <typename T>
     Tensor_t<T> TransposeOperation<T>::forward()
     {
-        this->tmp = std::make_shared<Tensor<T>>(this->t1->data.transpose());
-        return std::make_shared<Tensor<T>>(this->tmp->data, this->shared_from_this());
+        this->tmp = std::make_shared<Tensor<T>>(this->t1->val.transpose());
+        return std::make_shared<Tensor<T>>(this->tmp->val, this->shared_from_this());
     }
 
     template <typename T>
-    Tensor_t<T> TransposeOperation<T>::forward(std::initializer_list<long> inshape)
+    Tensor_t<T> TransposeOperation<T>::forward(std::initializer_list<size_t> inperm)
     {
-        this->shape = Matrix<T>::getShape(inshape);
-        this->tmp = std::make_shared<Tensor<T>>(this->t1->data.transpose(this->shape));
-        return std::make_shared<Tensor<T>>(this->tmp->data, this->shared_from_this());
+        this->inperm = Matrix<T>::getShape(inperm);
+        this->tmp = std::make_shared<Tensor<T>>(this->t1->val.transpose(this->inperm));
+        return std::make_shared<Tensor<T>>(this->tmp->val, this->shared_from_this());
     }
 
     template <typename T>
-    Tensor_t<T> TransposeOperation<T>::forward(shape_t shape)
+    Tensor_t<T> TransposeOperation<T>::forward(shape_t inperm)
     {
-        this->shape = shape;
-        this->tmp = std::make_shared<Tensor<T>>(this->t1->data.transpose(shape));
-        return std::make_shared<Tensor<T>>(this->tmp->data, this->shared_from_this());
+        this->inperm = inperm;
+        this->tmp = std::make_shared<Tensor<T>>(this->t1->val.transpose(inperm));
+        return std::make_shared<Tensor<T>>(this->tmp->val, this->shared_from_this());
     }
 
     template <typename T>

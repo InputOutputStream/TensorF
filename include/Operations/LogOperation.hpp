@@ -31,19 +31,19 @@ class LogOperation : public Operation<T>
 
 
 /**
- * Naperian Log function Implementation
+ * Natural Log function Implementation
 */
 
     template <typename T>
     void LogOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * (1/this->t1->data)); 
+        this->t1->backward(grad * ((T)1/this->t1->val)); 
     }
 
     template <typename T>
     Tensor_t<T> LogOperation<T>::forward()
     {
-        return std::make_shared<Tensor<T>>(this->t1->data, this->shared_from_this());
+        return std::make_shared<Tensor<T>>(this->t1->val.ln(), this->shared_from_this());
     }
 
     template <typename T>

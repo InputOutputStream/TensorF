@@ -8,7 +8,6 @@
 #include <fstream>
 #include <string>
 #include <cmath>
-#include <cassert>
 #include <stdexcept>
 #include <random>
 #include <numeric>
@@ -129,7 +128,7 @@ private:
         for (auto& r : rows)
             flat.insert(flat.end(), r.begin(), r.end());
 
-        return Matrix<T>(flat, {(long)row_count, (long)col_count});
+        return Matrix<T>(flat, {row_count, col_count});
     }
 
     Matrix<T> load_csv(const std::string& path)  { return load_delimited(path, ','); }
@@ -229,8 +228,8 @@ public:
         }
 
         return {
-            Matrix<T>(train_flat, {(long)n_train, (long)cols}),
-            Matrix<T>(test_flat,  {(long)n_test,  (long)cols})
+            Matrix<T>(train_flat, {n_train, cols}),
+            Matrix<T>(test_flat,  {n_test,  cols})
         };
     }
 };

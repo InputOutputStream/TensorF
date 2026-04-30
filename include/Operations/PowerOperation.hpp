@@ -39,13 +39,13 @@ class PowerOperation : public Operation<T>
     template <typename T>
     void PowerOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * this->t2->data * this->t1->data ^ (this->t2->data -Matrix<T>(1))); 
+        this->t1->backward(grad * this->t2->val * this->t1->val ^ (this->t2->val -Matrix<T>(1))); 
     }
 
     template <typename T>
     Tensor_t<T> PowerOperation<T>::forward()
     {
-        return std::make_shared<Tensor<T>>(this->t1->data ^ (this->t2->data), this->shared_from_this());
+        return std::make_shared<Tensor<T>>(this->t1->val ^ (this->t2->val), this->shared_from_this());
     }
 
     template <typename T>

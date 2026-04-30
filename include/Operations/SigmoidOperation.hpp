@@ -42,14 +42,14 @@ class SigmoidOperation : public Operation<T>
     template <typename T>
     void SigmoidOperation<T>::backward(Matrix<T> grad)
     {
-        Matrix<T> temp = this->tmp->data * (Matrix<T>(1) + (Matrix<T>(-1)*this->tmp->data));
+        Matrix<T> temp = this->tmp->val * (Matrix<T>(1) + (Matrix<T>(-1)*this->tmp->val));
         this->t1->backward(grad * temp);
     }
 
     template<typename T>
     Tensor_t<T> SigmoidOperation<T>::forward()
     {
-        auto temp = (Matrix<T>(1) / ((T)1 + (Matrix<T>(-1)*this->t1->data).exponent()));
+        auto temp = (Matrix<T>(1) / ((T)1 + (Matrix<T>(-1)*this->t1->val).exponent()));
         this->tmp = std::make_shared<Tensor<T>>(temp);
         return std::make_shared<Tensor<T>>(temp, this->shared_from_this());
     }

@@ -11,6 +11,7 @@
 #include <memory>
 #include <algorithm>
 #include <random>
+#include <cblas.h>
 
 template<typename U>
 class Matrix;
@@ -54,9 +55,11 @@ class Broadcast{
 
         shape_t computeBroadcastResultShape(Matrix<T> t1, Matrix<T> t2)
         {
-            assert(assertBroadcast(t1, t2) && "Invalid broadcast operation\n");
+            if(assertBroadcast(t1, t2)== false)
+                throw std::runtime_error("Invalid broadcast operation");
 
-            long i, j;
+
+            int i, j;
             shape_t s1 = t1.shape;
             shape_t s2 = t2.shape;
             shape_t resShape;
@@ -68,16 +71,16 @@ class Broadcast{
 
             if(s1.size() < s2.size())
             {
-                long n  =  s2.size() - s1.size();
-                for(long k = (n-1); k >= 0; k--){
-                    resShape.push_back(std::max((long)1, s2[k]));
+                size_t n  =  s2.size() - s1.size();
+                for(int k = (n-1); k >= 0; k--){
+                    resShape.push_back(std::max((size_t)1, s2[k]));
                 }
             }
             else if(s1.size() > s2.size())
             {
-                long n  =  s1.size() - s2.size();
-                for(long k = (n-1); k >= 0; k--){
-                    resShape.push_back(std::max((long)1, s1[k]));
+                size_t n  =  s1.size() - s2.size();
+                for(int k = (n-1); k >= 0; k--){
+                    resShape.push_back(std::max((size_t)1, s1[k]));
                 }        
 
             }
@@ -90,7 +93,7 @@ class Broadcast{
         {
             shape_t numElementsSeen(shape.size());
             size_t p{1};
-            for(long i = shape.size()-1; i>=0 ;i--)
+            for(int i = shape.size()-1; i>=0 ;i--)
             {
                 numElementsSeen[i] = p;
                 p *= shape.at(i);
@@ -128,7 +131,7 @@ class Broadcast{
                     id = id%j;
                 }
 
-                for(long k = new_shape.size()-1; k >= 0; k--)
+                for(int k = new_shape.size()-1; k >= 0; k--)
                 {
 
                     if((size_t)k < offset)
@@ -185,12 +188,12 @@ class Matrix
     bool verifyShape(const std::vector<T> &data, const shape_t &shape)
     {
         bool s = 1;
-        long p = 1;
+        size_t p = 1;
         for(size_t i = 0; i<shape.size(); i++)
             {
                 p *=shape[i];
             }
-        if((long)data.size() != p)
+        if(data.size() != p)
             s = false;   
 
         return s;
@@ -203,44 +206,13 @@ class Matrix
     {
         shape_t numElementsSeen(shape.size());
         size_t p{1};
-        for(long i = shape.size()-1; i>=0 ;i--)
+        for(int i = shape.size()-1; i>=0 ;i--)
         {
             numElementsSeen[i] = p;
             p *= shape.at(i);
         }
 
         return numElementsSeen;
-    }
-
-    bool areShapesEqual(const shape_t &shape)
-        {
-            if(shape.size() != this->shape.size())
-            {
-                return false;
-            }
-
-            for(size_t i = 0; i<this->shape.size(); i++)
-                {
-                    if(shape[i] != this->shape[i])
-                    {
-                        return false;
-                    }
-                }
-
-            return true;
-        }
-    
-    static shape_t getShape(const std::initializer_list<long> shape)
-    {
-        if (shape.size() == 0) return shape_t{0};
-
-        shape_t s;
-
-        for (const auto& item : shape)
-        {   
-            s.push_back(item);
-        }
-        return s;
     }
 
     template <typename U> // cloudy
@@ -254,21 +226,6 @@ class Matrix
             extractShape(*data.begin(), shape);
         }
     }
-
-    template <typename U> // cloudy
-    void flattenReccursive(const U& data, std::vector<T> &out )
-    {
-        if constexpr (std::is_same_v<U, T>)
-        {
-            out.push_back(data);
-        }     
-        else
-        {
-            for (const auto& elem : data)
-                flattenReccursive(elem, out);
-        }
-    }
-
 
     bool dotShapesAssert(const shape_t &shape)
     {
@@ -291,7 +248,7 @@ class Matrix
             return true;
 
         std::vector<T> j = data[0];
-        for(int i=1; i<data.size(); i++)
+        for(size_t i=1; i<data.size(); i++)
         { 
             if(j.size() != data[i].size())
                 return false;
@@ -396,14 +353,16 @@ class Matrix
 
     void sum_2D(int axis, size_t lhsStart, std::vector<T> &res)
     {
-        assert(!(axis > 1) && "Invalid input axis recieved for sum 2D ");
+        if (axis > 1)
+            throw std::runtime_error("Invalid input axis recieved for sum 2D\n");
+
         if(axis == 1)
         {
             T s = 0;
             size_t index = 0;
-            for(long i = 0; i<this->shape[this->ndims - 2]; i++)
+            for(size_t i = 0; i<this->shape[this->ndims - 2]; i++)
             {
-                for(long j = 0; j<this->shape[this->ndims - 1]; j++)
+                for(size_t j = 0; j<this->shape[this->ndims - 1]; j++)
                 {
                     s += this->data[lhsStart + index + j];
                 }
@@ -419,9 +378,9 @@ class Matrix
         else if(axis == 0)
         {
             T s = 0;
-            for(long i = 0; i<this->shape[this->ndims - 1]; i++)
+            for(size_t i = 0; i<this->shape[this->ndims - 1]; i++)
             {
-                for(long j = 0; j<this->shape[this->ndims - 2]; j++)
+                for(size_t j = 0; j<this->shape[this->ndims - 2]; j++)
                 {
                     s += this->data[lhsStart + j * this->shape[this->ndims - 1] + i];
                 }
@@ -434,14 +393,15 @@ class Matrix
 
     void _sum_(int axis, size_t lhsStart, std::vector<T> &res)
     {
-        assert(!(axis > 1) && "Invalid input axis recieved for sum 2D ");
+        if (axis > 1)
+            throw std::runtime_error("_sum_: axis must be 0 or 1\n");
         if(axis == 1)
         {
             T s = 0;
             size_t index = 0;
-            for(long i = 0; i<this->shape[this->ndims - 2]; i++)
+            for(size_t i = 0; i<this->shape[this->ndims - 2]; i++)
             {
-                for(long j = 0; j<this->shape[this->ndims - 1]; j++)
+                for(size_t j = 0; j<this->shape[this->ndims - 1]; j++)
                 {
                     s += this->data[lhsStart + index + j];
                 }
@@ -458,9 +418,9 @@ class Matrix
             int nslice = (this->data.size() - lhsStart) / this->shape[0];
             T s = 0;
         
-            for(auto i = 0; i<nslice; i++){
+            for(int i = 0; i<nslice; i++){
 
-                for(auto j = 0; j<this->shape[0]; j++)
+                for(size_t j = 0; j<this->shape[0]; j++)
                 {
                     s+=this->data[lhsStart + j * nslice + i];
                 }
@@ -472,15 +432,14 @@ class Matrix
     }
 
 
-
     void sum(std::vector<T> &res, 
                 shape_t &indexStack, size_t lhsStart,
                 size_t axis,
                 size_t dim)  {
 
-        // assert(this->isShape1D() && "Invalid input shape");
-        assert(dim <= this->shape.size() && "Invalid dim\n");
-
+        if (dim >= this->shape.size())
+            throw std::runtime_error("Sum: invalid sum dimension");
+        
         if(this->isShape1D())
             {
                 res.push_back(this->sum_1D());
@@ -503,7 +462,7 @@ class Matrix
             
         if(indexStack.size()  == (this->shape.size()-2))
         {            
-            for(unsigned long i{0}; i<indexStack.size(); i++)
+            for(size_t i{0}; i<indexStack.size(); i++)
             {
                 lhsStart += indexStack.at(i) * this->numElementsSeen.at(i);
             }
@@ -520,7 +479,7 @@ class Matrix
             return;
         }
         
-        for(long i=0; i<this->shape[dim]; i++)
+        for(size_t i=0; i<this->shape[dim]; i++)
         {
             indexStack.push_back(i);
             this->sum(res, indexStack, lhsStart, axis, dim+1);
@@ -539,21 +498,20 @@ class Matrix
         else if(this->shape.size() == 1)
            return Matrix<T>(this->data, {this->shape[0], 1});
         else{
-            assert(1 && "Invalid input shape, returnong unchanged object \n");
-            return *this;
-        }
+                throw std::runtime_error("transpose_1D: invalid shape for 1D transpose\n");
+            }
     }
 
     std::vector<T> transpose_2D()
         {            
-            long row = this->shape[this->ndims - 2];
-            long col = this->shape[this->ndims - 1];
+            size_t row = this->shape[this->ndims - 2];
+            size_t col = this->shape[this->ndims - 1];
 
             std::vector<T> res = this->data;
 
-            for(long i=0; i<row; i++)
+            for(size_t i=0; i<row; i++)
             {
-                for(long j=0; j<col; j++)
+                for(size_t j=0; j<col; j++)
                 {
                     res[j*row + i] = this->data[i*col + j];
                 }
@@ -562,39 +520,67 @@ class Matrix
         return res;
     }
 
-    void transpose(const shape_t resShape, std::vector<T> &res)
+    void transpose(const shape_t perm, const shape_t resShape, std::vector<T>& res)
     {
-        Matrix<T> temp(this);
-        auto ns = temp.numElementsSeen;
-        auto nr = temp.computeShapes(resShape);
+        auto ns = this->numElementsSeen;          // src strides
+        auto nr = this->computeShapes(resShape);  // dst strides
 
-        long dsize = 1; // num elements
-        for(long i: resShape)
-        {
-            dsize *= i;
-        }
+        size_t dsize = 1;
+        for (size_t s : resShape) dsize *= s;
+        res.reserve(dsize);
 
-        for(long i = 0; i<dsize; i++)
+        for (size_t i = 0; i < dsize; i++)
         {
-            shape_t new_index;
-            auto k = i;
-            for(auto j: nr)
-            {
-                new_index.push_back((size_t)(k / j));
-                k = k%j;
+            // decompose i into dst multi-index
+            shape_t dst_idx(resShape.size());
+            size_t k = i;
+            for (size_t d = 0; d < resShape.size(); d++) {
+                dst_idx[d] = k / nr[d];
+                k          = k % nr[d];
             }
 
-            shape_t rev;
-            rev.insert(rev.end(), new_index.rbegin(),  new_index.rend());
+            // map through permutation to src index
             size_t npos = 0;
-            for(size_t id = 0; id <temp.shape.size(); id++)
-            {
-                npos += ns[id] * rev[id];
-            }
+            for (size_t d = 0; d < resShape.size(); d++)
+                npos += ns[perm[d]] * dst_idx[d];
 
-            res.push_back(temp.data[npos]);
+            res.push_back(this->data[npos]);
         }
     }
+
+    // void transpose(const shape_t resShape, std::vector<T> &res)
+    // {
+    //     Matrix<T> temp(this);
+    //     auto ns = temp.numElementsSeen;
+    //     auto nr = temp.computeShapes(resShape);
+
+    //     size_t dsize = 1; // num elements
+    //     for(size_t i: resShape)
+    //     {
+    //         dsize *= i;
+    //     }
+
+    //     for(size_t i = 0; i<dsize; i++)
+    //     {
+    //         shape_t new_index;
+    //         auto k = i;
+    //         for(auto j: nr)
+    //         {
+    //             new_index.push_back((size_t)(k / j));
+    //             k = k%j;
+    //         }
+
+    //         shape_t rev;
+    //         rev.insert(rev.end(), new_index.rbegin(),  new_index.rend());
+    //         size_t npos = 0;
+    //         for(size_t id = 0; id <temp.shape.size(); id++)
+    //         {
+    //             npos += ns[id] * rev[id];
+    //         }
+
+    //         res.push_back(temp.data[npos]);
+    //     }
+    // }
 
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 
@@ -606,102 +592,107 @@ class Matrix
             return sum;
         }
     
-    Matrix<T> dotProduct2D(const Matrix<T> &lhs, 
-                        const Matrix<T> &rhs, 
-                        long lhsStart, 
-                        long resStart)
-        {
-            Matrix<T> res = Matrix<T>::zeros({lhs.shape[lhs.ndims - 2], rhs.shape[rhs.ndims - 1]});
-            
-            long row1 = lhs.shape[lhs.shape.size()-2];
-            long col1 = lhs.shape[lhs.shape.size()-1];
-            //long row2 = rhs.shape[rhs.shape.size()-2];
-            long col2 = rhs.shape[rhs.shape.size()-1];
+    Matrix<T> dotProduct2D(const Matrix<T> &rhs)
+    {
+        
+        T result = T(0);
 
-            T sum = 0;
-
-            for(long i=0; i<row1; i++)
-            {
-               for(long k =0; k<col2; k++)
-                {
-                    sum = 0;
-                    for(long j=0; j<col1; j++)
-                    {
-                        sum += lhs.data[lhsStart + i * col1 + j] * rhs.data[j*col2 + k];
-                    }
-
-                    res.data[(resStart + i*col2 + k)] = sum;
-
-                }
-            }
-
-            return res;
+        if constexpr (std::is_same_v<T, float>)
+            result = cblas_sdot(
+                this->data.size(),   // number of elements
+                this->data.data(), 1, // vector A, stride 1
+                rhs.data.data(), 1  // vector B, stride 1
+            );
+        else if constexpr (std::is_same_v<T, double>)
+            result = cblas_ddot(
+                this->data.size(),
+                this->data.data(), 1,
+                rhs.data.data(), 1
+            );
+        else {
+            for (size_t i = 0; i < this->data.size(); i++)
+                result += this->data[i] * rhs.data[i];
         }
 
-    void matProduct2D(const Matrix<T> &rhs, 
-                        std::vector<T> &res, 
-                        long lhsStart, 
-                        long resStart)
+        return Matrix<T>({result});
+    }
+
+
+    Matrix<T> matProduct2D(const Matrix<T>& rhs,
+                        size_t lhsStart,
+                        size_t rhsStart,      
+                        size_t resStart,
+                        std::vector<T>& result)
+    {
+        // Slice dimensions: last 2 axes of each operand
+        size_t M = this->shape[this->shape.size() - 2];
+        size_t K = this->shape[this->shape.size() - 1];
+        size_t N = rhs.shape[rhs.shape.size() - 1];
+
+        if constexpr (std::is_same_v<T, float>)
+            cblas_sgemm(
+                CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                M, N, K,
+                1.0f,
+                this->data.data() + lhsStart, K,   // ← offset into lhs slice
+                rhs.data.data()  + rhsStart,  N,   // ← offset into rhs slice
+                0.0f,
+                result.data()    + resStart,  N    // ← offset into output slice
+            );
+        else if constexpr (std::is_same_v<T, double>)
+            cblas_dgemm(
+                CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                M, N, K,
+                1.0,
+                this->data.data() + lhsStart, K,
+                rhs.data.data()  + rhsStart,  N,
+                0.0,
+                result.data()    + resStart,  N
+            );
+        else
         {
-            
-            long row1 = this->shape[this->shape.size()-2];
-            long col1 = this->shape[this->shape.size()-1];
-            long row2 = rhs.shape[rhs.shape.size()-2];
-            long col2 = rhs.shape[rhs.shape.size()-1];
-
-            assert(row2 == col1 && "FATAL ERRROR, MATRIX PRODUCT ATTEMPTED ON INdataID MATRICES");
-            T sum = 0;
-
-            for(long i=0; i<row1; i++)
-            {
-                for(long k =0; k<col2; k++)
-                {
-                    sum = 0;
-                    for(long j=0; j<col1; j++)
-                    {
-                        sum += this->data[lhsStart + i * col1 + j] * rhs.data[j*col2 + k];
-                    }
-
-                    res[(resStart + i*col2 + k)] = sum;
-
+            for (size_t i = 0; i < M; i++)
+                for (size_t k = 0; k < N; k++) {
+                    T sum = 0;
+                    for (size_t j = 0; j < K; j++)
+                        sum += this->data[lhsStart + i*K + j]
+                            * rhs.data  [rhsStart + j*N + k]; // ← rhsStart
+                    result[resStart + i*N + k] = sum;
                 }
-            }
         }
+        return Matrix<T>();
+    }
 
 
-    void matmul(const Matrix<T> &rhs,
-                std::vector<T> &res, 
-                shape_t &indexStack, 
-                shape_t &resElements, 
-                long dim)
-        {
-
-        if(indexStack.size()  == (this->shape.size()-2))
+    Matrix<T> matmul(const Matrix<T>& rhs,
+                    shape_t& indexStack,
+                    shape_t& resElements,
+                    size_t dim,
+                    std::vector<T>& out)   
+    {
+        if (indexStack.size() == (this->shape.size() - 2))
         {
             // We are in the state where rhs and lhs matrices are both on 2d matrix format
             // find the position in the lhs array where we are at
             
-            long lhsStart{0};
-            long resStart {0};
-            //rhsStart and lhsStart denotes respectively the starting points of the multiplication within the matrix dimensions
+            size_t lhsStart{0}, rhsStart{0}, resStart{0}; //rhsStart and lhsStart denotes respectively the starting points of the multiplication within the matrix dimensions
 
-            for(unsigned long i{0}; i<indexStack.size(); i++)
-            {
-                lhsStart += indexStack.at(i) * this->numElementsSeen.at(i);
-                resStart += indexStack.at(i) * resElements.at(i);
+            for (size_t i = 0; i < indexStack.size(); i++) {
+                lhsStart += indexStack[i] * this->numElementsSeen[i];
+                rhsStart += indexStack[i] * rhs.numElementsSeen[i]; // ← rhs strides
+                resStart += indexStack[i] * resElements[i];
             }
-
-            matProduct2D(rhs, res, lhsStart, resStart);
-            return;
+            matProduct2D(rhs, lhsStart,rhsStart, resStart, out);  // writes into out
+            return Matrix<T>();  // dummy, caller uses out
         }
 
         // Push the extra dimensions to the index stack and recursively traverse the indices, the pop one once the operation for that index has been done
-        for(long i=0; i<this->shape[dim]; i++)
-        {
+        for (size_t i = 0; i < this->shape[dim]; i++) {
             indexStack.push_back(i);
-            this->matmul(rhs, res, indexStack, resElements, dim+1);
-            indexStack.pop_back(); 
+            this->matmul(rhs, indexStack, resElements, dim + 1, out);
+            indexStack.pop_back();
         }
+        return Matrix<T>();
     }
 
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
@@ -719,6 +710,19 @@ class Matrix
 
     // Constructors 
 
+    static shape_t getShape(const std::initializer_list<size_t> shape)
+    {
+        if (shape.size() == 0) return shape_t{0};
+
+        shape_t s;
+
+        for (const auto& item : shape)
+        {   
+            s.push_back(item);
+        }
+        return s;
+    }
+    
     Matrix(){
         this->data.clear();
         this->shape.clear();
@@ -727,12 +731,28 @@ class Matrix
 
     };
 
+    template <typename U>
+    Matrix(const U& indata)
+    {
+        if constexpr(std::is_same_v<U, int>){ 
+            this->shape.push_back(1);
+            this->data.push_back(indata);
+            this->numElementsSeen = computeShapes(this->shape);
+            this->ndims = this->shape.size();
+            this->size  = this->data.size();
+        }else if constexpr(std::is_same_v<U, float>){
+            this->shape.push_back(1);
+            this->data.push_back(indata);
+            this->numElementsSeen = computeShapes(this->shape);
+            this->ndims = this->shape.size();
+            this->size  = this->data.size();
+        }
+    }
+
     Matrix(const T& indata)
     {
-        this->extractShape(indata, this->shape);
-        if(this->shape.size() == 0)
-            this->shape.push_back(1);
-        this->flattenReccursive(indata, this->data);
+        this->shape.push_back(1);
+        this->data.push_back(indata);
         this->numElementsSeen = computeShapes(this->shape);
         this->ndims = this->shape.size();
         this->size  = this->data.size();
@@ -759,7 +779,7 @@ class Matrix
     //     this->size  = this->data.size();
     // }
 
-    // Matrix(std::initializer_list<T> indata)
+    // Matrix(const std::initializer_list<T> indata)
     // {
     //     this->shape.push_back(indata.size());
     //     this->flattenReccursive(indata, this->data);
@@ -771,7 +791,9 @@ class Matrix
 
     Matrix(const Matrix<T>* two)
     {
-        assert((two != nullptr) && "Null matrix input\n");
+        if (two == nullptr)
+            throw std::runtime_error("Matrix(ptr): null pointer input\n");
+
         this->data = two->data;
         this->shape = two->shape; 
         this->numElementsSeen = two->numElementsSeen;
@@ -799,8 +821,10 @@ class Matrix
 
     Matrix(std::vector<T> indata, shape_t inshape)
     {
-        //std::cout << " indata: "<< indata << "inshape: " << inshape << "\n";
-        assert(this->verifyShape(indata, inshape) && "Shape and number of elements of matrix do not match");
+        
+        if (!verifyShape(indata, inshape))
+            throw std::runtime_error("Matrix: shape and number of elements do not match");
+
         this->data = indata;
         this->shape = inshape; 
         this->numElementsSeen = this->computeShapes(this->shape);
@@ -812,18 +836,35 @@ class Matrix
     {
         this->shape.push_back(indata.size());
         this->shape.push_back(indata.begin()->size());
-        assert("Matrix shape must be uniform" && this->isRegular2D(indata));
+
+        if (this->isRegular2D(indata)== false)
+            throw std::runtime_error("Matrix: shape must be uniform\n");
+        
         this->flattenReccursive(indata, this->data);
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
         this->size  = this->data.size();
     }
 
-    Matrix(std::vector<T> indata, std::initializer_list<long> inshape)
+    Matrix(std::vector<std::vector<T>> indata, std::initializer_list<size_t> inshape)
+    {
+        this->shape = Matrix<T>::getShape(inshape); 
+        if (this->isRegular2D(indata)== false)
+            throw std::runtime_error("Matrix: shape must be uniform\n");
+        this->flattenReccursive(indata, this->data);
+        if (this->verifyShape(this->data, this->shape) == false)
+            throw std::runtime_error("Matrix: shape and number of elements do not match\n");
+        this->numElementsSeen = this->computeShapes(this->shape);
+        this->ndims = this->shape.size();
+        this->size  = this->data.size();
+    }
+
+    Matrix(std::vector<T> indata, std::initializer_list<size_t> inshape)
     {
         this->data = indata;
         this->shape = Matrix<T>::getShape(inshape); 
-        assert("Shape and number of elements of matrix do not match" && this->verifyShape(this->data, this->shape));
+        if (this->verifyShape(this->data, this->shape)== false)
+            throw std::runtime_error("Matrix: shape and number of elements do not match\n");
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
         this->size  = this->data.size();
@@ -833,18 +874,22 @@ class Matrix
     {
         this->shape.push_back(indata.size());
         this->shape.push_back(indata.begin()->size());
-        assert("Matrix shape must be uniform" && this->isRegular2D(indata));
+        if (this->isRegular2D(indata)== false)
+            throw std::runtime_error("Matrix: shape must be uniform\n");
         this->flattenReccursive(indata, this->data);
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
         this->size  = this->data.size();
     }
 
-    Matrix(std::initializer_list<T> indata, std::initializer_list<long> inshape)
+    Matrix(std::initializer_list<T> indata, std::initializer_list<size_t> inshape)
     {
         this->flattenReccursive(indata, this->data);
-        this->shape = Matrix<T>::getShape(inshape); 
-        assert("Shape and number of elements of matrix do not match" && this->verifyShape(this->data, this->shape));
+        this->shape = Matrix<T>::getShape(inshape);
+
+        if(this->verifyShape(this->data, this->shape)== false)
+           throw std::runtime_error("Shape and number of elements of matrix do not match!!!\n");
+
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
         this->size  = this->data.size();
@@ -855,11 +900,27 @@ class Matrix
         this->shape.push_back(indata.size());
         this->shape.push_back(indata.begin()->size());
         this->shape.push_back(indata.begin()->begin()->size());
-        assert("Matrix shape must be uniform" && this->isRegular3D(indata));
+        if(this->isRegular3D(indata)== false)
+           throw std::runtime_error("Matrix shape must be uniform!!!\n");
+
         this->flattenReccursive(indata, this->data);
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
         this->size  = this->data.size();
+    }
+
+    template <typename U> 
+    void flattenReccursive(const U& data, std::vector<T> &out )
+    {
+        if constexpr (std::is_same_v<U, T>)
+        {
+            out.push_back(data);
+        }     
+        else
+        {
+            for (const auto& elem : data)
+                flattenReccursive(elem, out);
+        }
     }
 
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
@@ -869,7 +930,7 @@ class Matrix
 
     Matrix<T> operator + (const Matrix<T> &rhs)
     {
-        if(this->areShapesEqual(rhs.shape))
+        if(this->shape == rhs.shape)
             return Matrix<T>(data + rhs.data, shape);
         else
         {
@@ -884,9 +945,9 @@ class Matrix
         return Matrix<T>(-data, shape);
     }
     
-    Matrix<T> operator - (const Matrix<T> &rhs)
+    Matrix<T> operator -(const Matrix<T> &rhs)
     {
-        if(this->areShapesEqual(rhs.shape))
+        if(this->shape == rhs.shape)
             return Matrix<T>(data - rhs.data, shape);
         else
         {
@@ -898,7 +959,7 @@ class Matrix
 
     Matrix<T> operator * (const Matrix<T> &rhs)
     {
-        if(this->areShapesEqual(rhs.shape))
+        if(this->shape == rhs.shape)
             return Matrix<T>(data * rhs.data, shape);
         else
         {
@@ -910,7 +971,7 @@ class Matrix
     
     Matrix<T> operator / (const Matrix<T> &rhs)
     {
-        if(this->areShapesEqual(rhs.shape))
+        if(this->shape == rhs.shape)
             return Matrix<T>(data / rhs.data, shape);
         else
         {
@@ -945,11 +1006,31 @@ class Matrix
         std::vector<T> arr;
         for(size_t i=0; i< this->data.size(); i++)
         { 
-            T prod = (T)exp(this->data.at(i));
+            T prod = (T)std::exp(this->data.at(i));
             arr.push_back(prod);
         }
         return Matrix<T>(arr, this->shape);
     } 
+
+    Matrix<T> mean(){
+       return this->sum() /(T)this->data.size;
+    }
+
+    Matrix<T> std(){
+        return this->variance().sqrt();
+    }
+
+    Matrix<T> variance(){
+
+        Matrix<T> s(0);
+        auto mn = mean();
+
+        for(auto d: this->data){
+            s = s + (((T)(d - mn.data[0]))*((T)(d - mn.data[0])));
+        }
+
+       return s / this->size;
+    }
 
     Matrix<T> sqrt() 
     {
@@ -968,7 +1049,18 @@ class Matrix
         std::vector<T> arr;
         for(size_t i=0; i< this->data.size(); i++)
         { 
-            T prod = (T)cbrt(this->data.at(i));
+            T prod = (T)std::cbrt(this->data.at(i));
+            arr.push_back(prod);
+        }
+        return Matrix<T>(arr, this->shape);
+    } 
+
+    Matrix<T> ln() 
+    {
+        std::vector<T> arr;
+        for(size_t i=0; i< this->data.size(); i++)
+        { 
+            T prod = (T)std::log(this->data.at(i));
             arr.push_back(prod);
         }
         return Matrix<T>(arr, this->shape);
@@ -977,12 +1069,111 @@ class Matrix
 
     size_t get_size()
     {
-        return this->size;
+        this->size = this->data.size();
+        return this->data.size();
     }
 
     size_t get_ndims()
     {
-        return this->ndims;
+        this->ndims = this->shape.size();
+        return this->shape.size();
+    }
+
+    Matrix<T> col(size_t idx) {
+        if(this->shape.size() == 1)
+            return Matrix<T>(this);
+
+        if(idx > this->shape[1])
+            throw std::runtime_error("Invalid Row Index");
+
+        size_t rows = this->shape[0];
+        size_t cols = this->shape[1];
+        std::vector<T> res;
+        for(size_t i = 0; i < rows; i++){
+            res.push_back(this->data[cols * i + idx]);
+        }
+        return Matrix<T>(res, {rows, 1});
+    }
+
+    Matrix<T> at(shape_t index)
+    {
+        if(index.size() > this->data.size())
+            throw std::runtime_error("Invalid Index");
+
+        if(index.size() <= this->shape.size())
+        {   
+            auto i = index[0];
+            Matrix<T> temp(this->row(i));
+            index.erase(index.begin());
+            if(index.size() == 0)
+                return Matrix<T>(temp);
+            else
+                return Matrix<T>(temp.flatten().at(index));
+        }
+        else 
+            throw std::runtime_error("Invalid shape");
+    }
+
+    Matrix<T> row(size_t idx) {
+        if(this->shape.size() == 1)
+            return Matrix<T>(this);
+        
+        if(idx > this->shape[0])
+            throw std::runtime_error("Invalid Row Index");
+
+        size_t cols = this->shape[1];
+        std::vector<T> res;
+        for(size_t i = 0; i < cols; i++){
+            res.push_back(this->data[idx * cols+i]);
+        }
+        return Matrix<T>(res, {1, cols});
+    }
+
+    Matrix<T> slice_row(size_t start, size_t end) {
+        if(this->shape.size() == 1)
+            throw std::runtime_error("not impl for 1D");
+
+        if((end - start) > this->shape[0])
+            throw std::runtime_error("Invalid Row Slice");
+
+        std::vector<std::vector<T>> resf;
+        size_t col = this->shape[this->ndims - 1];
+       
+        for(size_t j = start; j < end; j++){
+            std::vector<T> res;
+            for(size_t i = 0; i<col; i++)
+            {
+                res.push_back(this->data[col * j + i]);
+            }
+
+            resf.push_back(res);
+        }
+
+        size_t s = end-start;
+        return Matrix<T>(resf, {s, this->shape[this->ndims - 1]});
+    }
+
+    Matrix<T> slice_cols(size_t start, size_t end) {
+        if(this->shape.size() == 1)
+            throw std::runtime_error("Not a 2D matrix");
+
+        if((end - start) > this->shape[1])
+            throw std::runtime_error("Invalid Col Slice");
+
+        std::vector<T> resf;
+        size_t row = this->shape[this->ndims - 2];
+        size_t col = this->shape[this->ndims - 1];
+       
+        for(size_t j = 0; j < row; j++){
+            for(size_t i = start; i<end; i++)
+            {
+                resf.push_back(this->data[col * j + i]);
+            }
+
+        }
+
+        size_t s = end - start; 
+        return Matrix<T>(resf, {this->shape[this->ndims - 2], s});
     }
 
     Matrix<T> flatten()
@@ -1005,23 +1196,25 @@ class Matrix
     }
 
     static Matrix<T> slice(size_t start, size_t end, size_t axis){
+
+        // really not unkown
     }
     
     static Matrix<T> zeros(shape_t shape)
     {
-        long n = 1;
+        size_t n = 1;
         for (auto d : shape) n *= d;
         return Matrix<T>(std::vector<T>(n, (T)0), shape);
     }
 
     static Matrix<T> ones(shape_t shape)
     {
-        long n = 1;
+        size_t n = 1;
         for (auto d : shape) n *= d;
         return Matrix<T>(std::vector<T>(n, (T)1), shape);
     }
 
-    static Matrix<T> random(std::initializer_list<long> inshape)
+    static Matrix<T> random(std::initializer_list<size_t> inshape)
     {
         return  Matrix<T>::random(Matrix<T>::getShape(inshape));
     }
@@ -1029,12 +1222,12 @@ class Matrix
     static Matrix<T> random(shape_t shape)
     {
         std::vector<T> res;
-        long numElems = 1;
+        size_t numElems = 1;
 
         for(auto i: shape)
             numElems *= i;
 
-        for(long k=0; k<numElems; k++)
+        for(size_t k=0; k<numElems; k++)
         {
             res.push_back((T)std::rand());
         }
@@ -1042,21 +1235,20 @@ class Matrix
         return Matrix<T>(res, shape);
     }
 
-    // impl rand n
-    static Matrix<T> randomn(std::initializer_list<long> inshape)
+    static Matrix<T> randu(std::initializer_list<size_t> inshape)
     {
-        return  Matrix<T>::randomn(Matrix<T>::getShape(inshape));
+        return  Matrix<T>::randu(Matrix<T>::getShape(inshape));
     }
 
-    static Matrix<T> randomn(shape_t shape)
+    static Matrix<T> randu(shape_t shape)
     {
         std::vector<T> res;
-        long numElems = 1;
+        size_t numElems = 1;
 
         for(auto i: shape)
             numElems *= i;
 
-        for(long k=0; k<numElems; k++)
+        for(size_t k=0; k<numElems; k++)
         {
             res.push_back((T)std::rand() / (T)RAND_MAX);
         }
@@ -1064,34 +1256,88 @@ class Matrix
         return Matrix<T>(res, shape);
     }
 
+    static Matrix<T> randn(shape_t shape)
+    {
+        std::vector<T> res;
+        size_t numElems = 1;
+
+        for(auto i: shape)
+            numElems *= i;
+
+        for(size_t k=0; k<numElems; k++)
+        {
+            res.push_back((T)std::rand() / (T)RAND_MAX);
+        }
+        
+        return Matrix<T>(res, shape);
+    }
+
+    static Matrix<T> he(shape_t shape) // kaiming init
+    {
+        size_t fan_in = shape[0]; // number of input features
+        T std_dev = std::sqrt((T)2.0 / (T)fan_in);
+
+        std::mt19937 gen(std::random_device{}());
+        std::normal_distribution<T> dist(0.0, std_dev);
+
+        size_t numElems = 1;
+        for (auto i : shape) numElems *= i;
+
+        std::vector<T> res;
+        res.reserve(numElems);
+        for (size_t k = 0; k < numElems; k++)
+            res.push_back(dist(gen));
+
+        return Matrix<T>(res, shape);
+    }
+
+
+    static Matrix<T> he(std::initializer_list<size_t> inshape)
+    {
+        return Matrix<T>::he(Matrix<T>::getShape(inshape));
+    }
     static Matrix<T> log(Matrix<T> mat)
     {
-        for (int i=0; i<mat.get_size(); i++)
-        {   
-            mat.at(i) = (std::log(mat.at(i)));
+        std::vector<T> arr;
+        for(size_t i=0; i< mat.data.size(); i++)
+        { 
+            T prod = (T)std::log(mat.data.at(i));
+            arr.push_back(prod);
         }
+        return Matrix<T>(arr, mat.shape);
     }
 
     static Matrix<T> eye(size_t inshape){
-        long numElems = 1;
+        size_t numElems = 1;
+
         std::vector<T> res;
+        for(int i=0; i<(inshape*inshape); i++)
+            res.push_back(0);
 
         for(auto i=0; i<inshape; i++)
         {
-            res.push_back(1);
-            for(auto j=0; j<inshape; j++){
-                res.push_back(0);
-            }
+            for(auto j=0; j<inshape; j++)
+                res.push_back(res[i * inshape + j] = (i == j) ? 1 : 0);
         }
 
+        return Matrix<T>(res, {inshape, inshape});
+    }
 
-        return Matrix<T>(res);
+    static Matrix<T> one_hot(Matrix<T> labels, size_t num_classes)
+    {
+        size_t n = labels.get_size();
+        std::vector<T> res(n * num_classes, (T)0);
+        for (size_t i = 0; i < n; i++) {
+            size_t cls = (size_t)labels.data[i];
+            res[i * num_classes + cls] = (T)1;
+        }
+        return Matrix<T>(res, {n, num_classes});
     }
 
     void ones()
     {
         auto shape = this->shape;
-        long numElems = 1;
+        size_t numElems = 1;
 
         for(auto i: shape)
             numElems *= i;
@@ -1102,7 +1348,7 @@ class Matrix
     void zeros()
     {
         auto shape = this->shape;
-        long numElems = 1;
+        size_t numElems = 1;
 
         for(auto i: shape)
             numElems *= i;
@@ -1113,19 +1359,23 @@ class Matrix
 
     void copy_from(Matrix<T>* two)
     {
-        assert((two != nullptr) && "Null matrix input\n");
+        if (two == nullptr)
+            throw std::runtime_error("copy_from: null pointer input\n");
+        
         this->data = two->data;
         this->shape = two->shape; 
         this->numElementsSeen = two->numElementsSeen;
         this->ndims = two->shape.size();
+        this->size = two->data.size();
     }
 
     void copy_from(Matrix<T>& two)
-    {
+    {      
         this->data = two.data;
         this->shape = two.shape; 
         this->numElementsSeen = two.numElementsSeen;
         this->ndims = two.shape.size();
+        this->size = two.data.size();
     }
 
     void copy_from(const Matrix<T>& two)
@@ -1134,13 +1384,14 @@ class Matrix
         this->shape = two.shape; 
         this->numElementsSeen = two.numElementsSeen;
         this->ndims = two.shape.size();
+        this->size = two.data.size();
     }
  
     Matrix maximum(const T a){
         std::vector<T> res;
         for(auto i : this->data)
         {
-            if(i < 0)
+            if(i < a)
                 res.push_back(0);
             else
                 res.push_back(i);
@@ -1148,56 +1399,57 @@ class Matrix
         return Matrix<T>(res, this->shape);
     }
 
-    Matrix<T> clear(){
+    void clear(){        
         this->data.clear();
-        return Matrix<T>(this->data, {0});
+        this->shape.clear();
+        this->size  = 0;
+        this->ndims = 0;
+        this->numElementsSeen.clear();
     }
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 
-    Matrix<T> transpose(shape_t resShape)
-    {
-        if(resShape.size() == 1)
-            return this->transpose_1D();
-
-        if(resShape.size() == 2)
-            return Matrix<T>(this->transpose_2D(), resShape);
-
-        std::vector<T> res;
-        assert(this->shape.size() == resShape.size() && "Invalid result shape");
-        transpose(resShape, res);
-        return Matrix<T>(res, resShape);
-    }
-
-    Matrix<T> transpose(std::initializer_list<long> inshape)
-    {
-        if(inshape.size() == 1)
-            return this->transpose_1D();
-
-        shape_t resShape = Matrix<T>::getShape(inshape);
-        if(inshape.size() == 2)
-            return Matrix<T>(this->transpose_2D(), resShape);
-
-        std::vector<T> res;
-        assert(this->shape.size() == resShape.size() && "Invalid result shape");
-        transpose(resShape, res);
-        return Matrix<T>(res, resShape);
-    }
-
     Matrix<T> transpose()
     {
-        if(shape.size() == 1)
-            return this->transpose_1D();
-
-        shape_t resShape;
-        resShape.insert(resShape.end(), this->shape.rbegin(),  this->shape.rend());
-        
-        if(shape.size() == 2)
+        if (shape.size() == 1) return this->transpose_1D();
+        if (shape.size() == 2) {
+            shape_t resShape = {this->shape[1], this->shape[0]};
             return Matrix<T>(this->transpose_2D(), resShape);
-
+        }
+        size_t ndims = this->shape.size();
+        shape_t perm(ndims), resShape(ndims);
+        for (size_t i = 0; i < ndims; i++) {
+            perm[i]     = ndims - 1 - i;
+            resShape[i] = this->shape[perm[i]];
+        }
         std::vector<T> res;
-        assert(this->shape.size() == resShape.size() && "Invalid result shape");
-        transpose(resShape, res);
+        transpose(perm, resShape, res);
         return Matrix<T>(res, resShape);
+    }
+
+    Matrix<T> transpose(shape_t perm)
+    {
+        if (shape.size() == 1) return this->transpose_1D();
+        
+        if (perm.size() != this->shape.size())
+            throw std::runtime_error("transpose: perm size must match number of dimensions\n");
+
+            
+        size_t ndims = this->shape.size();
+        if (ndims == 2) {
+            shape_t resShape = {this->shape[1], this->shape[0]};
+            return Matrix<T>(this->transpose_2D(), resShape);
+        }
+        shape_t resShape(ndims);
+        for (size_t i = 0; i < ndims; i++)
+            resShape[i] = this->shape[perm[i]];
+        std::vector<T> res;
+        transpose(perm, resShape, res);
+        return Matrix<T>(res, resShape);
+    }
+
+    Matrix<T> transpose(std::initializer_list<size_t> inperm)
+    {
+        return this->transpose(Matrix<T>::getShape(inperm));
     }
 
     Matrix<T> sum(size_t axis)
@@ -1227,29 +1479,29 @@ class Matrix
 
     Matrix<T> matmul(const Matrix<T> &rhs)
     {
-        assert(!areShapes1D(this->shape, rhs.shape) && "Shapes 1D and 1D invalid for matrix product");
+        if (areShapes1D(this->shape, rhs.shape) == true)
+            throw std::runtime_error("matmul: cannot multiply two 1D tensors, use dot() instead\n");
 
         shape_t resShape{}; 
 
-        long numE = 1;
-
         for(size_t i=0; i<this->shape.size()-1; i++)
         { 
-            numE *= this->shape.at(i);
             resShape.push_back(this->shape.at(i));
         }
 
-        numE *= rhs.shape.back();
         resShape.push_back(rhs.shape.back());
 
-        Matrix<T> res = Matrix<T>::zeros(resShape);
+        size_t total = 1;
+        for (auto s : resShape) total *= s;
+
         shape_t indexStack{}; 
+        std::vector<T> out(total, T(0));           
         shape_t resElements = this->computeShapes(resShape); 
-        long dim=0;
+        size_t dim=0;
 
-        this->matmul(rhs, res.data, indexStack, resElements, dim);
+       this->matmul(rhs, indexStack, resElements, dim, out);
 
-        return res;
+        return Matrix<T>(out, resShape);
     }
     
 
@@ -1263,12 +1515,14 @@ class Matrix
         
         if(areShapes2D(this->shape, rhs.shape))
         {
-            return this->dotProduct2D(Matrix<T>(this->data, this->shape), rhs, 0, 0);
+            return this->dotProduct2D(rhs);
         }
 
-        assert("Shapes invalid for dot product" && dotShapesAssert(rhs.shape));
+        if (dotShapesAssert(rhs.shape)== false)
+            throw std::runtime_error("dot: invalid shapes for dot product\n");
+        
         shape_t resShape;
-        long size = 1;
+        size_t size = 1;
 
         for(size_t i=0; i<this->shape.size()-1; i++)
         { 
@@ -1279,33 +1533,34 @@ class Matrix
         size *= rhs.shape.back();
         resShape.push_back(rhs.shape.back()); // column dimension of the right hand side matrix
         
-        std::vector<T> resdata(size, 0);
         shape_t indexStack{}; 
-
         auto resElements = this->computeShapes(resShape);
-        
+        size_t total = 1;
+        for (auto s : resShape) total *= s;
+        std::vector<T> out(total, T(0)); 
+
         //perform dot product
-        this->matmul(rhs, resdata, indexStack, resElements, 0);
+        this->matmul(rhs, indexStack, resElements, 0, out);
        
-        return Matrix<T>(resdata, resShape);
+        return Matrix<T>(out, resShape);
         
     } 
 
 
-    std::ostream& print(std::ostream &out, shape_t &indexStack, long dim)
+    std::ostream& print(std::ostream &out, shape_t &indexStack, size_t dim)
         {
             if(indexStack.size()  == this->shape.size()-1)
             {
                 // We are in the state where rhs and lhs matrices are both on 2d matrix format
                 //find the position in the lhs array where we are at
-                long lhsStart{0};
+                size_t lhsStart{0};
 
-                for(unsigned long i{0}; i<indexStack.size(); i++)
+                for(size_t i{0}; i<indexStack.size(); i++)
                 {
                     lhsStart += indexStack.at(i);
                 }
                 out<<" [";
-                for(auto i{0}; i<this->shape.at(dim); i++)
+                for(size_t i{0}; i<this->shape.at(dim); i++)
                 {
                     out<<this->data.at(lhsStart+i)<<",";
                 }
@@ -1315,7 +1570,7 @@ class Matrix
 
             out <<"[\n";
             // Push the extra dimensions to the index stack and recursively traverse the indices, then pop once one the operation for that index has been done
-            for(long i=0; i<this->shape[dim]; i++)
+            for(size_t i=0; i<this->shape[dim]; i++)
             {
                 indexStack.push_back(this->numElementsSeen[dim] * i);//calculate how many elements have been processed to get the pointer to the right location in data and push to the stack
                 print(out, indexStack, dim+1);
@@ -1360,31 +1615,31 @@ class Matrix
     // Matrix Arithmetic Operations 
    
     template <typename T>
-    Matrix<T> operator * (const T a, const Matrix<T> &rhs)
+    Matrix<T> operator * (const T a, Matrix<T> rhs)
     {
         return Matrix<T>(rhs.data * a, rhs.shape);
     }
 
     template <typename T>
-    Matrix<T> operator * (const Matrix<T> &lhs, const T a)
+    Matrix<T> operator * (Matrix<T> lhs, const T a)
     {
         return Matrix<T>( a * lhs.data, lhs.shape);
     }
     
     template <typename T>
-    Matrix<T> operator / (const Matrix<T> &lhs, const T a)
+    Matrix<T> operator / (Matrix<T> lhs, const T a)
     {
         return Matrix<T>(lhs.data/a, lhs.shape);
     }
 
     template <typename T>
-    Matrix<T> operator / (const T a, const Matrix<T> &lhs)
+    Matrix<T> operator / (const T a, Matrix<T> lhs)
     {
         return Matrix<T>( a / lhs.data, lhs.shape);
     }
     
     template <typename T>
-    Matrix<T> operator ^(const Matrix<T> &lhs, const T a)
+    Matrix<T> operator ^(Matrix<T> lhs, const T a)
     {
         return Matrix<T>( lhs.data^a, lhs.shape);
     }
@@ -1392,25 +1647,25 @@ class Matrix
     
   
      template <typename T>
-    Matrix<T> operator + (const Matrix<T> &lhs, const T a)
+    Matrix<T> operator + (Matrix<T> lhs, const T a)
     {
         return Matrix<T>(lhs.data + a, lhs.shape);
     }
 
     template <typename T>
-    Matrix<T> operator + (const T a, const Matrix<T> &lhs)
+    Matrix<T> operator + ( const T a, Matrix<T> lhs)
     {
         return Matrix<T>( a + lhs.data, lhs.shape);
     }
   
      template <typename T>
-    Matrix<T> operator - (const Matrix<T> &lhs, const T a)
+    Matrix<T> operator - (Matrix<T> lhs, const T a)
     {
         return Matrix<T>(lhs.data - a, lhs.shape);
     }
 
     template <typename T>
-    Matrix<T> operator - (const T a, const Matrix<T> &lhs)
+    Matrix<T> operator - (const T a,  Matrix<T> lhs)
     {
         return Matrix<T>( a - lhs.data, lhs.shape);
     }
@@ -1440,6 +1695,8 @@ class Matrix
     {
         return Matrix<T>( a > lhs.data, lhs.shape);
     }
+
+
 
     template <typename T>
     Matrix<T> operator <= (const Matrix<T> &rhs, const T a)

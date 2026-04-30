@@ -43,8 +43,8 @@ class SubtractOperation : public Operation<T>
     {
         // Distributing Gradients when carrying out subtraction
         
-        Matrix<T> grad1 = sumGradForBroadcast(grad, t1->data.shape);
-        Matrix<T> grad2 = sumGradForBroadcast(-grad, t2->data.shape);
+        Matrix<T> grad1 = sumGradForBroadcast(grad, t1->val.shape);
+        Matrix<T> grad2 = sumGradForBroadcast(-grad, t2->val.shape);
         
         this->t1->backward(grad1);
         this->t2->backward(grad2);
@@ -67,7 +67,7 @@ class SubtractOperation : public Operation<T>
     template<typename T>
     Tensor_t<T> SubtractOperation<T>::forward()
     {
-        return std::make_shared<Tensor<T>>(this->t1->data-this->t2->data, this->shared_from_this());
+        return std::make_shared<Tensor<T>>(this->t1->val-this->t2->val, this->shared_from_this());
     }
 
 

@@ -11,7 +11,7 @@
 
         private:
     
-        void getMods(const std::initializer_list<Module<T>> inmods)
+        void getMods(const std::initializer_list<Module<T>*> inmods)
         {
             if (inmods.size() == 0) return;
 
@@ -22,21 +22,20 @@
         }
         public:
 
-        NeuralLayer(std::initializer_list<Module<T>> inmods)
+        NeuralLayer(std::initializer_list<Module<T>*> inmods)
         {
             getMods(inmods);
         }
 
         Tensor_t<T> forward(Tensor_t<T> x){
             Tensor_t<T> out = x;
-            for(Module<T> mod: this->submodules)
+            for(auto mod: this->submodules)
             {
-                out = mod.forward(out);
+                out = mod->forward(out);
             }
-
+            
             return out;
         }
-
     };
 
 #endif

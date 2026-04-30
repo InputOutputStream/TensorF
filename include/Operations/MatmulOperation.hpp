@@ -41,14 +41,14 @@ class MatmulOperation : public Operation<T>
     template <typename T>
     void MatmulOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad.matmul(this->t2->data.transpose()));
-        this->t2->backward(this->t1->data.transpose().matmul(grad));
+        this->t1->backward(grad.matmul(this->t2->val.transpose()));
+        this->t2->backward(this->t1->val.transpose().matmul(grad));
     }
 
     template<typename T>
     Tensor_t<T> MatmulOperation<T>::forward()
     {
-        return std::make_shared<Tensor<T>>(this->t1->data.matmul(this->t2->data), this->shared_from_this());
+        return std::make_shared<Tensor<T>>(this->t1->val.matmul(this->t2->val), this->shared_from_this());
     }
 
     template <typename T>

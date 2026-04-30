@@ -5,6 +5,8 @@
 #include "Modules/Optimizer.hpp"
 #include "Modules/Relu.hpp"
 
+#include "DataLoader/DataLoading.hpp"
+
 #include <iostream>
 #include <vector>
 #include <cassert>
@@ -38,7 +40,6 @@ void test_1D_sum()
     Matrix<float> a({1,2,3,4});
     (a.sum() == 10) ? PASS("1D sum") : FAIL("1D sum");
 }
-
 
 void test_1D_arithmetic()
 {
@@ -84,7 +85,7 @@ void test_2D_transpose()
     // numpy: [[1,2,3,4],[5,6,7,8],[9,10,11,12]].T
     // = [[1,5,9],[2,6,10],[3,7,11],[4,8,12]]   shape {4,3}
     Matrix<float> m({{1,2,3,4},{5,6,7,8},{9,10,11,12}});
-    Matrix<float> t = m.transpose({4,3});
+    Matrix<float> t = m.transpose({1,0});
     bool ok = t.data[0]==1 && t.data[1]==5  && t.data[2]==9
            && t.data[3]==2 && t.data[4]==6  && t.data[5]==10
            && t.data[6]==3 && t.data[7]==7  && t.data[8]==11
@@ -177,7 +178,7 @@ void test_3D_transpose()
     // result[0,0,0]=1, [0,0,1]=5, [0,1,0]=3, [0,1,1]=7
     //        [1,0,0]=2, [1,0,1]=6, [1,1,0]=4, [1,1,1]=8
     Matrix<float> a({1,2,3,4,5,6,7,8}, {2,2,2});
-    Matrix<float> res = a.transpose({2,2,2});
+    Matrix<float> res = a.transpose({2,1,0});
     bool ok = res.data[0]==1 && res.data[1]==5
            && res.data[2]==3 && res.data[3]==7
            && res.data[4]==2 && res.data[5]==6
@@ -529,18 +530,18 @@ void sigmoidTest()
 }
 
 template<typename T>
-void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
+void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int iters)
 {
-    Linear<T> l1(input->data.shape[1], 2, true);
+    Linear<T> l1(input->val.shape[1], 2, true);
     Linear<T> l2(2, 1, true);
 
     std::vector<Tensor_t<T>> params(l1.parameters());
     auto param2 = l2.parameters(); 
     params.insert(params.end(), param2.begin(), param2.end());
 
-    Optimizer<T> Op(params, 0.01, ADAM, 0.9, 0.999, 1e-8);
+    Optimizer<T> Op(params, 0.5, SGD);
 
-    for(int epoch = 1; epoch <= epochs; epoch++)
+    for(int iter = 1; iter <= iters; iter++)
     {
         // forward
         Tensor_t<T> a = l1.forward(input);
@@ -559,10 +560,10 @@ void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
 
         Op.zero_grad();
         
-        if(epoch % 1000 == 0)
+        if(iter % 1000 == 0)
         {
-            std:: cerr << "out" << out->data;
-            std:: cerr << "epoch: " <<epoch << " "<< "loss: "<< loss->data * 100;    
+            std:: cerr << "out" << out->val;
+            std:: cerr << "iter: " <<iter << " "<< "loss: "<< loss->val * 100;    
         }
     }
 
@@ -570,46 +571,86 @@ void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
 
 
 template<typename T>
-void nn(Tensor_t<T> input, Tensor_t<T> labels, int epochs)
+void nn_mnist()
 {
-    Linear<T> l1(input->data.shape[1], 2, true);
-    Linear<T> l2(2, 1, true);
+    int iters = 1000;
+
+    Matrix<T> raw_train = Tabular<T>(true).load("MNIST_CSV/mnist_train.csv");
+    raw_train = raw_train.slice_row(0, 100);
+    
+    Matrix<T> labels_train = raw_train.col(0);           // column 0 = label
+    Matrix<T> pixels_train = raw_train.slice_cols(1, 785); // columns 1–784 = pixels
+    Matrix<T> x_train = pixels_train / (T)255.0;          // normalize
+
+    // Matrix<T> raw_test = Tabular<T>(true).load("MNIST_CSV/mnist_test.csv");
+    // raw_test = raw_test.slice_row(0, 5);
+
+    // Matrix<T> labels_test = raw_test.col(0);           // column 0 = label
+    // Matrix<T> pixels_test = raw_test.slice_cols(1, 785); // columns 1–784 = pixels
+    // Matrix<T> x_test = pixels_test / (T)255.0;          // normalize
+
+    Linear<T> l1(x_train.shape[1], 64, true);
+    Linear<T> l2(64, 64, true);
+    Linear<T> l3(64, 10, true);
 
     std::vector<Tensor_t<T>> params(l1.parameters());
     auto param2 = l2.parameters(); 
     params.insert(params.end(), param2.begin(), param2.end());
 
-    Optimizer<T> Op(params,0.1, SGD);
+    auto param3 = l3.parameters(); 
+    params.insert(params.end(), param3.begin(), param3.end());
 
-    for(int epoch = 0; epoch < epochs; epoch++)
+    Optimizer<T> Op(params, 1e-2, SGD);
+    auto X = make_tensor<T>(x_train);
+    auto y = make_tensor<T>(Matrix<T>::one_hot(labels_train, 10));
+
+    for(int iter = 0; iter < iters; iter++)
     {
-        // forward
-        Tensor_t<T> a = l1.forward(input);
-        Tensor_t<T> b = l2.forward(a);
-        Tensor_t<T> out = b->sigmod();
+        // Zero Grad
+        Op.zero_grad();
 
+        // forward
+        Tensor_t<T> a = l1.forward(X);
+        Tensor_t<T> b = a->relu();
+    
+        //  std:: cerr << "b: " <<b->val ;    
+
+        Tensor_t<T> c = l2.forward(b);
+        Tensor_t<T> d = c->relu();
+
+        //  std:: cerr << "d: " <<d->val ;    
+
+        Tensor_t<T> e = l3.forward(d);
+        //  std:: cerr << "e: " <<e->val ;    
+
+        Tensor_t<T> ypred = e->softmax();
+        
+        // std:: cerr << "ypred: " <<ypred->val ;    
 
         // loss
-        Tensor_t<T> loss = ((out-labels)^(T)2)/(T)labels->data.shape[0];
 
-        if(epoch % 1000 == 0)
-        {
-            std:: cerr << "out" << out;
-            std:: cerr << "epoch: " <<epoch << " "<< "loss: "<< (T)100 * ((loss->sum())/(T)labels->data.shape[0])->data; 
-        }
+        Tensor_t<T> loss = Tensor<T>::cross_entropy(y, ypred);
+
+        // std:: cerr << "loss: " <<loss->val ;    
 
         // backward
-        loss->backward(Matrix<T>(1));
+        loss->backward(Matrix<T> ({1}));
 
+        
         Op.step();
+        
+        if(iter % 100 == 0)
+        {
+            // for (auto& p : params)
+            //     std::cout << "grad norm: " << p->grad.data[0] << " ...\n";
 
-    }
+            std:: cerr << "iter: " <<iter << " "<< "loss %: "<< loss->val * 100;    
+        }        
+    }        
 
 }
 
-// ─── main ───────────────────────────────────────────────────────────────────
-
-int main()
+void functionality_tests()
 {
     cout << "=== 1D ===\n";
     test_1D_dot();
@@ -650,14 +691,25 @@ int main()
     test_sumgrad_no_broadcast();
     test_sumgrad_row_vector();
 
-    cout << "\n=== Sigmoid test ===\n";
-    sigmoidTest();
+
+}
+
+// ─── main ───────────────────────────────────────────────────────────────────
+
+int main()
+{
+    //functionality_tests();
+
+    // cout << "\n=== Sigmoid test ===\n";
+    // sigmoidTest();
+
+    // cout << "\n=== nn xor test ===\n";
+    // Tensor_t<double> in = make_tensor<double>({{0,0},{0,1},{1,0},{1, 1}});
+    // Tensor_t<double> y = make_tensor<double>({{0}, {1}, {1}, {0}});
+    // nn_xor(in, y, 10000);
 
     cout << "\n=== nn test ===\n";
-    Tensor_t<double> in = make_tensor<double>({{0,0},{0,1},{1,0},{1, 1}});
-    Tensor_t<double> y = make_tensor<double>({{0}, {1}, {1}, {0}});
-
-    nn_xor(in, y, 10000);
+    nn_mnist<double>();
     return 0;
 
 }

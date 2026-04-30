@@ -40,14 +40,14 @@ class SumOperation : public Operation<T>
     template <typename T>
     void SumOperation<T>::backward(Matrix<T> grad)
     {
-        Matrix<T> ones = Matrix<T>::ones(this->t1->data.shape); 
+        Matrix<T> ones = Matrix<T>::ones(this->t1->val.shape); 
         this->t1->backward(grad.data[0] * ones);
     }
 
     template<typename T>
     Tensor_t<T> SumOperation<T>::forward()
     {
-        T s = this->t1->data.sum();
+        T s = this->t1->val.sum();
         return std::make_shared<Tensor<T>>(Matrix<T>({s}), this->shared_from_this());
     }
 

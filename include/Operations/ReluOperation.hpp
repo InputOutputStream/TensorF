@@ -39,13 +39,13 @@ class ReluOperation : public Operation<T>
     template <typename T>
     void ReluOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * (this->t1->data > (T)0));
+        this->t1->backward(grad * (this->t1->val > (T)0));
     }
 
     template<typename T>
     Tensor_t<T> ReluOperation<T>::forward()
     {
-        return std::make_shared<Tensor<T>>(this->t1->data.maximum(0), this->shared_from_this());
+        return std::make_shared<Tensor<T>>(this->t1->val.maximum(0), this->shared_from_this());
     }
 
     template <typename T>

@@ -42,10 +42,10 @@ class DivisionOperation : public Operation<T>
     template <typename T>
     void DivisionOperation<T>::backward(Matrix<T> grad)
     {
-        Matrix<T> grad1 = sumGradForBroadcast(grad / this->t2->data, this->t1->data.shape);
-        Matrix<T> numerator = Matrix<T>(-1) * grad * this->t1->data;
-        Matrix<T> t2_sq = this->t2->data * this->t2->data;
-        Matrix<T> grad2 = sumGradForBroadcast(numerator / t2_sq, this->t2->data.shape);
+        Matrix<T> grad1 = sumGradForBroadcast(grad / this->t2->val, this->t1->val.shape);
+        Matrix<T> numerator = Matrix<T>(-1) * grad * this->t1->val;
+        Matrix<T> t2_sq = this->t2->val * this->t2->val;
+        Matrix<T> grad2 = sumGradForBroadcast(numerator / t2_sq, this->t2->val.shape);
 
         this->t1->backward(grad1);
         this->t2->backward(grad2);
@@ -66,7 +66,7 @@ class DivisionOperation : public Operation<T>
     template <typename T>
     Tensor_t<T> DivisionOperation<T>::forward()
     {
-        return std::make_shared<Tensor<T>>((this->t1->data/this->t2->data), this->shared_from_this());
+        return std::make_shared<Tensor<T>>((this->t1->val/this->t2->val), this->shared_from_this());
     }
 
 #endif

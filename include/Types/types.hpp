@@ -6,7 +6,7 @@
     #include <ctype.h>
     #include "fp8.hpp"
 
-    using shape_t = std::vector<long>;
+    using shape_t = std::vector<size_t>;
 
     template <typename T>
     class Tensor;
@@ -15,7 +15,14 @@
     class Operation;
 
     template <typename T>
+    class Module;
+
+
+    template <typename T>
     using Operation_t=std::shared_ptr<Operation<T>>;
+
+    // template <typename T>
+    // using module_t = std::shared_ptr<Module<T>>;
 
     template <typename T>
     using Tensor_t=std::shared_ptr<Tensor<T>>;
