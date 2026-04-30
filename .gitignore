@@ -39,3 +39,15 @@
 
 # debug information files
 *.dwo
+
+# dataset files
+
+MNIST_CSV/**
+*.csv
+*.xls
+*.xlsx
+# dataset files
+MNIST_CSV/**
+*.csv
+*.xls
+*.xlsx
