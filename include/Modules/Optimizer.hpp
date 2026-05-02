@@ -36,118 +36,163 @@
             // AdamW
             T lambda = 1e-4;
 
-            void sgd(){
-                for(auto p : this->parameters)
-                {
-                    if(p->grad.get_size() == 0) continue; // skip if no gradient
+            void sgd() {
+                for(auto p : this->parameters) {
+                    if(p->grad.get_size() == 0) continue;
 
                     if constexpr (std::is_same_v<T, float>)
-                        cblas_saxpy(
-                            p->val.get_size(),    // number of elements
-                            -this->lr,              // alpha = -lr
-                            p->grad.data.data(), 1, // x = gradient
-                            p->val.data.data(), 1  // y = parameters (modified in place)
-                        );
-                    else if constexpr (std::is_same_v<T, double>)
-                        cblas_daxpy(
-                            p->val.get_size(),
-                            -this->lr,
+                        cblas_saxpy(p->val.get_size(), -this->lr,
                             p->grad.data.data(), 1,
-                            p->val.data.data(), 1
-                        );
+                            p->val.data.data(),  1);
+
+                    else if constexpr (std::is_same_v<T, double>)
+                        cblas_daxpy(p->val.get_size(), -this->lr,
+                            p->grad.data.data(), 1,
+                            p->val.data.data(),  1);
                     else
-                        p->val = p->val - this->lr * p->grad; 
-
+                        p->val = p->val - this->lr * p->grad;
                 }
             }
 
-            void Adam()
-            {
-                
-                if(!initialized){
-                    for(auto p : parameters){
+            void Adam() {
+                if(!initialized) {
+                    for(auto p : parameters) {
                         if(p->grad.get_size() == 0) continue;
                         m.push_back(Matrix<T>::zeros(p->val.shape));
                         v.push_back(Matrix<T>::zeros(p->val.shape));
                     }
-
                     initialized = true;
                 }
 
                 t++;
-                for(size_t i = 0; i < parameters.size(); i++){
-    
+                T b1_corr = 1 - std::pow(b1, t);   // bias correction scalars
+                T b2_corr = 1 - std::pow(b2, t);
+
+                for(size_t i = 0; i < parameters.size(); i++) {
                     auto p = parameters[i];
                     if(p->grad.get_size() == 0) continue;
 
-                    m[i] = b1 * m[i] + (1 - b1) * p->grad;
-                    v[i] = b2 * v[i] + (1 - b2) * (p->grad*p->grad);
+                    size_t n = p->val.get_size();
 
-                    auto m_hat = m[i] / (1 - std::pow(b1, t));
-                    auto v_hat = v[i] / (1 - std::pow(b2, t));
+                    // m = b1*m + (1-b1)*grad  →  saxpy: m = (1-b1)*grad + b1*m
+                    // step 1: scale m by b1 in place
+                    if constexpr (std::is_same_v<T, float>) {
+                        cblas_sscal(n, b1, m[i].data.data(), 1);
+                        cblas_saxpy(n, (1 - b1), p->grad.data.data(), 1, m[i].data.data(), 1);
+                    } else if constexpr (std::is_same_v<T, double>) {
+                        cblas_dscal(n, b1, m[i].data.data(), 1);
+                        cblas_daxpy(n, (1 - b1), p->grad.data.data(), 1, m[i].data.data(), 1);
+                    } else {
+                        m[i] = b1 * m[i] + (1 - b1) * p->grad;
+                    }
 
-                    p->val = p->val - ((lr * m_hat) / (v_hat.sqrt() + Matrix<T>(eps)));
+                    // v = b2*v + (1-b2)*grad^2  — need grad^2 as temp buffer
+                    std::vector<T> grad_sq(n);
+                    for(size_t k = 0; k < n; k++)
+                        grad_sq[k] = p->grad.data[k] * p->grad.data[k];
 
-                    // if constexpr (std::is_same_v<T, float>)
-                    //     cblas_saxpy(
-                    //         p->val.data.size(),    // number of elements
-                    //         -al.data[0],              // alpha = -lr
-                    //         p->grad.data.data(), 1, // x = gradient
-                    //         p->val.data.data(), 1  // y = parameters (modified in place)
-                    //     );
-                    // else if constexpr (std::is_same_v<T, double>)
-                    //     cblas_daxpy(
-                    //         p->val.data.size(),
-                    //         -al.data[0],
-                    //         p->grad.data.data(), 1,
-                    //         p->val.data.data(), 1
-                    //     );
+                    if constexpr (std::is_same_v<T, float>) {
+                        cblas_sscal(n, b2, v[i].data.data(), 1);
+                        cblas_saxpy(n, (1 - b2), grad_sq.data(), 1, v[i].data.data(), 1);
+                    } else if constexpr (std::is_same_v<T, double>) {
+                        cblas_dscal(n, b2, v[i].data.data(), 1);
+                        cblas_daxpy(n, (1 - b2), grad_sq.data(), 1, v[i].data.data(), 1);
+                    } else {
+                        Matrix<T> grad_sq_mat(grad_sq, p->grad.shape);  
+                        v[i] = b2 * v[i] + (1 - b2) * grad_sq_mat;
+                    }
+
+                    // param update: p = p - lr * (m/b1_corr) / (sqrt(v/b2_corr) + eps)
+                    // compute step vector = (m_hat) / (sqrt(v_hat) + eps) * lr
+  
+                    std::vector<T> step(n);
+                    for(size_t k = 0; k < n; k++)
+                        step[k] = (lr * m[i].data[k] / b1_corr) / 
+                                (std::sqrt(v[i].data[k] / b2_corr) + eps);
+
+                    if constexpr (std::is_same_v<T, float>)
+                        cblas_saxpy(n, -1.0f, step.data(), 1, p->val.data.data(), 1);
+                    else if constexpr (std::is_same_v<T, double>)
+                        cblas_daxpy(n, -1.0,  step.data(), 1, p->val.data.data(), 1);
+                    else
+                        p->val.data = p->val.data - step;
                 }
             }
 
-            void AdamW()
-            {
-                if(!initialized){
-                    for(auto p : parameters){
+            void AdamW() {
+                if(!initialized) {
+                    for(auto p : parameters) {
                         if(p->grad.get_size() == 0) continue;
                         m.push_back(Matrix<T>::zeros(p->val.shape));
                         v.push_back(Matrix<T>::zeros(p->val.shape));
                     }
-
                     initialized = true;
                 }
 
                 t++;
+                T b1_corr = 1 - std::pow(b1, t);
+                T b2_corr = 1 - std::pow(b2, t);
 
-                for(size_t i = 0; i < parameters.size(); i++){
+                for(size_t i = 0; i < parameters.size(); i++) {
                     auto p = parameters[i];
                     if(p->grad.get_size() == 0) continue;
 
-                    m[i] = b1 * m[i] + (1 - b1) * p->grad;
-                    v[i] = b2 * v[i] + (1 - b2) * (p->grad*p->grad);
+                    size_t n = p->val.get_size();
 
-                    auto m_hat = m[i] / (1 - std::pow(b1, t));
-                    auto v_hat = v[i] / (1 - std::pow(b2, t));
+                    // weight decay — scale p->val by (1 - lr*lambda) before Adam step
+                    if constexpr (std::is_same_v<T, float>)
+                        cblas_sscal(n, (1 - lr * lambda), p->val.data.data(), 1);
+                    else if constexpr (std::is_same_v<T, double>)
+                        cblas_dscal(n, (1 - lr * lambda), p->val.data.data(), 1);
+                    else
+                        {
+                            p->val = p->val * (1 - lr * lambda);
+                        }
 
-                    p->val = p->val * (1 - lr * lambda);  // weight decay first
-                    p->val = p->val - ((lr * m_hat) / (v_hat.sqrt() + Matrix<T>(eps)));
+                    // m update
+                    if constexpr (std::is_same_v<T, float>) {
+                        cblas_sscal(n, b1, m[i].data.data(), 1);
+                        cblas_saxpy(n, (1 - b1), p->grad.data.data(), 1, m[i].data.data(), 1);
+                    } else if constexpr (std::is_same_v<T, double>) {
+                        cblas_dscal(n, b1, m[i].data.data(), 1);
+                        cblas_daxpy(n, (1 - b1), p->grad.data.data(), 1, m[i].data.data(), 1);
+                    } else {
+                        m[i] = b1 * m[i] + (1 - b1) * p->grad;
+                    }
 
-                    // if constexpr (std::is_same_v<T, float>)
-                    //     cblas_saxpy(
-                    //         p->val.data.size(),    // number of elements
-                    //         -al.data[0],              // alpha = -lr
-                    //         p->grad.data.data(), 1, // x = gradient
-                    //         p->val.data.data(), 1  // y = parameters (modified in place)
-                    //     );
-                    // else if constexpr (std::is_same_v<T, double>)
-                    //     cblas_daxpy(
-                    //         p->val.data.size(),
-                    //         -al.data[0],
-                    //         p->grad.data.data(), 1,
-                    //         p->val.data.data(), 1
-                    //     );
+                    // v update
+                    std::vector<T> grad_sq(n);
+                    for(size_t k = 0; k < n; k++)
+                        grad_sq[k] = p->grad.data[k] * p->grad.data[k];
+
+
+                    if constexpr (std::is_same_v<T, float>) {
+                        cblas_sscal(n, b2, v[i].data.data(), 1);
+                        cblas_saxpy(n, (1 - b2), grad_sq.data(), 1, v[i].data.data(), 1);
+                    } else if constexpr (std::is_same_v<T, double>) {
+                        cblas_dscal(n, b2, v[i].data.data(), 1);
+                        cblas_daxpy(n, (1 - b2), grad_sq.data(), 1, v[i].data.data(), 1);
+                    } else {
+                        Matrix<T> grad_sq_mat(grad_sq, p->grad.shape);  
+                        v[i] = b2 * v[i] + (1 - b2) * grad_sq_mat;
+
+                        
+                    }
+
+                    // param update — identical to Adam after weight decay
+            
+                    std::vector<T> step(n);
+                    for(size_t k = 0; k < n; k++)
+                        step[k] = (lr * m[i].data[k] / b1_corr) / 
+                                (std::sqrt(v[i].data[k] / b2_corr) + eps);
+
+                    if constexpr (std::is_same_v<T, float>)
+                        cblas_saxpy(n, -1.0f, step.data(), 1, p->val.data.data(), 1);
+                    else if constexpr (std::is_same_v<T, double>)
+                        cblas_daxpy(n, -1.0,  step.data(), 1, p->val.data.data(), 1);
+                    else
+                        p->val.data = p->val.data - step;
                 }
-
             }
         public:
             
@@ -185,21 +230,39 @@
 
             void clip_grad_norm(T max_norm = 1.0) {
                 T total_norm = 0;
+
                 for (auto p : parameters) {
                     if (p->grad.get_size() == 0) continue;
-                    for (auto g : p->grad.data)
-                        total_norm += g * g;
+
+                    if constexpr (std::is_same_v<T, float>)
+                        total_norm += cblas_sdot(p->grad.get_size(),
+                                                p->grad.data.data(), 1,
+                                                p->grad.data.data(), 1);
+                    else if constexpr (std::is_same_v<T, double>)
+                        total_norm += cblas_ddot(p->grad.get_size(),
+                                                p->grad.data.data(), 1,
+                                                p->grad.data.data(), 1);
+                    else
+                        for (auto g : p->grad.data)
+                            total_norm += g * g;
                 }
+
                 total_norm = std::sqrt(total_norm);
+
                 if (total_norm > max_norm) {
                     T scale = max_norm / (total_norm + T(1e-6));
                     for (auto p : parameters) {
                         if (p->grad.get_size() == 0) continue;
-                        p->grad = p->grad * scale;
+
+                        if constexpr (std::is_same_v<T, float>)
+                            cblas_sscal(p->grad.get_size(), scale, p->grad.data.data(), 1);
+                        else if constexpr (std::is_same_v<T, double>)
+                            cblas_dscal(p->grad.get_size(), scale, p->grad.data.data(), 1);
+                        else
+                            p->grad = p->grad * scale;
                     }
                 }
             }
-
             void step(){
                 
                 clip_grad_norm(1.0);
@@ -219,59 +282,3 @@
     };
 
 #endif
-
-// #ifndef __OPTIMIZER__HPP_
-// #define __OPTIMIZER__HPP_
-
-// #include "../Types/types.hpp"
-// #include "../DataStructures/Tensor.hpp"
-
-// #include "Module.hpp"
-
-//     #include <iostream>
-//     #include <vector>
-
-//     enum Optimizer_t{
-//         SGD,
-//         // ADAM,
-//         // ADAMw
-//     };
-
-//     template <typename T>
-//     class Optimizer{
-//         protected:
-//             Optimizer_t optimizer = SGD;
-//             T lr;
-//             std::vector<Tensor_t<T>> parameters;
-
-//             void sgd(){
-//                 for(auto p : parameters)
-//                 {
-//                     p->val = p->val - this->lr * p->grad;
-//                 }
-//             }
-
-//         public:
-
-//             Optimizer(std::vector<Tensor_t<T>> params, T lr, Optimizer_t optim){
-//                 this->parameters = params;
-//                 this->lr = lr;
-//                 this->optimizer = optim;
-//             }
-
-//             void zero_grad(){
-//                 for(auto p : parameters)
-//                     p->zero_grad();
-//             }
-
-//             void step(){
-//                 switch(this->optimizer){
-//                     case SGD:
-//                         this->sgd();
-//                         break;
-//                 }
-
-//             }
-//     };
-
-// #endif

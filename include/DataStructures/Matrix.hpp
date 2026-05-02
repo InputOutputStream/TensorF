@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <random>
 #include <cblas.h>
+#include <optional>
 
 template<typename U>
 class Matrix;
@@ -241,6 +242,12 @@ class Matrix
         return true;
     }
 
+    static std::mt19937& get_gen(std::optional<unsigned int> seed = std::nullopt) {
+        static std::mt19937 gen(std::random_device{}());
+        if(seed.has_value())
+            gen.seed(seed.value());
+        return gen;
+    }
             
     bool isRegular2D(const std::vector<std::vector<T>> data)
     {
@@ -710,6 +717,7 @@ class Matrix
 
     // Constructors 
 
+
     static shape_t getShape(const std::initializer_list<size_t> shape)
     {
         if (shape.size() == 0) return shape_t{0};
@@ -1176,6 +1184,23 @@ class Matrix
         return Matrix<T>(resf, {this->shape[this->ndims - 2], s});
     }
 
+    Matrix<T> pow(Matrix<T> input, T power)
+    {
+        std::vector<T> res;
+        size_t numElems = 1;
+
+        for(auto i: input.shape)
+            numElems *= i;
+
+        for(size_t k=0; k<numElems; k++)
+        {
+            res.push_back((T)std::pow(input.data[k]), power);
+        }
+        
+        return Matrix<T>(res, input.shape);
+    }
+
+
     Matrix<T> flatten()
     {
         return Matrix<T>(this->data);
@@ -1197,7 +1222,88 @@ class Matrix
 
     static Matrix<T> slice(size_t start, size_t end, size_t axis){
 
-        // really not unkown
+        throw std::runtime_error("Not implemented error");
+
+    }
+
+    static Matrix<T> stack(std::initializer_list<Matrix<T>> list, size_t axis)
+    {
+        std::vector<T> res;
+        size_t numElems = 1;
+        
+        if (list.size() == 0) return Matrix<T>();
+
+        std::vector<Matrix<T>> s;
+
+        for (const auto& item : list)
+        {   
+            s.push_back(item);
+        }
+        
+        auto row_shape = s[0].shape[0];
+        auto col_shape = s[0].shape[1];
+        
+        for (int i = 1; i<s.size(); i++)
+        {   
+            if(s[i].shape[0] != row_shape )
+                throw std::runtime_error("Invalid Matrix shape for axis 0 stacking");
+            else if(col_shape != s[i].shape[1])
+                throw std::runtime_error("Invalid Matrix shape for axis 0 stacking");
+
+        }
+
+        if(axis == 0)
+        {
+            for(auto item: s){
+
+                for(size_t k=0; k<item.size(); k++)
+                {
+                    res.push_back(item.data[k]);
+                }
+
+            }
+
+            return Matrix<T>(res, {s[0].shape[0]*s.size(), s[0].shape[1]});
+        }else if(axis == 1){
+             
+            for(size_t row = 0; row < s[0].shape[0]; row++){
+                for(size_t i = 0; i < s.size(); i++){
+                    for(size_t col = 0; col < s[i].shape[1]; col++){
+                        res.push_back(s[i].data[row * s[i].shape[1] + col]);
+                        
+                    }
+                }
+            }    
+
+            return Matrix<T>(res, {s[0].shape[0], s[0].shape[1]*s.size()});
+        }
+        else if(axis == 2)
+        {
+            size_t rows = s[0].shape[0];
+            size_t cols = s[0].shape[1];
+            size_t depth = s.size();
+
+            for(size_t row = 0; row < rows; row++){
+                for(size_t col = 0; col < cols; col++)
+                    for(size_t d = 0; d < depth; d++)
+                        res.push_back(s[d].data[row * cols + col]);
+            }
+
+            return Matrix<T>(res, {rows, cols, depth});
+        }
+        else
+        {
+            throw std::runtime_error("axis must be 0, 1, or 2");
+        }
+    }
+
+    static Matrix<T> arrange(T start, T stop, T step = 1)
+    {
+        std::vector<T> res;
+        for(T val = start; val < stop; val += step)
+            res.push_back(val);
+        size_t n = res.size();
+        return Matrix<T>(res, {n});  
     }
     
     static Matrix<T> zeros(shape_t shape)
@@ -1235,67 +1341,140 @@ class Matrix
         return Matrix<T>(res, shape);
     }
 
+    static Matrix<T> sin(Matrix<T> input)
+    {
+        std::vector<T> res;
+        size_t numElems = 1;
+
+        for(auto i: input.shape)
+            numElems *= i;
+
+        for(size_t k=0; k<numElems; k++)
+        {
+            res.push_back((T)std::sin(input.data[k]));
+        }
+        
+        return Matrix<T>(res, input.shape);
+    }
+
+    static Matrix<T> cos(Matrix<T> input)
+    {
+        std::vector<T> res;
+        size_t numElems = 1;
+
+        for(auto i: input.shape)
+            numElems *= i;
+
+        for(size_t k=0; k<numElems; k++)
+        {
+            res.push_back((T)std::cos(input.data[k]));
+        }
+        
+        return Matrix<T>(res, input.shape);
+    }
+
+    static Matrix<T> tan(Matrix<T> input)
+    {
+        std::vector<T> res;
+        size_t numElems = 1;
+
+        for(auto i: input.shape)
+            numElems *= i;
+
+        for(size_t k=0; k<numElems; k++)
+        {
+            res.push_back((T)std::tan(input.data[k]));
+        }
+        
+        return Matrix<T>(res, input.shape);
+    }
+
     static Matrix<T> randu(std::initializer_list<size_t> inshape)
     {
         return  Matrix<T>::randu(Matrix<T>::getShape(inshape));
     }
 
-    static Matrix<T> randu(shape_t shape)
+    static Matrix<T> randu(T start, T stop, std::initializer_list<size_t> inshape)
     {
-        std::vector<T> res;
-        size_t numElems = 1;
-
-        for(auto i: shape)
-            numElems *= i;
-
-        for(size_t k=0; k<numElems; k++)
-        {
-            res.push_back((T)std::rand() / (T)RAND_MAX);
-        }
-        
-        return Matrix<T>(res, shape);
+        return  Matrix<T>::randu(start, stop, Matrix<T>::getShape(inshape));
     }
-
-    static Matrix<T> randn(shape_t shape)
-    {
-        std::vector<T> res;
-        size_t numElems = 1;
-
-        for(auto i: shape)
-            numElems *= i;
-
-        for(size_t k=0; k<numElems; k++)
-        {
-            res.push_back((T)std::rand() / (T)RAND_MAX);
-        }
-        
-        return Matrix<T>(res, shape);
-    }
-
-    static Matrix<T> he(shape_t shape) // kaiming init
-    {
-        size_t fan_in = shape[0]; // number of input features
-        T std_dev = std::sqrt((T)2.0 / (T)fan_in);
-
-        std::mt19937 gen(std::random_device{}());
-        std::normal_distribution<T> dist(0.0, std_dev);
-
-        size_t numElems = 1;
-        for (auto i : shape) numElems *= i;
-
-        std::vector<T> res;
-        res.reserve(numElems);
-        for (size_t k = 0; k < numElems; k++)
-            res.push_back(dist(gen));
-
-        return Matrix<T>(res, shape);
-    }
-
 
     static Matrix<T> he(std::initializer_list<size_t> inshape)
     {
         return Matrix<T>::he(Matrix<T>::getShape(inshape));
     }
+  
+    static Matrix<T> randu(shape_t shape)
+    {
+        size_t numElems = 1;
+        for(auto i : shape) numElems *= i;
+
+        std::uniform_real_distribution<T> dist(0.0, 1.0);
+        std::vector<T> res;
+        res.reserve(numElems);
+        for(size_t k = 0; k < numElems; k++)
+            res.push_back(dist(get_gen()));
+
+        return Matrix<T>(res, shape);
+    }
+
+    static Matrix<T> randu(T start, T stop, shape_t shape)
+    {
+        size_t numElems = 1;
+        for(auto i : shape) numElems *= i;
+
+        std::vector<T> res;
+        res.reserve(numElems);
+
+        if constexpr (std::is_integral_v<T>) {
+            std::uniform_int_distribution<T> dist(start, stop - 1);
+            for(size_t k = 0; k < numElems; k++)
+                res.push_back(dist(get_gen()));
+        } else {
+            std::uniform_real_distribution<T> dist(start, stop);
+            for(size_t k = 0; k < numElems; k++)
+                res.push_back(dist(get_gen()));
+        }
+
+        return Matrix<T>(res, shape);
+    }
+
+    static void manual_seed(unsigned int seed) {
+        get_gen(seed);
+    }
+
+    static Matrix<T> randn(shape_t shape)
+    {
+        size_t numElems = 1;
+        for(auto i : shape) numElems *= i;
+
+        std::normal_distribution<T> dist(0.0, 1.0);
+        std::vector<T> res;
+        res.reserve(numElems);
+        for(size_t k = 0; k < numElems; k++)
+            res.push_back(dist(get_gen()));
+
+        return Matrix<T>(res, shape);
+    }
+
+    // He/Kaiming 
+    static Matrix<T> he(shape_t shape)
+    {
+        size_t fan_in = shape[0];
+        T std_dev = std::sqrt((T)2.0 / (T)fan_in);
+
+        size_t numElems = 1;
+        for(auto i : shape) numElems *= i;
+
+        std::normal_distribution<T> dist(0.0, std_dev);
+        std::vector<T> res;
+        res.reserve(numElems);
+        for(size_t k = 0; k < numElems; k++)
+            res.push_back(dist(get_gen()));
+
+        return Matrix<T>(res, shape);
+    }
+
     static Matrix<T> log(Matrix<T> mat)
     {
         std::vector<T> arr;
@@ -1722,29 +1901,56 @@ class Matrix
         return Matrix<T>( a >= lhs.data, lhs.shape);
     }
 
-    // template <typename T>
-    // Matrix<T> operator +=(Matrix<T> &lhs,  Matrix<T> &rhs)
-    // {
-    //     return lhs + rhs;
-    // }
+    template <typename T>
+    Matrix<T> operator +=(Matrix<T> &lhs,  Matrix<T> &rhs)
+    {
+        return lhs.data += rhs.data;
+    }
 
-    // template <typename T>
-    // Matrix<T> operator -=(Matrix<T> &lhs,  Matrix<T> &rhs)
-    // {
-    //     return lhs - rhs;
-    // }
+    template <typename T>
+    Matrix<T> operator -=(Matrix<T> &lhs,  Matrix<T> &rhs)
+    {
+        return lhs.data -= rhs.data;
+    }
 
-    // template <typename T>
-    // Matrix<T> operator *=(Matrix<T> &lhs,  Matrix<T> &rhs)
-    // {
-    //     return lhs * rhs;
-    // }
+    template <typename T>
+    Matrix<T> operator *=(Matrix<T> &lhs,  Matrix<T> &rhs)
+    {
+        return lhs.data *= rhs.data;
+    }
 
-    // template <typename T>
-    // Matrix<T> operator /=(Matrix<T> &lhs,  Matrix<T> &rhs)
-    // {
-    //     return lhs / rhs;
-    // }
+    template <typename T>
+    Matrix<T> operator /=(Matrix<T> &lhs,  Matrix<T> &rhs)
+    {
+        return lhs.data /= rhs.data;
+    }
+
+
+
+    template <typename T>
+    Matrix<T> operator +=(Matrix<T> &lhs,  const T cte)
+    {
+        return lhs.data += cte;
+    }
+
+    template <typename T>
+    Matrix<T> operator -=(Matrix<T> &lhs,  const T cte)
+    {
+        return lhs.data -= cte;
+    }
+
+    template <typename T>
+    Matrix<T> operator *=(Matrix<T> &lhs,  const T cte)
+    {
+        return lhs.data *= cte;
+    }
+
+    template <typename T>
+    Matrix<T> operator /=(Matrix<T> &lhs,  const T cte)
+    {
+        return lhs.data /= cte;
+    }
+
 
     template <typename T>
     bool operator ==(const Matrix<T> &lhs,  const Matrix<T> &rhs)

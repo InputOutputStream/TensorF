@@ -251,25 +251,58 @@ bool operator ==(Tensor_t<T> left, Tensor_t<T> right)
 template <typename T>
 Tensor_t<T> operator +=(Tensor_t<T> left, Tensor_t<T> right)
 {
-    return left + right;
+    left->val += right->val;
+    return left;
 }
 
 template <typename T>
 Tensor_t<T> operator -=(Tensor_t<T> left, Tensor_t<T> right)
 {
-    return left - right;
+    left->val -= right->val;
+    return left;
 }
 
 template <typename T>
 Tensor_t<T> operator *=(Tensor_t<T> left, Tensor_t<T> right)
 {
-    return left * right;
+    left->val *= right->val;
+    return left;
 }
 
 template <typename T>
 Tensor_t<T> operator /=(Tensor_t<T> left, Tensor_t<T> right)
 {
-    return left / right;
+    left->val /= right->val;
+    return left;
+}
+
+
+template <typename T>
+Tensor_t<T> operator +=(Tensor_t<T> left, const T cte)
+{
+    left->val += cte;
+    return left;
+}
+
+template <typename T>
+Tensor_t<T> operator -=(Tensor_t<T> left, const T cte)
+{
+    left->val -= cte;
+    return left;
+}
+
+template <typename T>
+Tensor_t<T> operator *=(Tensor_t<T> left, const T cte)
+{
+    left->val *= cte;
+    return left;
+}
+
+template <typename T>
+Tensor_t<T> operator /=(Tensor_t<T> left, const T cte)
+{
+    left->val /= cte;    
+    return left;
 }
 
 //Scalar Operations..................................................................
@@ -383,36 +416,32 @@ Tensor_t<E> operator -(Tensor_t<E> ten)
 template <typename E>
 Tensor_t<E> operator <(const E a, Tensor_t<E> right)
 {    
-    Matrix<E> cte(a);
-    Matrix<E> res(right);
-    res =  cte < res;
+    Matrix<E> res(right->val);
+    res =  a < res;
     return make_tensor<E>(res); 
 }
 
 template <typename E>
 Tensor_t<E> operator <(Tensor_t<E> right, const E a)
 {    
-    Matrix<E> cte(a);
-    Matrix<E> res(right);
-    res =  res < cte;
+    Matrix<E> res(right->val);
+    res =  res < a;
     return make_tensor<E>(res); 
 }
 
 template <typename E>
 Tensor_t<E> operator >(const E a, Tensor_t<E> right)
 {    
-    Matrix<E> cte(a);
-    Matrix<E> res(right);
-    res =  cte < res;
+    Matrix<E> res(right->val);
+    res =  a > res;
     return make_tensor<E>(res); 
 }
 
 template <typename E>
 Tensor_t<E> operator >(Tensor_t<E> right, const E a)
 {    
-    Matrix<E> cte(a);
-    Matrix<E> res(right);
-    res =  res > cte;
+    Matrix<E> res(right->val);
+    res =  res > a;
     return make_tensor<E>(res); 
 }
 

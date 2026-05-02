@@ -32,29 +32,35 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     public:
         Matrix<T> val; //Tensor value
         Matrix<T> grad; //Tensor gradian
+        shape_t shape;
         Operation_t<T> frontOp = nullptr, backOp = nullptr;
 
     //....................................................................................................
     Tensor() //ov
     {
         this->val = 0;
+
     }
 
     Tensor(Matrix<T> *val) // ov
     {
         this->val.copy_from(val);
+        this->shape = this->val.shape;
     }
 
 
     Tensor(const Matrix<T> &val) // ov
     {
         this->val.copy_from(val);
+        this->shape = this->val.shape;
     }
 
     Tensor(Matrix<T> val, Operation_t<T> op)
     {
         this->val.copy_from(val);
         this->backOp = op;
+        this->shape = this->val.shape;
+
     }
 
     Tensor(const Tensor_t<T> two) 
@@ -63,6 +69,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->backOp = nullptr;      
         this->frontOp = nullptr;
         this->grad.copy_from(two->grad);
+        this->shape = this->val.shape;
     }
 
 
@@ -73,8 +80,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         if (this->grad.get_size() > 0) {
             if (this->grad.shape != ingrad.shape)
                 throw std::runtime_error("Gradient shape mismatch in Tensor::backward");
-            this->grad = this->grad + ingrad;
-            //return;
+            this->grad += ingrad;
         }
         else
             this->grad.copy_from(ingrad);
@@ -232,8 +238,11 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     // Functions Off graph...........................................................................
 
 
+    Tensor_t<T> maximum(int value)
+    {
+        return make_tensor<T>(this->val.maximum(value));
+    }
    
-
 
     // Static functions ********************************************************
 

@@ -20,6 +20,7 @@ std::vector<T> operator *(const std::vector<T> &a, const std::vector<T> &b) //st
         throw std::runtime_error("Tensors are not of the same size!!!\n");
 
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<a.size(); i++)
     {
         T prod = (T)(a.at(i) * b.at(i));
@@ -37,6 +38,7 @@ std::vector<T> operator +(const std::vector<T> &a, const std::vector<T> &b) //st
         throw std::runtime_error("Tensors are not of the same size!!!\n");
 
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i< a.size(); i++)
     {
         T prod = (T)(a.at(i) + b.at(i));
@@ -54,6 +56,7 @@ std::vector<T> operator -(const std::vector<T> &a, const std::vector<T> &b) //st
         throw std::runtime_error("Tensors are not of the same size!!!\n");
 
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i< a.size(); i++)
     {
         T prod = (T)(a.at(i) - b.at(i));
@@ -71,6 +74,7 @@ std::vector<T> operator /(const std::vector<T> &a, const std::vector<T> &b) //st
         throw std::runtime_error("Tensors are not of the same size!!!\n");
 
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<a.size(); i++)
     { 
         if (b.at(i) == T(0))
@@ -91,6 +95,7 @@ template <typename T>
 std::vector<T> operator * (const T a, const std::vector<T> &b) // Scalar Product l
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(a * b.at(i));
@@ -104,6 +109,7 @@ template <typename T>
 std::vector<T> operator * (const std::vector<T> &b, const T a) // scalar product r
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(a * b.at(i));
@@ -119,13 +125,11 @@ template <typename T>
 std::vector<T> operator / (const T a, const std::vector<T> &b) // Scalar Division l
 {
     std::vector<T> arr;
-    if (std::find(b.begin(), b.end(), (double)0) != b.end())
-        throw std::runtime_error("Division by zero in vector division");
-    
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
-        if (b.at(i) == T(0))
-            throw std::runtime_error("Division by zero in vector division\n");
+        if (b.at(i) == T(0))   
+            throw std::runtime_error("Division by zero");
         T prod = (T)(a / b.at(i));
         arr.push_back(prod);
     }
@@ -152,6 +156,7 @@ template <typename T>
 std::vector<T> operator + (const T a, const std::vector<T> &b) // Scalar Division l
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(a + b.at(i));
@@ -165,7 +170,7 @@ template <typename T>
 std::vector<T> operator + (const std::vector<T> &b, const T a) // scalar  r
 {
     std::vector<T> arr;
-
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(b.at(i)+a);
@@ -179,6 +184,7 @@ template <typename T>
 std::vector<T> operator -(const std::vector<T> &a) // scalar  r
 {
     std::vector<T> arr;
+    arr.reserve(a.size());
     for(size_t i=0; i<a.size(); i++)
     { 
         T prod = (T)(a.at(i)*-1);
@@ -192,6 +198,7 @@ template <typename T>
 std::vector<T> operator - (const T a, const std::vector<T> &b) // Scalar  l
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(a - b.at(i));
@@ -205,6 +212,7 @@ template <typename T>
 std::vector<T> operator - (const std::vector<T> &b, const T a) // scalar  r
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(b.at(i)-a);
@@ -218,10 +226,13 @@ template <typename T>
 std::vector<T> operator % (const std::vector<T> &b, const T a) // scalar mod r
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
-        T prod = (T)(b.at(i)%a);
-        arr.push_back(prod);
+        if constexpr (std::is_integral_v<T>)
+            arr.push_back(b[i] % a);
+        else
+            arr.push_back(std::fmod(b[i], a));
     }
 
     return arr;
@@ -231,10 +242,13 @@ template <typename T>
 std::vector<T> operator % (const T a, const std::vector<T> &b) // Scalar mod l
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
-        T prod = (T)(a % b.at(i));
-        arr.push_back(prod);
+        if constexpr (std::is_integral_v<T>)
+            arr.push_back(b[i] % a);
+        else
+            arr.push_back(std::fmod(b[i], a));
     }
 
     return arr;
@@ -244,6 +258,7 @@ template <typename T>
 std::vector<T> operator > (const T a, const std::vector<T> &b) // Scalar  l
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(a > b.at(i));
@@ -257,6 +272,7 @@ template <typename T>
 std::vector<T> operator > (const std::vector<T> &b, const T a) 
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(b.at(i) > a);
@@ -270,6 +286,7 @@ template <typename T>
 std::vector<T> operator < (const T a, const std::vector<T> &b) 
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(a < b.at(i));
@@ -283,6 +300,7 @@ template <typename T>
 std::vector<T> operator < (const std::vector<T> &b, const T a) 
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(b.at(i) < a);
@@ -297,6 +315,7 @@ template <typename T>
 std::vector<T> operator <= (const T a, const std::vector<T> &b) 
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(a <= b.at(i));
@@ -310,6 +329,7 @@ template <typename T>
 std::vector<T> operator <= (const std::vector<T> &b, const T a) 
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(b.at(i) <= a);
@@ -323,6 +343,7 @@ template <typename T>
 std::vector<T> operator >= (const T a, const std::vector<T> &b) 
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(a >= b.at(i));
@@ -336,6 +357,7 @@ template <typename T>
 std::vector<T> operator >= (const std::vector<T> &b, const T a) 
 {
     std::vector<T> arr;
+    arr.reserve(b.size());
     for(size_t i=0; i<b.size(); i++)
     { 
         T prod = (T)(b.at(i) >= a);
@@ -355,6 +377,75 @@ bool operator ==(const std::vector<T> &a, const std::vector<T> &b)
     return true;
 }
 
+
+template <typename T>
+std::vector<T>& operator+=(std::vector<T>& a, const std::vector<T>& b)
+{
+    if(a.size() != b.size())
+        throw std::runtime_error("Size mismatch in +=");
+    for(size_t i = 0; i < a.size(); i++)
+        a[i] += b[i];
+    return a;
+}
+
+template <typename T>
+std::vector<T>& operator -=(std::vector<T>& a, const std::vector<T>& b)
+{
+    if(a.size() != b.size())
+        throw std::runtime_error("Size mismatch in -=");
+    for(size_t i = 0; i < a.size(); i++)
+        a[i] -= b[i];
+    return a;
+}
+
+template <typename T>
+std::vector<T>& operator *=(std::vector<T>& a, const std::vector<T>& b)
+{
+    if(a.size() != b.size())
+        throw std::runtime_error("Size mismatch in *=");
+    for(size_t i = 0; i < a.size(); i++)
+        a[i] *= b[i];
+    return a;
+}
+
+template <typename T>
+std::vector<T>& operator /=(std::vector<T>& a, const std::vector<T>& b)
+{
+    if(a.size() != b.size())
+        throw std::runtime_error("Size mismatch in /=");
+    for(size_t i = 0; i < a.size(); i++)
+        a[i] /= b[i];
+    return a;
+}
+
+template <typename T>
+std::vector<T>& operator+=(std::vector<T>& a, const T b)
+{
+    for(size_t i = 0; i < a.size(); i++) a[i] += b;
+    return a;
+}
+
+template <typename T>
+std::vector<T>& operator-=(std::vector<T>& a, const T b)
+{
+    for(size_t i = 0; i < a.size(); i++) a[i] -= b;
+    return a;
+}
+
+template <typename T>
+std::vector<T>& operator*=(std::vector<T>& a, const T b)
+{
+    for(size_t i = 0; i < a.size(); i++) a[i] *= b;
+    return a;
+}
+
+template <typename T>
+std::vector<T>& operator/=(std::vector<T>& a, const T b)
+{
+    if(b == T(0)) throw std::runtime_error("Division by zero in /=");
+    for(size_t i = 0; i < a.size(); i++) a[i] /= b;
+    return a;
+}
 /**
  * mathematical functions......................................................................................
  */
@@ -363,6 +454,7 @@ template <typename T>
 std::vector<T> exponent(const std::vector<T> &a) // Exponential of a std::vector
 {
     std::vector<T> arr;
+    arr.reserve(a.size());
     for(size_t i=0; i< a.size(); i++)
     { 
         T prod = (T)exp(a.at(i));
@@ -375,6 +467,7 @@ template <typename T>
 std::vector<T> operator ^(const std::vector<T> &a, const T n) // Power of a std::vector
 {
     std::vector<T> arr;
+    arr.reserve(a.size());
     if (n == T(2))
     {    // a[i] * a[i] instead of pow(a[i], 2)
         for(size_t i=0; i<a.size(); i++)
@@ -418,19 +511,24 @@ template <typename T>
 std::vector<T> operator ^(const std::vector<T> &a, const std::vector<T> &b) // Power of a std::vector
 {
     std::vector<T> arr;
-    T cte = b[0];
-    for(size_t i=0; i<a.size(); i++)
-    { 
-        T prod = (T)pow(a.at(i), cte);
-        arr.push_back(prod);
-    }
-
+    if(b->size() == 1)
+        return a^b[0];
+    else if(b.size() == a.size())
+    {
+        arr.reserve(a.size());
+        for(size_t i = 0; i < a.size(); i++)
+        arr.push_back((T)std::pow(a[i], b[i]));
+   }
+   else{
+        throw std::runtime_error("Invalid vector sizes for power op\n");
+   }
     return arr;
 } 
 
 /**
- * Matrix Overloads..........................................................................................
+ * ........................................................................................
 */
+
 
 template <typename T>
 std::ostream& operator << (std::ostream &out , const std::vector<T> &a) // Print
@@ -454,8 +552,6 @@ std::ostream& operator << (std::ostream &out , const std::vector<T> &a) // Print
     
     return out;
 } 
-
-
 
 
 #endif
