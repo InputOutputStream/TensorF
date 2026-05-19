@@ -61,3 +61,6 @@ Models/
 SLM/*.gguf
 SLM/transformer-gpt-numpy
 Models/
+SLM/*.gguf
+SLM/transformer-gpt-numpy
+Models/
