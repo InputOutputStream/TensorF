@@ -238,13 +238,41 @@ Tensor_t<T> operator ^(Tensor_t<T> left, Tensor_t<T> right)
 }
 
 
-
-
 template <typename T>
 bool operator ==(Tensor_t<T> left, Tensor_t<T> right)
 {
     if (!left || !right) return left == right; 
     return left->val == right->val;
+}
+
+
+template <typename E, typename U>
+requires (!std::is_same_v<U, std::nullptr_t> && !std::is_same_v<U, Tensor_t<E>>)
+Tensor_t<bool> operator!=(Tensor_t<E> right, const U a)
+{
+    return make_tensor<bool>(right->val != a);
+}
+
+template <typename E, typename U>
+requires (!std::is_same_v<U, std::nullptr_t> && !std::is_same_v<U, Tensor_t<E>>)
+Tensor_t<bool> operator!=(const U a, Tensor_t<E> right)
+{
+    return make_tensor<bool>(right->val != a);
+}
+
+
+template <typename E, typename U>
+requires (!std::is_same_v<U, std::nullptr_t> && !std::is_same_v<U, Tensor_t<E>>)
+Tensor_t<bool> operator==(Tensor_t<E> right, const U a)
+{
+    return make_tensor<bool>(right->val == a);
+}
+
+template <typename E, typename U>
+requires (!std::is_same_v<U, std::nullptr_t> && !std::is_same_v<U, Tensor_t<E>>)
+Tensor_t<bool> operator ==(const U a, Tensor_t<E> right)
+{
+    return make_tensor<bool>(right->val == a);
 }
 
 
@@ -442,6 +470,40 @@ Tensor_t<E> operator >(Tensor_t<E> right, const E a)
 {    
     Matrix<E> res(right->val);
     res =  res > a;
+    return make_tensor<E>(res); 
+}
+
+
+
+template <typename E>
+Tensor_t<E> operator <=(const E a, Tensor_t<E> right)
+{    
+    Matrix<E> res(right->val);
+    res =  a <= res;
+    return make_tensor<E>(res); 
+}
+
+template <typename E>
+Tensor_t<E> operator <=(Tensor_t<E> right, const E a)
+{    
+    Matrix<E> res(right->val);
+    res =  res <= a;
+    return make_tensor<E>(res); 
+}
+
+template <typename E>
+Tensor_t<E> operator >=(const E a, Tensor_t<E> right)
+{    
+    Matrix<E> res(right->val);
+    res =  a >= res;
+    return make_tensor<E>(res); 
+}
+
+template <typename E>
+Tensor_t<E> operator >=(Tensor_t<E> right, const E a)
+{    
+    Matrix<E> res(right->val);
+    res =  res >= a;
     return make_tensor<E>(res); 
 }
 

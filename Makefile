@@ -1,8 +1,8 @@
 CC      = g++
 CFLAGS  = -g -std=c++20 -O2 -Wall -Wextra -Iinclude
 LDFLAGS = -lopenblas
-TARGET  = main
-SRCS    = main.cpp
+TARGET  = tranformer
+SRCS    = tranformer.cpp
 OBJS    = $(SRCS:.cpp=.o)
 
 $(TARGET): $(OBJS)

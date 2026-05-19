@@ -378,6 +378,38 @@ bool operator ==(const std::vector<T> &a, const std::vector<T> &b)
 }
 
 
+template <typename T, typename U>
+requires (std::is_arithmetic_v<U>)
+std::vector<bool> operator==(const std::vector<T>& a, const U& b) {
+    std::vector<bool> arr;
+    arr.reserve(a.size());
+    for (size_t i = 0; i < a.size(); i++)
+        arr.push_back(a[i] == static_cast<T>(b));
+    return arr;
+}
+
+template <typename T, typename U>
+requires (std::is_arithmetic_v<U>)
+std::vector<bool> operator==(const U& b, const std::vector<T>& a) {
+    return a == b;
+}
+
+template <typename T, typename U>
+requires (std::is_arithmetic_v<U>)
+std::vector<bool> operator!=(const std::vector<T>& a, const U& b) {
+    std::vector<bool> arr;
+    arr.reserve(a.size());
+    for (size_t i = 0; i < a.size(); i++)
+        arr.push_back(a[i] != static_cast<T>(b));
+    return arr;
+}
+
+template <typename T, typename U>
+requires (std::is_arithmetic_v<U>)
+std::vector<bool> operator!=(const U& b, const std::vector<T>& a) {
+    return a != b;
+}
+
 template <typename T>
 std::vector<T>& operator+=(std::vector<T>& a, const std::vector<T>& b)
 {

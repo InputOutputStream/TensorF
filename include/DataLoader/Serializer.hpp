@@ -132,7 +132,7 @@ public:
 
             shape_t shape(rank);
             for (uint32_t d = 0; d < rank; d++)
-                shape[d] = static_cast<long>(read_val<int64_t>(file));
+                shape[d] = static_cast<size_t>(read_val<int64_t>(file));
 
             uint64_t n_elem = read_val<uint64_t>(file);
             std::vector<T> raw(static_cast<size_t>(n_elem));

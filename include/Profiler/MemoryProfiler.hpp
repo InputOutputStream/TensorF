@@ -11,29 +11,14 @@
  *   STAGE_INFER     — peak during inference (forward only)
  *
  * For each stage we capture:
- *   - RSS  (Resident Set Size)   — physical RAM actually used
+ *   - RSS  (Resident Set Size)   — physical RAM actually used (basically one of the key infos)
  *   - VmPeak                     — peak virtual memory ever reached
  *   - VmRSS                      — current RSS from /proc/self/status
- *   - heap_alloc                 — bytes allocated via new/malloc since last reset
+ *   - heap_alloc                 — bytes allocated via new/malloc/shared_ptr since last reset
  *
  * This lets the server predict, for ANY model config, how much RAM this
  * client will need, with safety margins.
  *
- * Usage:
- *
- *   MemoryProfiler mp;
- *   mp.snapshot(MemStage::BASELINE);
- *
- *   // ... load model parameters ...
- *   mp.snapshot(MemStage::LOADED);
- *
- *   // ... run training step ...
- *   mp.snapshot(MemStage::TRAIN);
- *
- *   MemoryReport report = mp.report();
- *   // report.param_ram_mb  = LOADED  - BASELINE
- *   // report.train_ram_mb  = TRAIN   - LOADED
- *   // report.total_peak_mb = TRAIN (max of all)
  */
 
 #include <cstdint>
@@ -156,8 +141,10 @@ public:
 
         // Launch workload in foreground — poll in a tight loop
         // For simplicity (no threads), we snapshot before and after.
-        // For real peak tracking, use a background thread or RAII.
         snapshot_before_workload_ = read_proc_status();
+
+        // code for the workload goes here .........................................................
+        // During test we will de define what to pro
         workload();
         MemSnapshot after = read_proc_status();
 
@@ -172,7 +159,7 @@ public:
         snapshots_[(int)stage] = peak;
     }
 
-    // Build the final report
+    // Build the report
     MemoryReport report() const {
         MemoryReport r;
         r.snapshots = snapshots_;
@@ -320,12 +307,6 @@ private:
 // ─── RAII scope profiler ─────────────────────────────────────────────────────
 // Automatically snapshots on construction and destruction.
 //
-// Usage:
-//   {
-//     ScopedMemSnapshot scope(mp, MemStage::TRAIN);
-//     // ... training code ...
-//   }  // snapshot taken here
-
 struct ScopedMemSnapshot {
     MemoryProfiler& profiler;
     MemStage        stage;

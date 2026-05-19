@@ -33,19 +33,20 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         Matrix<T> val; //Tensor value
         Matrix<T> grad; //Tensor gradian
         shape_t shape;
+        size_t ndims;
         Operation_t<T> frontOp = nullptr, backOp = nullptr;
 
     //....................................................................................................
     Tensor() //ov
     {
         this->val = 0;
-
     }
 
     Tensor(Matrix<T> *val) // ov
     {
         this->val.copy_from(val);
         this->shape = this->val.shape;
+        this->ndims = this->val.get_ndims();
     }
 
 
@@ -53,6 +54,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     {
         this->val.copy_from(val);
         this->shape = this->val.shape;
+        this->ndims = this->val.get_ndims();
     }
 
     Tensor(Matrix<T> val, Operation_t<T> op)
@@ -60,7 +62,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->val.copy_from(val);
         this->backOp = op;
         this->shape = this->val.shape;
-
+        this->ndims = this->val.get_ndims();
     }
 
     Tensor(const Tensor_t<T> two) 
@@ -70,6 +72,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->frontOp = nullptr;
         this->grad.copy_from(two->grad);
         this->shape = this->val.shape;
+        this->ndims = this->val.get_ndims();
     }
 
 
@@ -184,6 +187,11 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return make_tensor<T>(this->val.at(index));
     }
 
+    Tensor_t<T> at(Tensor_t<bool> idx)
+    {
+        return make_tensor<T>(this->val.at(idx));
+    }
+
     Tensor_t<T> transpose(std::initializer_list<size_t> inshape)
     {
         this->frontOp = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
@@ -264,15 +272,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     static Tensor_t<T> mse(Tensor_t<T> ytrue, Tensor_t<T> ypred)
     {
-        /*
-        
-        auto diff = ytrue - ypred;
-        auto two = make_tensor<T>(2);
-        auto sq = diff ^ two;          // tensor ^ tensor, no copy
-        auto N   = make_tensor<T>((T)ytrue->val.shape[0]);
-        auto loss = sq->sum() / N;     // tensor / tensor
-        
-        */
+
         return (((ytrue - ypred) ^ (T)2)->sum()) / (T)(ytrue->val.shape[0]);
     }
 
@@ -314,15 +314,6 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     static Tensor_t<T> from(k in){
         return make_tensor<T>(Matrix<T>::from(in));
     }
-
-
-    /**
-     *  create a friend of a static
-     *    
-     *  template <typename E>
-     *  friend std::ostream & operator <<(std::ostream &out, Matrix<E> &m);
-     */
-
 };
 
 

@@ -1,0 +1,29 @@
+SmolLM-135M teacher:
+  layers:      30
+  d_model:     576
+  heads:       9
+  d_ff:        1536
+  vocab:       49152
+
+Your 50M student options:
+
+Option A — shrink depth:
+  layers:      12        ← fewer layers, same width
+  d_model:     576
+  heads:       9
+  d_ff:        1536
+  params:      ~52M
+
+Option B — shrink width:
+  layers:      24
+  d_model:     384       ← narrower, same depth
+  heads:       6
+  d_ff:        1024
+  params:      ~48M
+
+Option C — shrink both:
+  layers:      16
+  d_model:     512
+  heads:       8
+  d_ff:        1280
+  params:      ~51M

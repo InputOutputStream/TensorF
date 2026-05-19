@@ -15,6 +15,7 @@
         SGD,
         ADAM,
         ADAMw
+        // Adafactor
     };
 
     template <typename T>

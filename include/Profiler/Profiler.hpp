@@ -132,7 +132,7 @@ public:
         HyperparamAdvisor::print_config(config_, fingerprint_);
     }
 
-    // ── JSON serializer ──────────────────────────────────────────────────────
+    // ── Use JSON serializer for now ──────────────────────────────────────────────────────
 
     std::string to_json() const {
         std::ostringstream j;

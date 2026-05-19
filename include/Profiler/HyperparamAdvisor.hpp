@@ -37,7 +37,8 @@ enum class QuantPolicy {
     INT8,       // 8-bit integer — needs AVX2 at minimum (VNNI ideal)
     FP8_E4M3,   // FP8 — needs AVX-512 + explicit dequant
     FP8_E5M2,   // FP8 — better range, lower precision
-    INT4,       // extreme compression — use only when RAM very limited
+    INT4,       // compression — use when RAM very limited
+    // Needed to add a 3 or 3.5 bit quant according to a AQML paper
 };
 
 static const char* quant_name(QuantPolicy q) {
@@ -69,11 +70,11 @@ static size_t quant_bytes(QuantPolicy q) {
 struct AlgoPolicy {
     // Matmul
     size_t matmul_tile_size   = 32;   // tile NxN for cache blocking
-    bool   use_blas           = true;  // use OpenBLAS/MKL when available
+    bool   use_blas           = true;  // TensorF delagates ops to BLASS by default 
 
     // Threading
     int    num_threads        = 1;    // OMP_NUM_THREADS recommendation
-    bool   use_numa_bind      = false; // bind threads to NUMA nodes
+    bool   use_numa_bind      = false; // bind threads to NUMA nodes // was not implemented by default 
 
     // Memory
     bool   use_mmap_weights   = false; // memory-map weight files (good for NVMe Gen4+)
@@ -126,7 +127,7 @@ public:
     static HyperparamConfig advise(
         const HardwareFingerprint& fp,
         const BenchmarkResult&     bench,
-        size_t vocab_size = 50257)   // GPT-2 default
+        size_t vocab_size = 50257)   // Distill GPT-2 default
     {
         HyperparamConfig cfg;
         cfg.algo = build_algo_policy(fp, bench);

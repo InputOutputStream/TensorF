@@ -5,6 +5,7 @@
 #include "Modules/FeedForward.hpp"
 #include "Modules/Optimizer.hpp"
 #include "Modules/Relu.hpp"
+#include "DataLoader/GGUF.hpp"
 
 #include "DataLoader/DataLoading.hpp"
 
@@ -544,6 +545,8 @@ void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int iters)
     for(int iter = 1; iter <= iters; iter++)
     {
         // forward
+        Op.zero_grad();
+
         Tensor_t<T> a = l1.forward(input);
         Tensor_t<T> b = a->sigmoid();
 
@@ -558,7 +561,6 @@ void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int iters)
 
         Op.step();
 
-        Op.zero_grad();
         
         if(iter % 1000 == 0)
         {
@@ -573,8 +575,7 @@ void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int iters)
 template <typename T>
 class Model{
     public:
-        Tensor_t<T> ypred;
-        std::vector<Tensor_t<T>> params;
+        std::vector<Tensor_t<T>> parameters;
 
     private:
         Linear<T> l1;
@@ -583,17 +584,17 @@ class Model{
         Serializer<T> Ser;
 
     public:
-        Model(Matrix<T> x_train)
-            : l1(x_train.shape[1], 64, true),
+        Model(size_t x_train_shape)
+            : l1(x_train_shape, 64, true),
             l2(64, 64, true),
             l3(64, 10, true)
         {
             std::vector<Tensor_t<T>> param1 = l1.parameters();
-            params.insert(params.end(), param1.begin(), param1.end());
+            parameters.insert(parameters.end(), param1.begin(), param1.end());
             std::vector<Tensor_t<T>> param2 = l2.parameters();
-            params.insert(params.end(), param2.begin(), param2.end());
+            parameters.insert(parameters.end(), param2.begin(), param2.end());
             std::vector<Tensor_t<T>> param3 = l3.parameters();
-            params.insert(params.end(), param3.begin(), param3.end());
+            parameters.insert(parameters.end(), param3.begin(), param3.end());
         }
 
         Tensor_t<T> forward(Tensor_t<T> x) {   
@@ -605,19 +606,18 @@ class Model{
 
             Tensor_t<T> e = l3.forward(d);
 
-            this->ypred = e->softmax();
-            return this->ypred;
+            return e->softmax();
         }
 
         void train(int epoch, int iters, Tensor_t<T> x, Tensor_t<T> y) {  
-            Optimizer<T> Op(params, 1e-4, ADAMw);
+            Optimizer<T> Op(parameters, 1e-4, ADAMw);
             std::cerr << "Train.....................................................................\n";
             for (int iter = 0; iter < (iters*epoch); iter++) {
                 Op.zero_grad();              // must zero grads each iteration
 
-                this->forward(x);            // run forward pass first
+                Tensor_t<T> ypred = this->forward(x);            // run forward pass first
 
-                Tensor_t<T> loss = Tensor<T>::cross_entropy(y, this->ypred);
+                Tensor_t<T> loss = Tensor<T>::cross_entropy(y, ypred);
 
                 loss->backward(Matrix<T>({1}));
 
@@ -626,16 +626,19 @@ class Model{
                 if (iter % iters == 0) {
                     std::cerr << "iter: " << iter << " loss %: " << loss->val * 100 << "\n";
                 }
+
+                loss.reset();
+                ypred.reset();
             }
         }
 
         void save(std::string path) {
-            Ser.save(this->parameters(), path);  // recursive collection
+            Ser.save(this->parameters, path);  // recursive collection
         }
 
         void load(std::string path) {
             auto loaded = Ser.load(path);
-            auto all = this->parameters();  // get all params recursively
+            auto all = this->parameters;  // get all parameters recursively
             
             if(loaded.size() != all.size())
                 throw std::runtime_error("Loaded tensor count mismatch: expected " 
@@ -661,23 +664,25 @@ void nn_mnist()
     
     auto epoch = 10, iters = 100;
 
-    FeedForward<T> model(x_train.shape[1], 64, 10);
-    Optimizer<T> Op(model.parameters(), 1e-4, ADAMw);
+    // FeedForward<T> model(x_train.shape[1], 64, 10);
+    Model<T> model(x_train.shape[1]);
+    model.load("Models/model.hge");
+
+    Optimizer<T> Op(model.parameters, 1e-4, ADAMw);
     std::cerr << "Train.....................................................................\n";
-    for (int iter = 0; iter < (iters*epoch); iter++) {
-        Op.zero_grad();              // must zero grads each iteration
-
-        auto ypred = model.forward(X);            // run forward pass first
-
-        Tensor_t<T> loss = Tensor<T>::cross_entropy(y, ypred);
-
-        loss->backward(Matrix<T>({1}));
-
+    
+    for (int iter = 0; iter < (iters*epoch); iter++) 
+    {
+        Op.zero_grad(); // must zero grads each iteration
+        {   // ← inner scope
+            auto ypred = model.forward(X); // run forward pass first
+            Tensor_t<T> loss = Tensor<T>::cross_entropy(y, ypred);
+            loss->backward(Matrix<T>({1}));
+            if (iter % iters == 0) {
+                std::cerr << "iter: " << iter << " loss %: " << loss->val * 100 << "\n";
+            }
+        }   
         Op.step();
-
-        if (iter % iters == 0) {
-            std::cerr << "iter: " << iter << " loss %: " << loss->val * 100 << "\n";
-        }
     }
 
     model.save("Models/model.hge");
@@ -753,26 +758,46 @@ int main()
     // Tensor_t<double> y = make_tensor<double>({{0}, {1}, {1}, {0}});
     // nn_xor(in, y, 10000);
 
-    //cout << "\n=== nn test ===\n";
-    //nn_mnist<double>();
+    // cout << "\n=== nn test ===\n";
+    // nn_mnist<float>();
 
 
-    cout << "\n=== Serialize test ===\n";
+    // cout << "\n=== Serialize test ===\n";
+    // Matrix<float> raw_test = Tabular<float>(true).load("MNIST_CSV/mnist_test.csv");
+    // raw_test = raw_test.slice_row(30, 40);
 
-    Matrix<double> raw_test = Tabular<double>(true).load("MNIST_CSV/mnist_test.csv");
-    raw_test = raw_test.slice_row(30, 40);
+    // Matrix<float> labels_test = raw_test.col(0);           // column 0 = label
+    // Matrix<float> pixels_test = raw_test.slice_cols(1, 785); // columns 1–784 = pixels
+    // auto x_test = make_tensor<float>(pixels_test / (float)255.0); // normalize
 
-    Matrix<double> labels_test = raw_test.col(0);           // column 0 = label
-    Matrix<double> pixels_test = raw_test.slice_cols(1, 785); // columns 1–784 = pixels
-    auto x_test = make_tensor<double>(pixels_test / (double)255.0); // normalize
+    // // FeedForward<float> model(x_test->shape[1], 64, 10);
+    // Model<float> model(x_test->shape[1]);
 
-    FeedForward<double> model(x_test->shape[1], 64, 10);
+    // model.load("Models/model.hge");
 
-    model.load("Models/model.hge");
+    // Tensor_t<float> res = model.forward(x_test);
+    // Tensor_t<float> y_test = make_tensor<float>(Matrix<float>::one_hot(labels_test, 10));
+    // std::cerr << "model predicted val: " << (res > (float)0.75)->val << " Actual val" << y_test->val << "\n";
 
-    Tensor_t<double> res = model.forward(x_test);
-    Tensor_t<double> y_test = make_tensor<double>(Matrix<double>::one_hot(labels_test, 10));
-    std::cerr << "model: " << (res > (double)0.75)->val << " y_test" << y_test->val << "\n";
+
+
+
+    // GGUF loader;
+    // loader.parse_gguf("SLM/SmolLM2-135M-Instruct.Q4_K_M.gguf");
+
+    // // List all tensors
+    // for (auto& t : loader.tensors)
+    //     std::cout << t.name << " type=" << t.ggml_type << "\n";
+
+    // // Load a specific tensor as float
+    // for (auto& info : loader.tensors) {
+    //     if (info.name == "token_embd.weight") {
+    //         Matrix<float> embd = loader.load_tensor<float>(loader.file, info, loader.data_start_offset);
+    //         // use embd...
+    //     }
+    // }
+
+
 
     return 0;
 }

@@ -31,6 +31,7 @@
 #include <fstream>
 
 #include "../DataStructures/Matrix.hpp"
+#include <unistd.h>
 
 // ─── Timing helper ───────────────────────────────────────────────────────────
 

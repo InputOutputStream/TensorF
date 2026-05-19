@@ -9,7 +9,7 @@
 #include "Module.hpp"
 
 template< typename T>
-class Embedding: Module<T>{
+class Embedding: public Module<T>{
     public:
     Tensor_t<T> embeddings;
     size_t vocab_size;

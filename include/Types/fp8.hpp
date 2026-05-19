@@ -1,11 +1,12 @@
-#ifndef __FP_HPP
-#define  __FP_HPP
+#ifndef __FP8_HPP
+#define  __FP8_HPP
 
 #include <ctype.h>
 #include <stdint.h>
 #include <iostream>
 #include <ostream>
 #include <fstream>
+#include <cmath>
 
 template<int E, int M>
 struct FP8 {
@@ -37,5 +38,19 @@ std::ostream& operator<<(std::ostream& os, const FP8<E,M>& v) {
         os << float(v);
         return os;
     }
+
+template<int E, int M>
+struct std::numeric_limits<FP8<E,M>> {
+    static FP8<E,M> infinity() { 
+        FP8<E,M> f; 
+        f.bits = (1 << M) * ((1 << E) - 1); // all exp bits set, mant=0, sign=0
+        return f; 
+    }
+    static FP8<E,M> quiet_NaN() {
+        FP8<E,M> f;
+        f.bits = 0xFF; // all bits set
+        return f;
+    }
+};
 
 #endif

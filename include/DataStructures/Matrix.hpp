@@ -999,6 +999,31 @@ class Matrix
         return *this;
     }
 
+    bool operator ==(const Matrix<T> &rhs)
+    {
+        return (this->shape == rhs.shape) && (this->data == rhs.data);
+    }
+
+    template <typename U>
+    requires std::is_arithmetic_v<U>
+    Matrix<bool> operator==(const U val) {
+        std::vector<bool> res;
+        res.reserve(this->data.size());
+        for (auto& x : this->data)
+            res.push_back(x == static_cast<T>(val));
+        return Matrix<bool>(res, this->shape);
+    }
+
+    template <typename U>
+    requires std::is_arithmetic_v<U>
+    Matrix<bool> operator!=(const U val) {
+        std::vector<bool> res;
+        res.reserve(this->data.size());
+        for (auto& x : this->data)
+            res.push_back(x != static_cast<T>(val));
+        return Matrix<bool>(res, this->shape);
+    }
+
     Matrix<T> operator ^(const T rhs)
     {
         return Matrix<T>(data ^ rhs, shape);
@@ -1103,6 +1128,28 @@ class Matrix
         return Matrix<T>(res, {rows, 1});
     }
 
+
+    Matrix<T> at(std::initializer_list<size_t> inshape)
+    {
+        shape_t index = Matrix<T>::getShape(inshape);
+
+        if(index.size() > this->data.size())
+            throw std::runtime_error("Invalid Index");
+
+        if(index.size() <= this->shape.size())
+        {   
+            auto i = index[0];
+            Matrix<T> temp(this->row(i));
+            index.erase(index.begin());
+            if(index.size() == 0)
+                return Matrix<T>(temp);
+            else
+                return Matrix<T>(temp.flatten().at(index));
+        }
+        else 
+            throw std::runtime_error("Invalid shape");
+    }
+
     Matrix<T> at(shape_t index)
     {
         if(index.size() > this->data.size())
@@ -1120,6 +1167,26 @@ class Matrix
         }
         else 
             throw std::runtime_error("Invalid shape");
+    }
+
+    Matrix<T> at(Matrix<bool> index)
+    {
+        if(index.get_size() > this->data.size())
+            throw std::runtime_error("Invalid Index matrix");
+
+        if(index.get_size() <= this->shape.size())
+        {           
+            std::vector<T> res;
+            for(size_t i=0; i< this->data.size(); i++)
+            {
+                if(index.data.at(i))
+                    res.push_back(this->data.at(i));
+                else
+                    res.push_back(0);
+            }
+        }
+        else 
+            throw std::runtime_error("Index Matrix not of the same size");
     }
 
     Matrix<T> row(size_t idx) {
@@ -1215,6 +1282,9 @@ class Matrix
     // Matrix static functions
     //********************************************************************************* */
 
+    static T inf() { return std::numeric_limits<T>::infinity(); }
+    static T nan() { return std::numeric_limits<T>::quiet_NaN(); }
+
     static Matrix<T> ravel(Matrix<T> mat)
     {
         return Matrix<T>(mat.data);
@@ -1226,19 +1296,83 @@ class Matrix
 
     }
 
-    static Matrix<T> stack(std::initializer_list<Matrix<T>> list, size_t axis)
-    {
-        std::vector<T> res;
-        size_t numElems = 1;
-        
-        if (list.size() == 0) return Matrix<T>();
+    static Matrix<T> expand_dims(const Matrix<T>& m, size_t axis) {
+        shape_t new_shape = m.shape;
+        new_shape.insert(new_shape.begin() + axis, 1);
+        Matrix<T> out;
+        out.data  = m.data;  
+        out.shape = new_shape;
+        out.ndims = new_shape.size();
+        out.size  = m.data.size();
+        return out;
+    }
 
-        std::vector<Matrix<T>> s;
+    static bool any(const Matrix<T>& m) {
+        for (auto& v : m.data)
+            if (v != T(0)) return true;
+        return false;
+    }
 
-        for (const auto& item : list)
-        {   
-            s.push_back(item);
+    static Matrix<T> concat(const std::vector<Matrix<T>>& mats, size_t axis) {
+        for (size_t i = 1; i < mats.size(); i++)
+            for (size_t d = 0; d < mats[0].shape.size(); d++)
+                if (d != axis && mats[i].shape[d] != mats[0].shape[d])
+                    throw std::runtime_error("concat: shape mismatch on non-concat axis");
+
+        shape_t out_shape = mats[0].shape;
+        for (size_t i = 1; i < mats.size(); i++)
+            out_shape[axis] += mats[i].shape[axis];
+
+        size_t total = 1;
+        for (auto d : out_shape) total *= d;
+        std::vector<T> out_data(total);
+
+        // Iterate every output index, map back to source matrix
+        for (size_t flat = 0; flat < total; flat++) {
+            // Convert flat index to nd-index in output
+            shape_t idx(out_shape.size());
+            size_t tmp = flat;
+            for (int d = out_shape.size()-1; d >= 0; d--) {
+                idx[d] = tmp % out_shape[d];
+                tmp   /= out_shape[d];
+            }
+
+            // Find which input matrix owns this axis coordinate
+            size_t axis_coord = idx[axis];
+            size_t mat_i = 0;
+            for (; mat_i < mats.size()-1; mat_i++) {
+                if (axis_coord < mats[mat_i].shape[axis]) break;
+                axis_coord -= mats[mat_i].shape[axis];
+            }
+
+            // Convert nd-index to flat index in source matrix
+            idx[axis] = axis_coord;
+            size_t src_flat = 0, stride = 1;
+            for (int d = mats[mat_i].shape.size()-1; d >= 0; d--) {
+                src_flat += idx[d] * stride;
+                stride   *= mats[mat_i].shape[d];
+            }
+
+            out_data[flat] = mats[mat_i].data[src_flat];
         }
+
+        return Matrix<T>(out_data, out_shape);
+    }
+
+    static Matrix<T> where(const Matrix<T>& cond, T if_true, T if_false) {
+        Matrix<T> out(cond.shape);
+        for (size_t i = 0; i < cond.data.size(); i++)
+            out.data[i] = cond.data[i] ? if_true : if_false;
+        return out;
+    }
+
+    static Matrix<T> stack(std::vector<Matrix<T>> list, size_t axis)
+    {        
+        std::vector<Matrix<T>> s = list;
+
+        size_t numElems = 1;
+        std::vector<T> res;
+
         
         auto row_shape = s[0].shape[0];
         auto col_shape = s[0].shape[1];
@@ -1297,6 +1431,89 @@ class Matrix
         }
     }
 
+    static Matrix<T> stack(std::initializer_list<Matrix<T>> list, size_t axis)
+    {
+        
+        if (list.size() == 0) return Matrix<T>();
+
+        std::vector<Matrix<T>> s;
+
+        for (const auto& item : list)
+        {   
+            s.push_back(item);
+        }
+        
+        return Matrix<T>::stack(s, axis);
+        
+    }
+
+
+    static Matrix<T> concat(std::vector<Matrix<T>> list, size_t axis)
+    {        
+        std::vector<Matrix<T>> s = list;
+
+        size_t numElems = 1;
+        std::vector<T> res;
+
+        
+        auto row_shape = s[0].shape[0];
+        auto col_shape = s[0].shape[1];
+        
+        for (int i = 1; i<s.size(); i++)
+        {   
+            if(s[i].shape[0] != row_shape )
+                throw std::runtime_error("Invalid Matrix shape for axis 0 stacking");
+            else if(col_shape != s[i].shape[1])
+                throw std::runtime_error("Invalid Matrix shape for axis 0 stacking");
+
+        }
+
+        if(axis == 0)
+        {
+            for(auto item: s){
+
+                for(size_t k=0; k<item.size(); k++)
+                {
+                    res.push_back(item.data[k]);
+                }
+
+            }
+
+            return Matrix<T>(res, {s[0].shape[0]*s.size(), s[0].shape[1]});
+        }else if(axis == 1){
+             
+            for(size_t row = 0; row < s[0].shape[0]; row++){
+                for(size_t i = 0; i < s.size(); i++){
+                    for(size_t col = 0; col < s[i].shape[1]; col++){
+                        res.push_back(s[i].data[row * s[i].shape[1] + col]);
+                        
+                    }
+                }
+            }    
+
+            return Matrix<T>(res, {s[0].shape[0], s[0].shape[1]*s.size()});
+        }
+        else if(axis == 2)
+        {
+            size_t rows = s[0].shape[0];
+            size_t cols = s[0].shape[1];
+            size_t depth = s.size();
+
+            for(size_t row = 0; row < rows; row++){
+                for(size_t col = 0; col < cols; col++)
+                    for(size_t d = 0; d < depth; d++)
+                        res.push_back(s[d].data[row * cols + col]);
+            }
+
+            return Matrix<T>(res, {rows, cols, depth});
+        }
+        else
+        {
+            throw std::runtime_error("axis must be 0, 1, or 2");
+        }
+    }
+
+
     static Matrix<T> arrange(T start, T stop, T step = 1)
     {
         std::vector<T> res;
@@ -1320,11 +1537,36 @@ class Matrix
         return Matrix<T>(std::vector<T>(n, (T)1), shape);
     }
 
+    static Matrix<T> zeros(std::initializer_list<size_t> inshape)
+    {
+       return Matrix<T>::zeros(Matrix<T>::getShape(inshape));
+    }
+
+    static Matrix<T> ones(std::initializer_list<size_t> inshape)
+    { 
+        return Matrix<T>::ones(Matrix<T>::getShape(inshape));
+    }
+
     static Matrix<T> random(std::initializer_list<size_t> inshape)
     {
         return  Matrix<T>::random(Matrix<T>::getShape(inshape));
     }
-    
+
+    // Samples a single integer index from prob distribution in `probs`
+    // probs should be 1D and sum to 1
+    static Matrix<T> choice(size_t n, const Matrix<T>& probs) {
+        std::uniform_real_distribution<double> dist(0.0, 1.0);
+        double r = dist(get_gen());
+        double cumsum = 0.0;
+        for (size_t i = 0; i < n; i++) {
+            cumsum += (double)probs.data[i];
+            if (r <= cumsum)
+                return Matrix<T>({(T)i}, {1});
+        }
+        // Fallback: return last index (handles floating point rounding)
+        return Matrix<T>({(T)(n-1)}, {1});
+    }
+
     static Matrix<T> random(shape_t shape)
     {
         std::vector<T> res;
@@ -1500,6 +1742,41 @@ class Matrix
         }
 
         return Matrix<T>(res, {inshape, inshape});
+    }
+
+
+    static Matrix<T> tril(size_t n) {
+        std::vector<T> res(n * n, 0);
+        for (size_t i = 0; i < n; i++)
+            for (size_t j = 0; j <= i; j++)  // <= to include diagonal
+                res[i * n + j] = 1;
+        return Matrix<T>(res, {n, n});
+    }
+
+    static Matrix<T> tril(Matrix<T> input) {
+        std::vector<T> res = input.data;
+        size_t n = input.shape[0];
+        for (size_t i = 0; i < n; i++)
+            for (size_t j = i + 1; j < n; j++)
+                res[i * n + j] = 0;
+        return Matrix<T>(res, input.shape);
+    }
+    
+    static Matrix<T> triup(size_t n) {
+        std::vector<T> res(n * n, 0);
+        for (size_t i = 0; i < n; i++)
+            for (size_t j = i; j < n; j++)  // include diagonal
+                res[i * n + j] = 1;
+        return Matrix<T>(res, {n, n});
+    }
+
+    static Matrix<T> triup(Matrix<T> input) {
+        std::vector<T> res = input.data;
+        size_t n = input.shape[0];  
+        for (size_t i = 0; i < n; i++)
+            for (size_t j = 0; j < i; j++)  
+                res[i * n + j] = 0;
+        return Matrix<T>(res, input.shape);
     }
 
     static Matrix<T> one_hot(Matrix<T> labels, size_t num_classes)
@@ -1949,13 +2226,6 @@ class Matrix
     Matrix<T> operator /=(Matrix<T> &lhs,  const T cte)
     {
         return lhs.data /= cte;
-    }
-
-
-    template <typename T>
-    bool operator ==(const Matrix<T> &lhs,  const Matrix<T> &rhs)
-    {
-        return (lhs.shape == rhs.shape) && (lhs.data == rhs.data);
     }
 
 //------------------------------------------------------------------------------------
