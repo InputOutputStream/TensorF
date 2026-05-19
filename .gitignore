@@ -55,3 +55,6 @@ MNIST_CSV/**
 
 # Models
 *.hge
+*.ggufSLM/*.gguf
+SLM/transformer-gpt-numpy
+Models/
