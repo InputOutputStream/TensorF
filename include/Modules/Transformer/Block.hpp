@@ -38,10 +38,37 @@ class Block : public Module<T>{
 
     }
 
+    Block(Block&& other)
+        : Module<T>(),          // fresh, empty submodules list
+        mha(std::move(other.mha)),
+        ffwd(std::move(other.ffwd)),
+        ln1(std::move(other.ln1)),
+        ln2(std::move(other.ln2))
+    {
+        // re-register at NEW addresses
+        this->register_module(&mha);
+        this->register_module(&ffwd);
+        this->register_module(&ln1);
+        this->register_module(&ln2);
+    }
+
+    Block(const Block&) = delete; 
+
     Tensor_t<T> forward(Tensor_t<T> x, bool apply_mask){
 
-        Tensor_t<T> y = x + this->mha.forward(this->ln1.forward(x), apply_mask);
-        Tensor_t<T> z = y + this->ffwd.forward(this->ln2.forward(y));
+        std::cerr << " block input x val : "<< x->val<< "\n";
+        Tensor_t<T> lna = this->ln1.forward(x);
+        std::cerr << " layer norm 1 val : "<< lna->val<< "\n";
+
+        Tensor_t<T> y = x + this->mha.forward(lna, apply_mask);
+        std::cerr << " mha out plus x val : "<< y->val<< "\n";
+
+        Tensor_t<T> lnb = this->ln2.forward(y);
+        std::cerr << " layer norm 2 val : "<< lnb->val<< "\n";
+
+        Tensor_t<T> z = y + this->ffwd.forward(lnb);
+
+        std::cerr << " block out z val : "<< z->val<< "\n";
         return z;
     }
 

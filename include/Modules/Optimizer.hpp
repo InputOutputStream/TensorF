@@ -87,7 +87,7 @@
                         m[i] = b1 * m[i] + (1 - b1) * p->grad;
                     }
 
-                    // v = b2*v + (1-b2)*grad^2  — need grad^2 as temp buffer
+                    // v = b2*v + (1-b2)*pow(grad,2)  — need pow(grad,2) as temp buffer
                     std::vector<T> grad_sq(n);
                     for(size_t k = 0; k < n; k++)
                         grad_sq[k] = p->grad.data[k] * p->grad.data[k];

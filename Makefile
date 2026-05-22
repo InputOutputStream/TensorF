@@ -1,5 +1,5 @@
 CC      = g++
-CFLAGS  = -g -std=c++20 -O2 -Wall -Wextra -Iinclude
+CFLAGS  = -g -std=c++20 -O2 -Wall -Wextra -Iinclude -fsanitize=address,undefined 
 LDFLAGS = -lopenblas
 TARGET  = tranformer
 SRCS    = tranformer.cpp

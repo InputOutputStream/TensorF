@@ -23,8 +23,8 @@ class Embedding: public Module<T>{
         this->register_parameter (this->embeddings);
     }  
 
-    Tensor_t<T> forward(Tensor_t<T> indices){
-        return make_tensor<T>(this->embeddings->elemsAt(indices));
+    Tensor_t<T> forward(Tensor_t<T> indices) {
+        return this->embeddings->embed(indices);
     }
 };
 

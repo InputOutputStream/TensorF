@@ -23,7 +23,8 @@ class MultiHeadAttention : public Module<T>{
     proJ(head_size*n_heads, input_dim, true)
     {
         this->n_heads = n_heads;
-
+        
+        Heads.reserve(n_heads);
         for(size_t i = 0; i < n_heads; i++)
                 Heads.emplace_back(head_size, input_dim, sequence_length);
         for(auto& b : Heads)
@@ -32,18 +33,34 @@ class MultiHeadAttention : public Module<T>{
         this->register_module(&proJ);
     }
 
+    MultiHeadAttention(MultiHeadAttention&& other)
+        : Module<T>(), // fresh, empty submodules list
+        n_heads(other.n_heads),
+        proJ(std::move(other.proJ)),
+        Heads(std::move(other.Heads))
+    {
+        for(auto& h : Heads)
+            this->register_module(&h);
+        this->register_module(&proJ);
+    }
+
+    MultiHeadAttention(const MultiHeadAttention&) = delete;
+
+
     Tensor_t<T> forward(Tensor_t<T> x, bool apply_mask){
 
-        std::vector<Matrix<T>> res;
+        std::vector<Tensor_t<T>> head_outs;
         
         for(auto& head: this->Heads)
         {
-            Tensor_t<T> out = head.forward(x, apply_mask);
-            res.push_back(out->val);
+            head_outs.push_back(head.forward(x, apply_mask));
         }
-        Tensor_t<T> out = make_tensor<T>(Matrix<T>::stack(res, 2));
-        out  = this->proJ.forward(out);
-        return out;
+
+        // concat on last axis: {B,T,head_size} * n_heads -> {B,T,n_heads*head_size}
+        Tensor_t<T> out = Tensor<T>::concat(head_outs, 2);
+        std::cerr << " mha concat out val : "<< out->val<< "\n";
+    
+        return this->proJ.forward(out);
     }
 
 };

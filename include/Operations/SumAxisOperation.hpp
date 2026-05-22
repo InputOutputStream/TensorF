@@ -43,7 +43,9 @@ template <typename T>
 Tensor_t<T> SumAxisOperation<T>::forward()
 {
     Matrix<T> result = this->t1->val.sum(this->axis);
-    return std::make_shared<Tensor<T>>(result, this->shared_from_this());
+    shape_t out_shape = this->input_shape;
+    out_shape[this->axis] = 1;  // keep dim as 1 instead of removing it
+    return std::make_shared<Tensor<T>>(Matrix<T>(result.data, out_shape), this->shared_from_this()); // {B, T, 1} broadcasts with {B, T, dim}
 }
 
 // ── backward ─────────────────────────────────────────────────────────────────

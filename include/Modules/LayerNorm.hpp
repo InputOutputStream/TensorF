@@ -12,24 +12,13 @@
 #include <cmath>
 
 
-/**
-
-LayerNorm.hpp — subtle correctness issue:
-
-x->sum(0) gives a sum, not a mean, 
-and dividing by shape[0] only works for 1D or if you're 
-normalizing over the first axis. Standard LayerNorm normalizes 
-over the last dimension (the feature dim), not the batch/sequence dim.
-
-*/
-
 template <typename T>
 class LayerNorm : public Module<T>{
     private:
         Tensor_t<T> mean;
         Tensor_t<T> diff;
         Tensor_t<T> var;
-        Tensor_t<T> std;
+        Tensor_t<T> stdev;
         Tensor_t<T> y;
 
     public:
@@ -65,14 +54,14 @@ class LayerNorm : public Module<T>{
         this->register_parameter(beta);
     }
 
-    Tensor_t<T> forward(Tensor_t<T> x)
-    {
-
-        this->mean = x->sum(x->ndims - 1) / make_tensor<T>((T)x->val.shape[x->ndims-1]);
-        this->diff = x - mean;
-        this->var  = (diff ^ (T)2)->sum(x->ndims - 1) / make_tensor<T>((T)x->val.shape[x->ndims-1]);
-        this->std  = var->sqrt() + make_tensor<T>(this->eps);
-        this->y    = diff / std;
+    Tensor_t<T> forward(Tensor_t<T> x) {
+        size_t D = x->val.shape.back();
+        this->mean = x->sum(x->ndims - 1) / make_tensor<T>((T)D);
+        this->diff = x - mean;                          // {B,T,D} - {B,T,1} broadcasts
+        this->var = pow(diff, (T)2)->sum(x->ndims - 1) / make_tensor<T>((T)D);
+        this->stdev = (var + make_tensor<T>(this->eps))->sqrt();  // sqrt(var + eps)
+        this->y = diff / stdev;                      // {B,T,D} / {B,T,1} broadcasts
+        std::cerr <<"ln shape: " << this->y->shape;
         return this->gamma * y + this->beta;
     }
 };

@@ -7,5 +7,6 @@
 #include "NPYLoader.hpp"
 #include "GGUF.hpp"
 #include "ImageLoader.hpp"
+#include "TextDataset.hpp"
 
 #endif

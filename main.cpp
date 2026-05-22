@@ -782,22 +782,20 @@ int main()
 
 
 
-    // GGUF loader;
-    // loader.parse_gguf("SLM/SmolLM2-135M-Instruct.Q4_K_M.gguf");
+    GGUF loader;
+    loader.parse_gguf("SLM/SmolLM2-135M-Instruct.Q4_K_M.gguf");
 
-    // // List all tensors
-    // for (auto& t : loader.tensors)
-    //     std::cout << t.name << " type=" << t.ggml_type << "\n";
+    // List all tensors
+    for (auto& t : loader.tensors)
+        std::cout << t.name << " type=" << t.ggml_type << "\n";
 
-    // // Load a specific tensor as float
-    // for (auto& info : loader.tensors) {
-    //     if (info.name == "token_embd.weight") {
-    //         Matrix<float> embd = loader.load_tensor<float>(loader.file, info, loader.data_start_offset);
-    //         // use embd...
-    //     }
-    // }
-
-
+    // Load a specific tensor as float
+    for (auto& info : loader.tensors) {
+        if (info.name == "token_embd.weight") {
+            Matrix<float> embd = loader.load_tensor<float>(loader.file, info, loader.data_start_offset);
+            // use embd...
+        }
+    }
 
     return 0;
 }

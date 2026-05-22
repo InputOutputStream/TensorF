@@ -37,7 +37,7 @@ class DivisionOperation : public Operation<T>
  // forward is :x/y
  // backward will be the derivative of both wrt to x and wrt y
  // wrt x: grad/y
- // wrt y: (grad *x * (-1)) / y^2
+ // wrt y: (grad *x * (-1)) / pow(y,2)
 
     template <typename T>
     void DivisionOperation<T>::backward(Matrix<T> grad)

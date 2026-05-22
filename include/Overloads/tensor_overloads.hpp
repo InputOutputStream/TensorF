@@ -23,7 +23,11 @@
 #include "../Operations/SumOperation.hpp"
 #include "../Operations/SumAxisOperation.hpp"
 #include "../Operations/SoftmaxOperation.hpp"
- 
+#include "../Operations/ReshapeOperation.hpp"
+#include "../Operations/ConcatOperation.hpp"
+#include "../Operations/EmbeddingOperation.hpp"
+#include "../Operations/IndexOperation.hpp"
+
 template <typename T>
 class Tensor;
 
@@ -230,7 +234,7 @@ Tensor_t<T> operator /(Tensor_t<T> left, Tensor_t<T> right)
 
 
 template <typename T>
-Tensor_t<T> operator ^(Tensor_t<T> left, Tensor_t<T> right)
+Tensor_t<T> pow(Tensor_t<T> left, Tensor_t<T> right)
 {
     auto op = std::make_shared<PowerOperation<T>>(left, right);
     left->frontOp = op;
@@ -335,7 +339,7 @@ Tensor_t<T> operator /=(Tensor_t<T> left, const T cte)
 
 //Scalar Operations..................................................................
 template <typename E>
-Tensor_t<E> operator ^(Tensor_t<E> left, const E a) {
+Tensor_t<E> pow(Tensor_t<E> left, const E a) {
     auto cte = make_tensor<E>(a);
     auto op = std::make_shared<PowerOperation<E>>(left, cte);
     left->frontOp = op;
