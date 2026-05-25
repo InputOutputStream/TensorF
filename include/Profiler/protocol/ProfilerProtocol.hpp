@@ -397,10 +397,10 @@ struct WireBuffer {
 
 // ─── Serializer ──────────────────────────────────────────────────────────────
 
-#include "HardwareFingerprint.hpp"
-#include "BenchmarkRunner.hpp"
-#include "HyperparamAdvisor.hpp"
-#include "MemoryProfiler.hpp"
+#include "../HardwareFingerprint.hpp"
+#include "../BenchmarkRunner.hpp"
+#include "../HyperparamAdvisor.hpp"
+#include "../MemoryProfiler.hpp"
 
 // Encode float→uint16 with a given scale factor
 static inline uint16_t f2u16(double v, double scale) {
