@@ -288,15 +288,15 @@ private:
         std::string line;
         while (std::getline(f, line)) {
             uint64_t val = 0;
-            if      (sscanf(line.c_str(), "VmRSS:   %llu kB", &val) == 1)
+            if      (sscanf(line.c_str(), "VmRSS:   %lu kB", &val) == 1)
                 s.rss_kb = val;
-            else if (sscanf(line.c_str(), "VmPeak:  %llu kB", &val) == 1)
+            else if (sscanf(line.c_str(), "VmPeak:  %lu kB", &val) == 1)
                 s.vm_peak_kb = val;
-            else if (sscanf(line.c_str(), "VmSize:  %llu kB", &val) == 1)
+            else if (sscanf(line.c_str(), "VmSize:  %lu kB", &val) == 1)
                 s.vm_size_kb = val;
-            else if (sscanf(line.c_str(), "VmData:  %llu kB", &val) == 1)
+            else if (sscanf(line.c_str(), "VmData:  %lu kB", &val) == 1)
                 s.heap_kb = val;
-            else if (sscanf(line.c_str(), "VmStk:   %llu kB", &val) == 1)
+            else if (sscanf(line.c_str(), "VmStk:   %lu kB", &val) == 1)
                 s.stack_kb = val;
         }
         s.valid = (s.rss_kb > 0);

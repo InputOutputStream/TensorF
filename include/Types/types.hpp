@@ -33,10 +33,25 @@
     typedef unsigned int int32;
     typedef unsigned long long int int64;
 
-    typedef _Float16 float16;
-    typedef _Float32 float32;
-    typedef _Float64 float64;
+    // ── Float types — fallback si le compilateur ne supporte pas _FloatXX ──
+    #if defined(__FLT16_MAX__)
+        typedef _Float16 float16;
+    #else
+        typedef uint16_t float16;   // stockage 16-bit, ops promues en float32
+    #endif
 
+    #if defined(__FLT32_MAX__) && defined(_Float32)
+        typedef _Float32 float32;
+    #else
+        typedef float float32;
+    #endif
+
+    #if defined(__FLT64_MAX__) && defined(_Float64)
+        typedef _Float64 float64;
+    #else
+        typedef double float64;
+    #endif
+    
     using fp8_e3m4 = FP8<3,4>;
     using fp8_e4m3 = FP8<4,3>;
     using fp8_e5m2 = FP8<5,2>;
