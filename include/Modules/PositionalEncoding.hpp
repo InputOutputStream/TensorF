@@ -35,6 +35,7 @@ class PositionalEncoding : public Module<T> {
     PositionalEncoding(const PositionalEncoding&) = delete;
 
     Tensor_t<T> forward(Tensor_t<T> indices) {
+        std::cerr << " this->weight->embed(indices) shape : "<< this->weight->embed(indices)->shape<< "\n";
         return this->weight->embed(indices);
     }
 };

@@ -1,8 +1,8 @@
 CC      = g++
-CFLAGS  = -g -std=c++20 -O2 -Wall -Wextra -Iinclude -fsanitize=address,undefined 
+CFLAGS  = -g -std=c++20 -O2 -Wall -Wextra -Iinclude # -fsanitize=address,undefined 
 LDFLAGS = -lopenblas
-TARGET  = tranformer
-SRCS    = tranformer.cpp
+TARGET  = transformer
+SRCS    = transformer.cpp
 OBJS    = $(SRCS:.cpp=.o)
 
 $(TARGET): $(OBJS)
@@ -21,3 +21,4 @@ run: $(TARGET)
 #$^ pour avoir le nom de la dependences
 #$@ pour avoir le nom de la target
 #OBJ = $(SRC:.c = o) recuperer le .c et cree un .o du meme nom
+

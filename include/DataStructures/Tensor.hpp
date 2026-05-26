@@ -38,7 +38,8 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         Matrix<T> grad; //Tensor gradian
         shape_t shape;
         size_t ndims;
-        Operation_t<T> frontOp = nullptr, backOp = nullptr;
+        // Operation_t<T> frontOp = nullptr;
+        Operation_t<T> backOp = nullptr;
 
     //....................................................................................................
     Tensor() //ov
@@ -73,7 +74,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     {
         this->val.copy_from(two->val);
         this->backOp = nullptr;      
-        this->frontOp = nullptr;
+        // this->frontOp = nullptr;
         this->grad.copy_from(two->grad);
         this->shape = this->val.shape;
         this->ndims = this->val.get_ndims();
@@ -114,14 +115,10 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         }
     }
 
-    void reset_graph()
-    {
-        if(this->frontOp!= nullptr)
-        { 
-            this->frontOp->reset_graph(); 
-            this->frontOp = nullptr;
-            this->backOp = nullptr;
-
+    void reset_graph() {
+        if (this->backOp) {
+            this->backOp->reset_graph(); // Tell the operation to clear its inputs
+            this->backOp = nullptr;      // Break the cycle here!
         }
     }
 
@@ -132,7 +129,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->val.copy_from(rhs.val);
         this->grad.copy_from(rhs.grad);
         this->backOp = rhs.backOp;
-        this->frontOp = rhs.frontOp;
+        // this->frontOp = rhs.frontOp;
         return *this;
     }
 
@@ -141,124 +138,132 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     }
         
     // Functions In graph...........................................................................
-    Tensor_t<T> exp()
-    {
-        this->frontOp = std::make_shared<ExponentOperation<T>>((this->shared_from_this()));
-        return this->frontOp->forward(); 
+    Tensor_t<T> matmul(Tensor_t<T> x) {
+        auto op = std::make_shared<MatmulOperation<T>>(this->shared_from_this(), x);
+        return op->forward();
     }
 
-    Tensor_t<T> ln()
-    {
-        this->frontOp = std::make_shared<LogOperation<T>>((this->shared_from_this()));
-        return this->frontOp->forward(); 
+    Tensor_t<T> transpose() {
+        auto op = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
+        return op->forward();
     }
 
-    Tensor_t<T> relu()
-    {
-        this->frontOp = std::make_shared<ReluOperation<T>>((this->shared_from_this()));
-        return this->frontOp->forward(); 
+    Tensor_t<T> transpose(shape_t inshape) {
+        auto op = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
+        return op->forward(inshape);
     }
 
-    Tensor_t<T> matmul(Tensor_t<T> x)
-    {
-        this->frontOp = std::make_shared<MatmulOperation<T>>((this->shared_from_this()), x);
-        return this->frontOp->forward();
+    Tensor_t<T> softmax() {
+        auto op = std::make_shared<SoftmaxOperation<T>>(this->shared_from_this());
+        return op->forward();
+    }
+
+    Tensor_t<T> relu() {
+        auto op = std::make_shared<ReluOperation<T>>(this->shared_from_this());
+        return op->forward();
+    }
+
+    Tensor_t<T> sum(size_t axis) {
+        auto op = std::make_shared<SumAxisOperation<T>>(this->shared_from_this(), axis);
+        return op->forward();
+    }
+
+    Tensor_t<T> sqrt() {
+        auto p = make_tensor<T>((T)0.5);
+        auto op = std::make_shared<PowerOperation<T>>(this->shared_from_this(), p);
+        return op->forward();
+    }
+
+    Tensor_t<T> power(int n) {
+        auto p = make_tensor<T>((T)n);
+        auto op = std::make_shared<PowerOperation<T>>(this->shared_from_this(), p);
+        return op->forward();
+    }
+
+    Tensor_t<T> ln() {
+        auto op = std::make_shared<LogOperation<T>>(this->shared_from_this());
+        return op->forward();
+    }
+
+    Tensor_t<T> exp() {
+        auto op = std::make_shared<ExponentOperation<T>>(this->shared_from_this());
+        return op->forward();
+    }
+
+    Tensor_t<T> sum() {
+        auto op = std::make_shared<SumOperation<T>>(this->shared_from_this());
+        return op->forward();
+    }
+
+    Tensor_t<T> sigmoid() {
+        auto op = std::make_shared<SigmoidOperation<T>>(this->shared_from_this());
+        return op->forward();
+    }
+
+    Tensor_t<T> reshape(shape_t new_shape) {
+        auto op = std::make_shared<ReshapeOperation<T>>(this->shared_from_this(), new_shape);
+        return op->forward();
+    }
+
+    Tensor_t<T> embed(Tensor_t<T> indices) {
+        auto op = std::make_shared<EmbeddingOperation<T>>(this->shared_from_this(), indices);
+        return op->forward();
     }
 
     Tensor_t<T> dot(Tensor_t<T> x)
     {
-        this->frontOp = std::make_shared<DotOperation<T>>((this->shared_from_this()), x);
-        return this->frontOp->forward();
-    }
-
-    Tensor_t<T> sigmoid()
-    {
-        this->frontOp = std::make_shared<SigmoidOperation<T>>(this->shared_from_this());
-        return this->frontOp->forward();
-    }
-    
-    Tensor_t<T> sum()
-    {
-        this->frontOp = std::make_shared<SumOperation<T>>(this->shared_from_this());
-        return this->frontOp->forward();
-    }
-
-    Tensor_t<T> reshape(shape_t new_shape)
-    {
-        this->frontOp = std::make_shared<ReshapeOperation<T>>(this->shared_from_this(), new_shape);
-        return this->frontOp->forward();
+        auto op = std::make_shared<DotOperation<T>>((this->shared_from_this()), x);
+        return op->forward();
     }
 
     Tensor_t<T> reshape(std::initializer_list<size_t> inshape)
     {
         shape_t sh = Matrix<T>::getShape(inshape);
-        this->frontOp = std::make_shared<ReshapeOperation<T>>(this->shared_from_this(), sh);
-        return this->frontOp->forward();
+        auto op = std::make_shared<ReshapeOperation<T>>(this->shared_from_this(), sh);
+        return op->forward();
     }
 
     Tensor_t<T> bool_index(Tensor_t<bool> idx)
     {
-        this->frontOp = std::make_shared<IndexOperation<T>>(this->shared_from_this(), idx);
-        return this->frontOp ->forward();
+        auto op = std::make_shared<IndexOperation<T>>(this->shared_from_this(), idx->val);
+        return op ->forward();
     }
 
     Tensor_t<T> transpose(std::initializer_list<size_t> inshape)
     {
-        this->frontOp = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
-        return this->frontOp->forward(inshape);
-    }
-
-    Tensor_t<T> transpose(shape_t inshape)
-    {
-        this->frontOp = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
-        return this->frontOp->forward(inshape);
-    }
-
-    Tensor_t<T> transpose()
-    {
-        this->frontOp = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
-        return this->frontOp->forward();
-    }
-
-    Tensor_t<T> sqrt()
-    {
-        auto p = make_tensor<T>(T(1)/T(2));
-        this->frontOp = std::make_shared<PowerOperation<T>>(this->shared_from_this(), p);
-        return this->frontOp->forward();
+        auto op = std::make_shared<TransposeOperation<T>>(this->shared_from_this());
+        return op->forward(inshape);
     }
 
     Tensor_t<T> cbrt()
     {
-        auto p = make_tensor<T>(T(1)/T(3));
-        this->frontOp = std::make_shared<PowerOperation<T>>(this->shared_from_this(), p);
-        return this->frontOp->forward();
+        auto p = make_tensor<T>((T)1/(T)3);
+        auto op = std::make_shared<PowerOperation<T>>(this->shared_from_this(), p);
+        return op->forward();
     }
 
-    Tensor_t<T> power(int n)
-    {
-        auto p = make_tensor<T>(n);
-        this->frontOp = std::make_shared<PowerOperation<T>>(this->shared_from_this(), p);
-        return this->frontOp->forward();
+
+    // Compose from graph 
+    
+    Tensor_t<T> mean(size_t axis) {
+        // sum(axis) / N  
+        T N = (T)this->val.shape[axis];
+        auto s = this->sum(axis);          
+        return s / make_tensor<T>(N);      
     }
 
-    Tensor_t<T> softmax()
-    {
-        this->frontOp = std::make_shared<SoftmaxOperation<T>>(this->shared_from_this());
-        return this->frontOp->forward();
+    Tensor_t<T> var(size_t axis) {
+        // var = mean((x - mean(x))^2)
+        auto mu   = this->mean(axis);                          
+        auto diff = this->shared_from_this() - mu;             
+        auto sq   = diff * diff;                              
+        return sq->mean(axis);                                 
     }
 
-    Tensor_t<T> embed(Tensor_t<T> indices)
-    {
-        this->frontOp = std::make_shared<EmbeddingOperation<T>>(this->shared_from_this(), indices);
-        return this->frontOp->forward();
+    Tensor_t<T> std(size_t axis) {
+        return this->var(axis)->sqrt();                   
     }
-
-    Tensor_t<T> sum(size_t axis)
-    {
-        this->frontOp = std::make_shared<SumAxisOperation<T>>(this->shared_from_this(), axis);
-        return this->frontOp->forward();
-    }
-
+ 
     // Static on graph
     
     static Tensor_t<T> concat(std::vector<Tensor_t<T>> tens, size_t axis){

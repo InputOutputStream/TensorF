@@ -54,7 +54,10 @@ class LogOperation : public Operation<T>
     template <typename T>
     void LogOperation<T>::reset_graph(){
         this->t1->reset_graph(); 
+         if (this->t1) {
+            this->t1->reset_graph();
+            this->t1 = nullptr; // Drop strong reference
+        }
     }
-
 
 #endif

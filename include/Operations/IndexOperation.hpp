@@ -14,10 +14,8 @@ class IndexOperation : public Operation<T>
         Matrix<bool> mask;
         shape_t orig_shape;
 
-    IndexOperation(Tensor_t<T> t1, Tensor_t<bool> inmask): t1(t1), mask(inmask->val)
-    {
-    }  
-
+    IndexOperation(Tensor_t<T> t1, const Matrix<bool>& inmask): t1(t1), mask(inmask){
+    }
     void backward(Matrix<T> grad);
 
     Tensor_t<T> forward(); 
@@ -61,8 +59,10 @@ class IndexOperation : public Operation<T>
 
     template <typename T>
     void IndexOperation<T>::reset_graph(){
-        this->t1->reset_graph(); 
+        if (this->t1) {
+            this->t1->reset_graph();
+            this->t1 = nullptr; // Drop strong reference
+        }
     }
-
 
 #endif

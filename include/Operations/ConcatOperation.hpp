@@ -21,7 +21,12 @@ public:
     void backward(Matrix<T> grad);
 
     void zero_grad() override { for (auto& t : inputs) t->zero_grad(); }
-    void reset_graph() override { for (auto& t : inputs) t->reset_graph(); }
+    void reset_graph() override { 
+        for (auto& t : inputs){
+            if(t)
+                t->reset_graph(); 
+        }
+    }
     void to_string() override { std::cout << "Concat Operation\n"; }
 };
 
@@ -44,11 +49,11 @@ void ConcatOperation<T>::backward(Matrix<T> grad)
         size_t offset = 0;
         for (size_t i = 0; i < inputs.size(); ++i) {
             // slice grad from offset to offset+split_sizes[i] along axis
-            Matrix<T> g = grad.slice_axis(axis, offset, offset + split_sizes[i]);
+            Matrix<T> g = grad.slice_axis(offset, offset + split_sizes[i], axis);
             inputs[i]->backward(g);
             offset += split_sizes[i];
         }
-}
+    }
 
 
 

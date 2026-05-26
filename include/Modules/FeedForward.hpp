@@ -23,12 +23,24 @@ class FeedForward: public Module<T>{
             this->register_module(&l2);
         }
 
-        Tensor_t<T> forward(Tensor_t<T> x) {   
-            Tensor_t<T> a = l1.forward(x);
-            Tensor_t<T> b = a->relu();
+    FeedForward(FeedForward&& other)
+        : Module<T>(),          // fresh, empty submodules list
+        l1(std::move(other.l1)),
+        l2(std::move(other.l2))
+    {
+        // re-register at NEW addresses
+        this->register_module(&l1);
+        this->register_module(&l2);
+    }
 
-            return l2.forward(b);
-        }
+    FeedForward(const FeedForward&) = delete; 
+
+    Tensor_t<T> forward(Tensor_t<T> x) {   
+        Tensor_t<T> a = l1.forward(x);
+        Tensor_t<T> b = a->relu();
+
+        return l2.forward(b);
+    }
 };
 
 

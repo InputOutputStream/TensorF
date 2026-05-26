@@ -14,12 +14,6 @@
 
 template <typename T>
 class LayerNorm : public Module<T>{
-    private:
-        Tensor_t<T> mean;
-        Tensor_t<T> diff;
-        Tensor_t<T> var;
-        Tensor_t<T> stdev;
-        Tensor_t<T> y;
 
     public:
 
@@ -55,15 +49,29 @@ class LayerNorm : public Module<T>{
     }
 
     Tensor_t<T> forward(Tensor_t<T> x) {
-        size_t D = x->val.shape.back();
-        this->mean = x->sum(x->ndims - 1) / make_tensor<T>((T)D);
-        this->diff = x - mean;                          // {B,T,D} - {B,T,1} broadcasts
-        this->var = pow(diff, (T)2)->sum(x->ndims - 1) / make_tensor<T>((T)D);
-        this->stdev = (var + make_tensor<T>(this->eps))->sqrt();  // sqrt(var + eps)
-        this->y = diff / stdev;                      // {B,T,D} / {B,T,1} broadcasts
-        std::cerr <<"ln shape: " << this->y->shape;
-        return this->gamma * y + this->beta;
+        size_t axis = x->ndims - 1;
+        auto mu    = x->mean(axis);                     // {B,T,1}
+        auto var   = x->var(axis);                      // {B,T,1}
+        auto stdev = (var + this->eps)->sqrt();  // uses operator+(Tensor_t<T>, const T)
+        auto xhat  = (x - mu) / stdev;                  // {B,T,D}
+        return this->gamma * xhat + this->beta;
     }
 };
 
  #endif // !__LAYER__NORM__
+
+
+
+/**
+ * LayerNormOperation
+ *
+ * Normalises over the LAST axis (the feature/embedding dim), which is the
+ * standard for transformer layer-norm.  gamma (scale) and beta (shift) are
+ * learnable Tensors with the same shape as the last dim.
+ *
+ * forward:
+ *   mu    = mean(x, axis=-1)              shape: [..., 1]
+ *   sigma = sqrt(var(x, axis=-1) + eps)   shape: [..., 1]
+ *   x_hat = (x - mu) / sigma              shape: same as x
+ *   y     = gamma * x_hat + beta          shape: same as x
+ */

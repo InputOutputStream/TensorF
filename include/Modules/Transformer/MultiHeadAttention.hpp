@@ -15,21 +15,20 @@ class MultiHeadAttention : public Module<T>{
     private:
         size_t n_heads;
         Linear<T> proJ;
-        std::vector<Head<T>> Heads;
+        std::vector<std::unique_ptr<Head<T>>> Heads;
 
     public:
 
     MultiHeadAttention(size_t head_size, size_t input_dim, size_t sequence_length, size_t n_heads): 
-    proJ(head_size*n_heads, input_dim, true)
+    proJ(head_size * n_heads, input_dim, true)
     {
         this->n_heads = n_heads;
         
         Heads.reserve(n_heads);
-        for(size_t i = 0; i < n_heads; i++)
-                Heads.emplace_back(head_size, input_dim, sequence_length);
-        for(auto& b : Heads)
-            this->register_module(&b);
-
+        for(size_t i = 0; i < n_heads; i++) {
+            Heads.push_back(std::make_unique<Head<T>>(head_size, input_dim, sequence_length));
+            this->register_module(Heads.back().get());
+        }
         this->register_module(&proJ);
     }
 
@@ -40,7 +39,7 @@ class MultiHeadAttention : public Module<T>{
         Heads(std::move(other.Heads))
     {
         for(auto& h : Heads)
-            this->register_module(&h);
+            this->register_module(h.get());
         this->register_module(&proJ);
     }
 
@@ -51,18 +50,15 @@ class MultiHeadAttention : public Module<T>{
 
         std::vector<Tensor_t<T>> head_outs;
         
-        for(auto& head: this->Heads)
-        {
-            head_outs.push_back(head.forward(x, apply_mask));
-        }
+        for(auto& head : this->Heads)
+            head_outs.push_back(head->forward(x, apply_mask));
 
         // concat on last axis: {B,T,head_size} * n_heads -> {B,T,n_heads*head_size}
         Tensor_t<T> out = Tensor<T>::concat(head_outs, 2);
-        std::cerr << " mha concat out val : "<< out->val<< "\n";
+        std::cerr << " mha concat out shape : "<< out->shape<< "\n";
     
         return this->proJ.forward(out);
     }
-
 };
 
 #endif // !__MHA__HPP

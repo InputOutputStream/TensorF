@@ -53,7 +53,10 @@ void ReshapeOperation<T>::zero_grad(){
 
 template <typename T>
 void ReshapeOperation<T>::reset_graph(){
-    this->t1->reset_graph(); 
+    if (this->t1) {
+        this->t1->reset_graph();
+        this->t1 = nullptr; // Drop strong reference
+    }
 }
 
 #endif

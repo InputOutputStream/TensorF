@@ -748,54 +748,54 @@ void functionality_tests()
 
 int main()
 {
-    //functionality_tests();
+    functionality_tests();
 
-    // cout << "\n=== Sigmoid test ===\n";
-    // sigmoidTest();
+    cout << "\n=== Sigmoid test ===\n";
+    sigmoidTest();
 
-    // cout << "\n=== nn xor test ===\n";
-    // Tensor_t<double> in = make_tensor<double>({{0,0},{0,1},{1,0},{1, 1}});
-    // Tensor_t<double> y = make_tensor<double>({{0}, {1}, {1}, {0}});
-    // nn_xor(in, y, 10000);
+    cout << "\n=== nn xor test ===\n";
+    Tensor_t<double> in = make_tensor<double>({{0,0},{0,1},{1,0},{1, 1}});
+    Tensor_t<double> y = make_tensor<double>({{0}, {1}, {1}, {0}});
+    nn_xor(in, y, 10000);
 
-    // cout << "\n=== nn test ===\n";
-    // nn_mnist<float>();
-
-
-    // cout << "\n=== Serialize test ===\n";
-    // Matrix<float> raw_test = Tabular<float>(true).load("MNIST_CSV/mnist_test.csv");
-    // raw_test = raw_test.slice_row(30, 40);
-
-    // Matrix<float> labels_test = raw_test.col(0);           // column 0 = label
-    // Matrix<float> pixels_test = raw_test.slice_cols(1, 785); // columns 1–784 = pixels
-    // auto x_test = make_tensor<float>(pixels_test / (float)255.0); // normalize
-
-    // // FeedForward<float> model(x_test->shape[1], 64, 10);
-    // Model<float> model(x_test->shape[1]);
-
-    // model.load("Models/model.hge");
-
-    // Tensor_t<float> res = model.forward(x_test);
-    // Tensor_t<float> y_test = make_tensor<float>(Matrix<float>::one_hot(labels_test, 10));
-    // std::cerr << "model predicted val: " << (res > (float)0.75)->val << " Actual val" << y_test->val << "\n";
+    cout << "\n=== nn test ===\n";
+    nn_mnist<float>();
 
 
+    cout << "\n=== Serialize test ===\n";
+    Matrix<float> raw_test = Tabular<float>(true).load("MNIST_CSV/mnist_test.csv");
+    raw_test = raw_test.slice_row(30, 40);
+
+    Matrix<float> labels_test = raw_test.col(0);           // column 0 = label
+    Matrix<float> pixels_test = raw_test.slice_cols(1, 785); // columns 1–784 = pixels
+    auto x_test = make_tensor<float>(pixels_test / (float)255.0); // normalize
+
+    // FeedForward<float> model(x_test->shape[1], 64, 10);
+    Model<float> model(x_test->shape[1]);
+
+    model.load("Models/model.hge");
+
+    Tensor_t<float> res = model.forward(x_test);
+    Tensor_t<float> y_test = make_tensor<float>(Matrix<float>::one_hot(labels_test, 10));
+    std::cerr << "model predicted val: " << (res > (float)0.75)->val << " Actual val" << y_test->val << "\n";
 
 
-    GGUF loader;
-    loader.parse_gguf("SLM/SmolLM2-135M-Instruct.Q4_K_M.gguf");
 
-    // List all tensors
-    for (auto& t : loader.tensors)
-        std::cout << t.name << " type=" << t.ggml_type << "\n";
 
-    // Load a specific tensor as float
-    for (auto& info : loader.tensors) {
-        if (info.name == "token_embd.weight") {
-            Matrix<float> embd = loader.load_tensor<float>(loader.file, info, loader.data_start_offset);
-            // use embd...
-        }
-    }
+    // GGUF loader;
+    // loader.parse_gguf("SLM/SmolLM2-135M-Instruct.Q4_K_M.gguf");
+
+    // // List all tensors
+    // for (auto& t : loader.tensors)
+    //     std::cout << t.name << " type=" << t.ggml_type << "\n";
+
+    // // Load a specific tensor as float
+    // for (auto& info : loader.tensors) {
+    //     if (info.name == "token_embd.weight") {
+    //         Matrix<float> embd = loader.load_tensor<float>(loader.file, info, loader.data_start_offset);
+    //         // use embd...
+    //     }
+    // }
 
     return 0;
 }

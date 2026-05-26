@@ -113,7 +113,10 @@ void SumAxisOperation<T>::zero_grad() {
 
 template <typename T>
 void SumAxisOperation<T>::reset_graph() {
-    this->t1->reset_graph();
+    if (this->t1) {
+        this->t1->reset_graph();
+        this->t1 = nullptr; // Drop strong reference
+    }
 }
 
 #endif // __SUM_AXIS_OPP_INCLUDED__

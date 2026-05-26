@@ -24,7 +24,7 @@
             size_t max_sequence_length=0;   
             PositionalEncoding<T> position_embedding_table;
             Embedding<T> embedding_table;
-            std::vector<Block<T>> decoder_blocks;
+            std::vector<std::unique_ptr<Block<T>>> decoder_blocks;
             LayerNorm<T> ln_f; 
             Linear<T> lm_head; 
     
@@ -44,14 +44,13 @@
             this->register_module(&ln_f);
             this->register_module(&lm_head);
 
-            if (this->max_sequence_length == 0)
-                max_sequence_length = block_size;
+            max_sequence_length = block_size;
 
             decoder_blocks.reserve(n_layer);
-            for(size_t i = 0; i < n_layer; i++)
-                decoder_blocks.emplace_back(input_dim, block_size, n_heads);
-            for(auto& b : decoder_blocks)
-                this->register_module(&b);
+            for(size_t i = 0; i < n_layer; i++){
+                decoder_blocks.push_back(std::make_unique<Block<T>>(input_dim, block_size, n_heads));
+                this->register_module(decoder_blocks.back().get());
+            }
             
             this->vocab_size = vocab_size; 
 
@@ -68,49 +67,38 @@
             Tensor_t<T> pos_indices = make_tensor<T>(Matrix<T>::arrange(seq_len));
             Tensor_t<T> pos_embed = this->position_embedding_table.forward(pos_indices);  // (seq_len, input_dim)
             
-            // Broadcast positional embeddings to match batch size
-            if (pos_embed->ndims == 2)  // (seq_len, input_dim)
-            {
-                // (1, seq_len, input_dim)
-                auto s = pos_embed->shape;
-                s.insert(s.begin(), 1);
-                pos_embed = pos_embed->reshape(s);
-            }
-            
             // Add embeddings
-            Tensor_t<T> x_after_embed = tok_embed + pos_embed;
+            Tensor_t<T> x_emdb = tok_embed + pos_embed;
             
             // Through transformer blocks
-            Tensor_t<T> x = x_after_embed;
-
             for(auto& block : this->decoder_blocks)
-                x = block.forward(x, apply_mask);
-            
-            std::cerr << " x val : "<< x->val<< "\n";
+                x_emdb = block->forward(x_emdb, apply_mask);
+
+            std::cerr << " x shape : "<< x_emdb->shape<< "\n";
 
             // Final layer norm
-            Tensor_t<T> x_after_ln = this->ln_f.forward(x);
+            Tensor_t<T> x_after_ln = this->ln_f.forward(x_emdb);
             
-            std::cerr << " x_after_ln val : "<< x_after_ln->val<< "\n";
+            std::cerr << " x_after_ln shape : "<< x_after_ln->shape<< "\n";
 
             // Language modeling head
             Tensor_t<T> output = this->lm_head.forward(x_after_ln);  // (batch_size, seq_len, vocab_size)
             
-            std::cerr << " output val : "<< output->val<< "\n";
+            std::cerr << " output shape : "<< output->shape<< "\n";
 
             // Compute loss if targets provided
             Tensor_t<T> loss;
             if (targets != nullptr){
                 // Reshape for loss calculation
                 auto logits_flat = output->reshape({batch_size * seq_len, this->vocab_size});  // (batch_size * seq_len, vocab_size)
-                std::cerr << " logits_flat val : "<< logits_flat->val<< "\n";
+                std::cerr << " logits_flat shape : "<< logits_flat->shape<< "\n";
                 auto targets_flat = targets->reshape({batch_size* seq_len});  // (batch_size * seq_len,)
-                std::cerr << " targets_flat val : "<< targets_flat->val<< "\n";
+                std::cerr << " targets_flat shape : "<< targets_flat->shape<< "\n";
                 auto targets_onehot = make_tensor<T>(Matrix<T>::one_hot(targets_flat->val, this->vocab_size));
-                std::cerr << " targets_onehot val : "<< targets_onehot->val<< "\n";
+                std::cerr << " targets_onehot shape : "<< targets_onehot->shape<< "\n";
 
                 auto probs = logits_flat->softmax();
-                std::cerr << " probs val : "<< probs->val<< "\n";
+                std::cerr << " probs shape : "<< probs->shape<< "\n";
 
                 loss = Tensor<T>::cross_entropy(targets_onehot, probs);
                 return loss;
@@ -127,11 +115,13 @@
             
             for (auto i = 0; i < max_new_tokens; i++)
             {
-                // Crop to last block_size tokens
-                Matrix<T> index_cond = current_index->val.slice_col((current_index->shape[1] - this->max_sequence_length), current_index->shape[1]);
-                
-                // Get predictions (no mask for generation)
-                Tensor_t<T> logits = this->forward(make_tensor<T>(index_cond), nullptr, false);
+                // Crop to last block_size tokens                
+                size_t seq = current_index->shape[1];
+                size_t start = (seq > this->max_sequence_length) ? (seq - this->max_sequence_length) : 0;
+                Matrix<T> index_cond = current_index->val.slice_col(start, seq);
+
+                // Get predictions 
+                Tensor_t<T> logits = this->forward(make_tensor<T>(index_cond), nullptr, true);
                 
                 // Focus on last time step
                 logits = make_tensor<T>(logits->val.slice_col(logits->shape[1]-1, logits->shape[1])); // (batch_size, vocab_size)
@@ -173,14 +163,15 @@
 
         // Update parameters
         Op->step();
+
+        loss->reset_graph();
         
         return loss;
     }
 
 
     void train(std::function<std::pair<Tensor_t<T>, Tensor_t<T>>(std::string)> get_batch_fn,
-            std::function<std::pair<Tensor_t<T>, Tensor_t<T>>(std::string)> eval_get_batch_fn,
-            size_t iters, size_t eval_interval)
+    size_t iters, size_t eval_interval)
     {
         Optimizer<T> Op(this->parameters(), 1e-4, ADAMw);
 
@@ -193,15 +184,17 @@
             Tensor_t<T> loss = this->train_step(&Op, inputs, targets);
             
             // Print progress
-            if (iter % eval_interval == 0)
+            if (iter % eval_interval == 0){
                 std::cout << "Iters :" << iter << " Loss: " << loss->val << "...............................................................\n";
-            
-            // Evaluation
-            if( eval_get_batch_fn && (iter % eval_interval == 0) && iters > 0)
-                this->eval_step(eval_get_batch_fn);
             }
-    }
 
+            // // Evaluation
+            // if((iter % eval_interval == 0) && iters > 0){
+            //     Op.zero_grad();
+            //     this->eval_step(get_batch_fn);
+            // }
+        }
+    }
 
     void eval_step(std::function<std::pair<Tensor_t<T>, Tensor_t<T>>(std::string)> get_batch_fn) {
         auto [inputs, targets] = get_batch_fn("val");

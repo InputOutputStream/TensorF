@@ -58,9 +58,14 @@ class DotOperation : public Operation<T>
 
     template <typename T>
     void DotOperation<T>::reset_graph(){
-        this->t1->reset_graph(); 
-        this->t2->reset_graph(); 
+        if (this->t1) {
+            this->t1->reset_graph();
+            this->t1 = nullptr; // Drop strong reference
+        }
+        if (this->t2) {
+            this->t2->reset_graph();
+            this->t2 = nullptr; // Drop strong reference
+        }
     }
-
 
 #endif

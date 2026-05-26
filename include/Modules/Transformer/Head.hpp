@@ -11,7 +11,6 @@
 template <typename T>
 class Head : public Module<T>{
     private:
-        bool bias;
 
         size_t input_dim;
         size_t seq_length;
@@ -27,10 +26,10 @@ class Head : public Module<T>{
 
     public:
 
-    Head(size_t head_size, size_t input_dim, size_t sequence_length): 
-      K(input_dim, head_size, true),
-      Q(input_dim, head_size, true),
-      V(input_dim, head_size, true)
+    Head(size_t head_size, size_t input_dim, size_t sequence_length, bool bias=true): 
+      K(input_dim, head_size, bias),
+      Q(input_dim, head_size, bias),
+      V(input_dim, head_size, bias)
     {
         this->input_dim = input_dim;
         this->seq_length = sequence_length;
@@ -44,7 +43,6 @@ class Head : public Module<T>{
 
     Head(Head&& other)
         : Module<T>(), // fresh, empty submodules list
-        bias(other.bias),
         input_dim(other.input_dim),
         seq_length(other.seq_length),
         head_size(other.head_size),
@@ -60,10 +58,11 @@ class Head : public Module<T>{
         this->register_module(&V);
     }
 
-Head(const Head&) = delete;
+    Head(const Head&) = delete;
 
     void set_mask(shape_t scores_shape) {
-        if (this->mask != nullptr && this->mask.shape == scores_shape)
+
+        if (this->mask.get_size() > 0 && this->mask.shape == scores_shape)
             return;
 
         //size_t seq = this->seq_length;
@@ -77,7 +76,7 @@ Head(const Head&) = delete;
     {
         size_t d_k = this->head_size;
 
-        this->scaled_scores = q->matmul(k->transpose()) / (T)std::sqrt((double)d_k);
+        this->scaled_scores = q->matmul(k->transpose({0, 2, 1})) / (T)std::sqrt((double)d_k);
 
         if (apply_mask) {
             if (this->mask.get_size() == 0)
@@ -94,23 +93,23 @@ Head(const Head&) = delete;
     Tensor_t<T> forward(Tensor_t<T> x, bool apply_mask=true){
         // """Forward pass through attention head"""
     
-        std::cerr << " head input x val : "<< x->val<< "\n";
+        std::cerr << " head input x shape : "<< x->shape<< "\n";
 
         // Compute Q, K, V projections
         Tensor_t<T> q = this->Q.forward(x);  // (B, T, head_size)
         Tensor_t<T> k = this->K.forward(x);  // (B, T, head_size) 
         Tensor_t<T> v = this->V.forward(x);  // (B, T, head_size)
 
-        std::cerr << " q val : "<< q->val<< "\n";
-        std::cerr << " k val : "<< k->val<< "\n";
-        std::cerr << " v val : "<< v->val<< "\n";
+        std::cerr << " q shape : "<< q->shape<< "\n";
+        std::cerr << " k shape : "<< k->shape<< "\n";
+        std::cerr << " v shape : "<< v->shape<< "\n";
 
         // Apply scaled dot-product attention
         auto res = this->scaled_dot_product_attention(q, k, v, apply_mask);
 
         Tensor_t<T> values = res.first;
         this->attention = res.second;
-        std::cerr << " scaled dot product values and attention val : "<< values->val<< attention->val << "\n";
+        std::cerr << " scaled dot product values and attention shape : "<< values->shape<< attention->shape << "\n";
 
         return values;        
     }

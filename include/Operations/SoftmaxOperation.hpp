@@ -114,7 +114,9 @@ void SoftmaxOperation<T>::zero_grad() {
 
 template <typename T>
 void SoftmaxOperation<T>::reset_graph() {
-    this->t1->reset_graph();
+    if (this->t1) {
+        this->t1->reset_graph();
+        this->t1 = nullptr; // Drop strong reference
+    }
 }
-
 #endif // __SOFTMAX_OPP_INCLUDED__

@@ -24,6 +24,7 @@ class Embedding: public Module<T>{
     }  
 
     Tensor_t<T> forward(Tensor_t<T> indices) {
+        std::cerr << " this->embeddings->embed(indices) shape : "<< this->embeddings->embed(indices)->shape<< "\n";
         return this->embeddings->embed(indices);
     }
 };

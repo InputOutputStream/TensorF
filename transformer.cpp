@@ -55,9 +55,7 @@ int main()
     GPT<float> model(vocab_size, input_dim, block_size, n_heads, n_layers);
 
     auto get_batch     = [&](std::string split) { return ds.get_batch(split); };
-    auto get_val_batch = [&](std::string split) { return ds.get_batch("val"); };
-
-    model.train(get_batch, get_val_batch, iters, evals);
+    model.train(get_batch, iters, evals);
    
     return 0;
 }
