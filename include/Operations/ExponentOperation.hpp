@@ -53,15 +53,18 @@ class ExponentOperation : public Operation<T>
     template <typename T>
     void ExponentOperation<T>::zero_grad(){
         this->t1->zero_grad(); 
-        this->tmp->zero_grad();
+        if (this->tmp) this->tmp->zero_grad();
     }
 
     template <typename T>
     void ExponentOperation<T>::reset_graph(){
-        this->t1->reset_graph(); 
         if (this->t1) {
             this->t1->reset_graph();
             this->t1 = nullptr; // Drop strong reference
+        }
+        if (this->tmp) {
+            this->tmp->reset_graph();
+            this->tmp = nullptr; // Drop strong reference
         }
     }
 

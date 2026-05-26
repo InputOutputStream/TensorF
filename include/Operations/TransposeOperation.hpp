@@ -76,7 +76,7 @@ class TransposeOperation : public Operation<T>
     template <typename T>
     void TransposeOperation<T>::zero_grad(){
         this->t1->zero_grad(); 
-        this->tmp->zero_grad();
+        if (this->tmp) this->tmp->zero_grad();
     }
 
     template <typename T>

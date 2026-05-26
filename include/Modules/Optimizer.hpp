@@ -57,6 +57,7 @@
 
             void Adam() {
                 if(!initialized) {
+                    t = 0;
                     for(auto p : parameters) {
                         m.push_back(Matrix<T>::zeros(p->val.shape));
                         v.push_back(Matrix<T>::zeros(p->val.shape));
@@ -121,6 +122,7 @@
 
             void AdamW() {
                 if(!initialized) {
+                    t = 0;
                     for(auto p : parameters) {
                         m.push_back(Matrix<T>::zeros(p->val.shape));
                         v.push_back(Matrix<T>::zeros(p->val.shape));

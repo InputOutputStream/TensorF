@@ -42,9 +42,11 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         Operation_t<T> backOp = nullptr;
 
     //....................................................................................................
-    Tensor() //ov
-    {
-        this->val = 0;
+    Tensor() {
+        this->val  = Matrix<T>(T(0));
+        this->ndims = 0;
+        this->shape = {};
+        this->grad = Matrix<T>(T(0));  
     }
 
     Tensor(Matrix<T> *val) // ov
@@ -52,11 +54,14 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->val.copy_from(val);
         this->shape = this->val.shape;
         this->ndims = this->val.get_ndims();
+        this->grad = Matrix<T>();
     }
 
 
     Tensor(const Matrix<T> &val) // ov
     {
+        this->val.copy_from(val);
+        this->grad = Matrix<T>();  
         this->val.copy_from(val);
         this->shape = this->val.shape;
         this->ndims = this->val.get_ndims();
@@ -68,13 +73,13 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->backOp = op;
         this->shape = this->val.shape;
         this->ndims = this->val.get_ndims();
+        this->grad = Matrix<T>();
     }
 
     Tensor(const Tensor_t<T> two) 
     {
         this->val.copy_from(two->val);
         this->backOp = nullptr;      
-        // this->frontOp = nullptr;
         this->grad.copy_from(two->grad);
         this->shape = this->val.shape;
         this->ndims = this->val.get_ndims();

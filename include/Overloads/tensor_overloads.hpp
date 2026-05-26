@@ -144,11 +144,8 @@ Tensor_t<T> make_tensor(std::vector<std::vector<T>> indata, Operation_t<T> op)
 
 template <typename T>
 Tensor_t<T> make_tensor(std::initializer_list<T> indata)
-{
-    std::vector<T> e;
-    
-    Matrix<T>::flattenReccursive(indata, e);
-    return std::make_shared<Tensor<T>>(Matrix<T>(e));
+{    
+    return std::make_shared<Tensor<T>>(Matrix<T>(indata));
 }
 
 template <typename T>
@@ -202,7 +199,6 @@ template <typename T>
 Tensor_t<T> operator +(Tensor_t<T> left, Tensor_t<T> right)
 {
     auto op = std::make_shared<AddOperation<T>>(left, right);
-    // left->frontOp = op;
     return op->forward(); 
 }
 
@@ -210,7 +206,6 @@ template <typename T>
 Tensor_t<T> operator *(Tensor_t<T> left, Tensor_t<T> right)
 {
     auto op = std::make_shared<MultiplyOperation<T>>(left, right);
-    // left->frontOp = op;
     return op->forward(); 
 }
 
@@ -219,7 +214,6 @@ template <typename T>
 Tensor_t<T> operator -(Tensor_t<T> left, Tensor_t<T> right)
 {
     auto op = std::make_shared<SubtractOperation<T>>(left, right);
-    // left->frontOp = op;
     return op->forward(); 
 }
 
@@ -228,7 +222,6 @@ template <typename T>
 Tensor_t<T> operator /(Tensor_t<T> left, Tensor_t<T> right)
 {
     auto op = std::make_shared<DivisionOperation<T>>(left, right);
-    // left->frontOp = op;
     return op->forward(); 
 }
 
@@ -237,7 +230,6 @@ template <typename T>
 Tensor_t<T> pow(Tensor_t<T> left, Tensor_t<T> right)
 {
     auto op = std::make_shared<PowerOperation<T>>(left, right);
-    // left->frontOp = op;
     return op->forward(); 
 }
 
@@ -245,7 +237,8 @@ Tensor_t<T> pow(Tensor_t<T> left, Tensor_t<T> right)
 template <typename T>
 bool operator ==(Tensor_t<T> left, Tensor_t<T> right)
 {
-    if (!left || !right) return left == right; 
+    if (!left && !right) return true;
+    if (!left || !right) return false;
     return left->val == right->val;
 }
 
@@ -283,58 +276,58 @@ Tensor_t<bool> operator ==(const U a, Tensor_t<E> right)
 template <typename T>
 Tensor_t<T> operator +=(Tensor_t<T> left, Tensor_t<T> right)
 {
-    left->val += right->val;
-    return left;
+    auto op = std::make_shared<AddOperation<T>>(left, right);
+    return op->forward();
 }
 
 template <typename T>
 Tensor_t<T> operator -=(Tensor_t<T> left, Tensor_t<T> right)
 {
-    left->val -= right->val;
-    return left;
+    auto op = std::make_shared<SubtractOperation<T>>(left, right);
+    return op->forward();
 }
 
 template <typename T>
 Tensor_t<T> operator *=(Tensor_t<T> left, Tensor_t<T> right)
 {
-    left->val *= right->val;
-    return left;
+    auto op = std::make_shared<MultiplyOperation<T>>(left, right);
+    return op->forward();
 }
 
 template <typename T>
 Tensor_t<T> operator /=(Tensor_t<T> left, Tensor_t<T> right)
 {
-    left->val /= right->val;
-    return left;
+    auto op = std::make_shared<DivisionOperation<T>>(left, right);
+    return op->forward();
 }
 
 
 template <typename T>
 Tensor_t<T> operator +=(Tensor_t<T> left, const T cte)
 {
-    left->val += cte;
-    return left;
+    auto op = std::make_shared<AddOperation<T>>(left, make_tensor(cte));
+    return op->forward(); 
 }
 
 template <typename T>
 Tensor_t<T> operator -=(Tensor_t<T> left, const T cte)
 {
-    left->val -= cte;
-    return left;
+    auto op = std::make_shared<SubtractOperation<T>>(left, make_tensor(cte));
+    return op->forward(); 
 }
 
 template <typename T>
 Tensor_t<T> operator *=(Tensor_t<T> left, const T cte)
 {
-    left->val *= cte;
-    return left;
+    auto op = std::make_shared<MultiplyOperation<T>>(left, make_tensor(cte));
+    return op->forward(); 
 }
 
 template <typename T>
 Tensor_t<T> operator /=(Tensor_t<T> left, const T cte)
 {
-    left->val /= cte;    
-    return left;
+    auto op = std::make_shared<DivisionOperation<T>>(left, make_tensor(cte));
+    return op->forward(); 
 }
 
 //Scalar Operations..................................................................
@@ -342,8 +335,6 @@ template <typename E>
 Tensor_t<E> pow(Tensor_t<E> left, const E a) {
     auto cte = make_tensor<E>(a);
     auto op = std::make_shared<PowerOperation<E>>(left, cte);
-    // left->frontOp = op;
-    // cte->frontOp = op;
     return op->forward();
 }
 
@@ -353,8 +344,6 @@ Tensor_t<S> operator +(Tensor_t<S> left, const S a)
 {
     auto cte = make_tensor<S>(a);
     auto op = std::make_shared<AddOperation<S>>(left, cte);
-    // left->frontOp = op;
-    // cte->frontOp = op;
     return op->forward();
 }
 
@@ -364,8 +353,6 @@ Tensor_t<E> operator +(const E a, Tensor_t<E> right)
 {    
     auto cte = make_tensor<E>(a);
     auto op = std::make_shared<AddOperation<E>>(cte, right);
-    // right->frontOp = op;
-    // cte->frontOp = op;
     return op->forward();
 }
 
@@ -374,8 +361,6 @@ Tensor_t<S> operator -(Tensor_t<S> left, const S a)
 {
     auto cte = make_tensor<S>(a);
     auto op = std::make_shared<SubtractOperation<S>>(left, cte);
-    // left->frontOp = op;
-    // cte->frontOp = op;
     return op->forward();
 }
 
@@ -385,8 +370,6 @@ Tensor_t<S> operator -(const S a, Tensor_t<S> left)
 {
     auto cte = make_tensor<S>(a);
     auto op = std::make_shared<SubtractOperation<S>>(cte, left);
-    // left->frontOp = op;
-    // cte->frontOp = op;
     return op->forward();
 }
 
@@ -396,8 +379,6 @@ Tensor_t<E> operator *(Tensor_t<E> left, const E a)
 {    
     auto cte = make_tensor<E>(a);
     auto op = std::make_shared<MultiplyOperation<E>>(left, cte);
-    // left->frontOp = op;
-    // cte->frontOp = op;
     return op->forward();
 }
 
@@ -406,8 +387,6 @@ Tensor_t<E> operator *(const E a, Tensor_t<E> right)
 {    
     auto cte = make_tensor<E>(a);
     auto op = std::make_shared<MultiplyOperation<E>>(cte, right);
-    // right->frontOp = op;
-    // cte->frontOp = op;
     return op->forward();
 }
 
@@ -417,8 +396,6 @@ Tensor_t<S> operator /(Tensor_t<S> left, const S a)
 {
     auto cte = make_tensor<S>(a);
     auto op = std::make_shared<DivisionOperation<S>>(left, cte);
-    // left->frontOp = op;
-    // cte->frontOp = op;
     return op->forward();
 }
 
@@ -428,8 +405,6 @@ Tensor_t<E> operator /(const E a, Tensor_t<E> right)
 {
     auto cte = make_tensor<E>(a);
     auto op = std::make_shared<DivisionOperation<E>>(cte, right);
-    // right->frontOp = op;
-    // cte->frontOp = op;
     return op->forward();
 }
 
@@ -439,8 +414,6 @@ Tensor_t<E> operator -(Tensor_t<E> ten)
 {
     Tensor_t<E> n = make_tensor<E>(-1);
     auto op = std::make_shared<MultiplyOperation<E>>(ten, n);
-    // ten->frontOp = op;
-    // n->frontOp = op;
     return op->forward();
 }
 

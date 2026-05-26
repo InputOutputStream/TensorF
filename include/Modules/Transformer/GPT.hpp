@@ -32,7 +32,8 @@
 
         GPT(size_t vocab_size, size_t input_dim, size_t block_size, 
             size_t n_heads, size_t n_layer):
-
+            vocab_size(vocab_size),
+            max_sequence_length(block_size),
             position_embedding_table(input_dim, block_size),
             embedding_table(vocab_size, input_dim),
 
@@ -44,16 +45,11 @@
             this->register_module(&ln_f);
             this->register_module(&lm_head);
 
-            max_sequence_length = block_size;
-
             decoder_blocks.reserve(n_layer);
             for(size_t i = 0; i < n_layer; i++){
                 decoder_blocks.push_back(std::make_unique<Block<T>>(input_dim, block_size, n_heads));
                 this->register_module(decoder_blocks.back().get());
             }
-            
-            this->vocab_size = vocab_size; 
-
         }
 
         Tensor_t<T> forward(Tensor_t<T> index, Tensor_t<T> targets, bool apply_mask=true)
@@ -87,7 +83,6 @@
             std::cerr << " output shape : "<< output->shape<< "\n";
 
             // Compute loss if targets provided
-            Tensor_t<T> loss;
             if (targets != nullptr){
                 // Reshape for loss calculation
                 auto logits_flat = output->reshape({batch_size * seq_len, this->vocab_size});  // (batch_size * seq_len, vocab_size)
@@ -100,9 +95,7 @@
                 auto probs = logits_flat->softmax();
                 std::cerr << " probs shape : "<< probs->shape<< "\n";
 
-                loss = Tensor<T>::cross_entropy(targets_onehot, probs);
-                return loss;
-        
+                return Tensor<T>::cross_entropy(targets_onehot, probs);
             }
 
             return output;

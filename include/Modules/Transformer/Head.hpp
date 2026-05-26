@@ -20,8 +20,6 @@ class Head : public Module<T>{
         Linear<T> Q;
         Linear<T> V;
 
-        Tensor_t<T> scaled_scores;
-        Tensor_t<T> attention;
         Matrix<T> mask;
 
     public:
@@ -49,8 +47,6 @@ class Head : public Module<T>{
         K(std::move(other.K)),
         Q(std::move(other.Q)),
         V(std::move(other.V)),
-        scaled_scores(other.scaled_scores),
-        attention(other.attention),
         mask(other.mask)
     {
         this->register_module(&Q);
@@ -60,13 +56,10 @@ class Head : public Module<T>{
 
     Head(const Head&) = delete;
 
-    void set_mask(shape_t scores_shape) {
-
-        if (this->mask.get_size() > 0 && this->mask.shape == scores_shape)
+    void set_mask(size_t seq) {
+        if (this->mask.get_size() > 0 && this->mask.shape[1] == seq)
             return;
-
-        //size_t seq = this->seq_length;
-        Matrix<T> tmp = Matrix<T>::tril(Matrix<T>::ones(scores_shape));
+        Matrix<T> tmp = Matrix<T>::tril(Matrix<T>::ones({seq, seq}));
         Matrix<bool> tmp2(tmp == 0);
         this->mask = Matrix<T>::where(tmp2, -Matrix<T>::inf(), (T)0.0);
     }
@@ -76,18 +69,17 @@ class Head : public Module<T>{
     {
         size_t d_k = this->head_size;
 
-        this->scaled_scores = q->matmul(k->transpose({0, 2, 1})) / (T)std::sqrt((double)d_k);
+        auto scaled_scores = q->matmul(k->transpose({0, 2, 1})) / (T)std::sqrt((double)d_k);
 
         if (apply_mask) {
             if (this->mask.get_size() == 0)
-                this->set_mask(this->scaled_scores->shape);  
-            this->scaled_scores = this->scaled_scores + make_tensor<T>(this->mask);
+                this->set_mask(seq_length);  
+            scaled_scores = scaled_scores + make_tensor<T>(this->mask);
         }
 
-        this->attention = this->scaled_scores->softmax();
-        Tensor_t<T> output = this->attention->matmul(v);
+        auto attention = scaled_scores->softmax();
 
-        return {output, this->attention};
+        return {attention->matmul(v), attention};
     }
 
     Tensor_t<T> forward(Tensor_t<T> x, bool apply_mask=true){
@@ -108,7 +100,7 @@ class Head : public Module<T>{
         auto res = this->scaled_dot_product_attention(q, k, v, apply_mask);
 
         Tensor_t<T> values = res.first;
-        this->attention = res.second;
+        Tensor_t<T> attention = res.second;
         std::cerr << " scaled dot product values and attention shape : "<< values->shape<< attention->shape << "\n";
 
         return values;        

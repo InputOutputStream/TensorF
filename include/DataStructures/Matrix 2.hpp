@@ -198,7 +198,7 @@ class Matrix
             s = false;   
 
         return s;
-    }               
+    }       
 
      //There is an error in the computes shapes method as we go from 1D to 2D 
         //Solution
@@ -707,6 +707,9 @@ class Matrix
 
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 
+    private:
+        size_t logical_size = 0;
+    
     protected: 
         size_t size;
         size_t ndims;
@@ -741,6 +744,9 @@ class Matrix
         this->ndims = 0; 
         this->size  = 0;
     };
+
+    // NOTE: template<U> scalar constructor removed — Matrix(const T&) handles int/float/double scalars.
+    // Keeping it caused ambiguity when T == float or T == int.
 
     Matrix(const T& indata)
     {
@@ -1045,6 +1051,62 @@ class Matrix
        return s / this->size;
     }
 
+
+     // ── axis reductions (n-D) ────────────────────────────────────────────────
+ 
+    Matrix<T> mean(size_t axis)
+    {
+        if (axis >= this->shape.size())
+            throw std::runtime_error("mean: axis out of range\n");
+ 
+        Matrix<T> s = this->sum(axis);
+ 
+        T n = (T)this->shape[axis];   // number of elements collapsed
+        std::vector<T> res;
+        res.reserve(s.data.size());
+        for (auto v : s.data)
+            res.push_back(v / n);
+ 
+        return Matrix<T>(res, s.shape);
+    }
+ 
+    Matrix<T> var(size_t axis, bool ddof0 = true)
+    {
+        if (axis >= this->shape.size())
+            throw std::runtime_error("var: axis out of range\n");
+ 
+        Matrix<T> mn = this->mean(axis);          // shape: this->shape minus axis dim
+ 
+        // Broadcast mn back to original shape so we can subtract element-wise.
+        // Insert the reduced axis back as size-1, then broadcastTo original shape.
+        shape_t exp_shape = mn.shape;
+        exp_shape.insert(exp_shape.begin() + axis, 1);
+        Matrix<T> mn_bc = this->b.broadcastTo(Matrix<T>(mn.data, exp_shape), this->shape);
+ 
+        // Squared deviations, then sum along axis, then divide.
+        Matrix<T> diff = *this - mn_bc;           // element-wise subtract
+        Matrix<T> sq   = diff * diff;             // element-wise square
+ 
+        Matrix<T> sq_sum = sq.sum(axis);
+ 
+        T n = (T)(ddof0 ? this->shape[axis] : this->shape[axis] - 1);
+        std::vector<T> res;
+        res.reserve(sq_sum.data.size());
+        for (auto v : sq_sum.data)
+            res.push_back(v / n);
+ 
+        return Matrix<T>(res, sq_sum.shape);
+    }
+ 
+    Matrix<T> std(size_t axis, bool ddof0 = true)
+    {
+        if (axis >= this->shape.size())
+            throw std::runtime_error("std: axis out of range\n");
+ 
+        return this->var(axis, ddof0).sqrt();
+    }
+ 
+
     Matrix<T> sqrt() 
     {
         std::vector<T> arr;
@@ -1087,8 +1149,7 @@ class Matrix
 
     size_t get_size()
     {
-        this->size = this->data.size();
-        return this->data.size();
+        return this->size;
     }
 
     size_t get_ndims()
@@ -1943,14 +2004,14 @@ class Matrix
         for (auto s : resShape) total *= s;
 
         shape_t indexStack{}; 
-        // std::vector<T> out(total, T(0));
-        std::vector<T> out(avx2_pad(total), T(0));  
+        std::vector<T> out(avx2_pad(total), T(0));  // padded for AVX2 alignment during compute
 
         shape_t resElements = this->computeShapes(resShape); 
         size_t dim=0;
 
-       this->matmul(rhs, indexStack, resElements, dim, out);
+        this->matmul(rhs, indexStack, resElements, dim, out);
 
+        out.resize(total);  // trim padding before wrapping in Matrix
         return Matrix<T>(out, resShape);
     }
     
@@ -1987,12 +2048,11 @@ class Matrix
         auto resElements = this->computeShapes(resShape);
         size_t total = 1;
         for (auto s : resShape) total *= s;
-        // std::vector<T> out(total, T(0)); 
-        std::vector<T> out(avx2_pad(total), T(0));
+        std::vector<T> out(avx2_pad(total), T(0));  // padded for AVX2 alignment during compute
         
-        //perform dot product
         this->matmul(rhs, indexStack, resElements, 0, out);
-       
+
+        out.resize(total);  // trim padding before wrapping in Matrix
         return Matrix<T>(out, resShape);
         
     } 
@@ -2264,38 +2324,68 @@ class Matrix
 
 //------------------------------------------------------------------------------------
 
-    template <typename T>
-    Matrix<T> sumGradForBroadcast(Matrix<T> grad, shape_t originalShape){
-        shape_t gradShape = grad.shape;
-        int i = 0, j = 0;
-        Matrix<T> res(grad);
-        j = originalShape.size()-1;
+    // template <typename T>
+    // Matrix<T> sumGradForBroadcast(Matrix<T> grad, shape_t originalShape){
+    //     shape_t gradShape = grad.shape;
+    //     int i = 0, j = 0;
+    //     Matrix<T> res(grad);
+    //     j = originalShape.size()-1;
 
-        for(i = gradShape.size()-1; i >= 0; i--)
-        {
-            if(j >=0 && originalShape[j] == 1 && gradShape[i] > 1)
-            {  
+    //     for(i = gradShape.size()-1; i >= 0; i--)
+    //     {
+    //         if(j >=0 && originalShape[j] == 1 && gradShape[i] > 1)
+    //         {  
+    //             res = res.sum(i);
+    //             gradShape = res.shape;  
+    //             j--;
+    //         }
+    //         else if(j >= 0 && originalShape[j] == gradShape[i])
+    //         {
+    //             j--;
+    //         }
+    //         else if(j < 0){
+    //             res = res.sum(i);
+    //             gradShape = res.shape;  
+    //         }
+    //     }
+
+    //     if(res.shape != originalShape)
+    //     { 
+    //         res = Matrix<T>(res.data, originalShape);
+    //     }  
+        
+    //     return res;
+    // }
+
+
+
+    template <typename T>
+    Matrix<T> sumGradForBroadcast(Matrix<T> grad, std::vector<size_t> originalShape) {
+        Matrix<T> res = grad;
+        
+        // Keep summing leading dimensions until rank matches
+        while (res.shape.size() > originalShape.size()) {
+            res = res.sum(0);
+        }
+        
+        // Sum any dimension where original was size 1
+        for (int i = (int)res.shape.size() - 1; i >= 0; i--) {
+            if (originalShape[i] == 1 && res.shape[i] > 1) {
                 res = res.sum(i);
-                gradShape = res.shape;  
-                j--;
-            }
-            else if(j >= 0 && originalShape[j] == gradShape[i])
-            {
-                j--;
-            }
-            else if(j < 0){
-                res = res.sum(i);
-                gradShape = res.shape;  
+                // sum(i) on a kept dim should leave shape[i]=1; if it collapses, reshape
+                if (res.shape.size() < originalShape.size()) {
+                    shape_t s = res.shape;
+                    s.insert(s.begin() + i, 1);
+                    res = Matrix<T>(res.data, s);
+                }
             }
         }
-
-        if(res.shape != originalShape)
-        { 
+        
+        // Final shape correction
+        if (res.shape != originalShape)
             res = Matrix<T>(res.data, originalShape);
-        }  
         
         return res;
     }
     
-
 #endif

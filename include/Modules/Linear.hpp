@@ -12,18 +12,18 @@
     class Linear : public Module<T>{
 
         public:
-            Tensor_t<T> weight;
-            Tensor_t<T> bias;
+            Tensor_t<T> weight = nullptr;
+            Tensor_t<T> bias = nullptr;
             bool sbias;
 
             Linear(size_t in_features, size_t out_features, bool sbias = true){
                     this->weight = make_tensor<T>(Matrix<T>::he({in_features, out_features}));
                     this->register_parameter(weight);
                     this->sbias = sbias;
+                    this->bias = make_tensor<T>(Matrix<T>::zeros({out_features}));
 
                     if(sbias)
                     {
-                        this->bias = make_tensor<T>(Matrix<T>::zeros({out_features}));
                         this->register_parameter(bias);
                     }
                 }

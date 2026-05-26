@@ -42,7 +42,7 @@ int main()
     size_t block_size = 4;
     size_t batch_size = 4;
     // size_t max_sequence_length = 100;
-    size_t iters = 1;
+    size_t iters = 5;
     // size_t epochs = 10;
     size_t evals = 1;
     const std::string folder_path = "Dataset";

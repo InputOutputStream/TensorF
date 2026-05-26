@@ -57,6 +57,7 @@ class SigmoidOperation : public Operation<T>
     template <typename T>
     void SigmoidOperation<T>::zero_grad(){
         this->t1->zero_grad(); 
+        if (this->tmp) this->tmp->zero_grad();
     }
 
     template <typename T>
@@ -64,6 +65,11 @@ class SigmoidOperation : public Operation<T>
         if (this->t1) {
             this->t1->reset_graph();
             this->t1 = nullptr; // Drop strong reference
+        }
+
+        if (this->tmp) {
+            this->tmp->reset_graph();
+            this->tmp = nullptr; // Drop strong reference
         }
     }
 

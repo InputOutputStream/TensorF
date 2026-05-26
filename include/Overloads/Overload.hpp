@@ -13,14 +13,14 @@
  * Arithmetic Operations
  */
 
+
 template <typename T>
 std::vector<T> operator *(const std::vector<T> &a, const std::vector<T> &b) //std::Vector Multiplication
 {
-    if(a.size() != b.size())
-        throw std::runtime_error("Tensors are not of the same size!!!\n");
+    auto limit = std::min(a.size(), b.size());
 
-    std::vector<T> arr(b.size(), (T)0);
-    for(size_t i=0; i<a.size(); i++)
+    std::vector<T> arr(limit, (T)0);
+    for(size_t i=0; i<limit; i++)
     {
         arr[i] = (T)(a[i] * b[i]);
     }
@@ -32,11 +32,10 @@ std::vector<T> operator *(const std::vector<T> &a, const std::vector<T> &b) //st
 template <typename T>
 std::vector<T> operator +(const std::vector<T> &a, const std::vector<T> &b) //std::Vector Addition
 {
-    if(a.size() != b.size())
-        throw std::runtime_error("Tensors are not of the same size!!!\n");
+    auto limit = std::min(a.size(), b.size());
 
-    std::vector<T> arr(b.size(), (T)0);
-    for(size_t i=0; i< a.size(); i++)
+    std::vector<T> arr(limit, (T)0);
+    for(size_t i=0; i< limit; i++)
     {
         arr[i] = (T)(a[i] + b[i]);
     }
@@ -48,11 +47,10 @@ std::vector<T> operator +(const std::vector<T> &a, const std::vector<T> &b) //st
 template <typename T>
 std::vector<T> operator -(const std::vector<T> &a, const std::vector<T> &b) //std::Vector Subtraction
 {
-    if(a.size() != b.size())
-        throw std::runtime_error("Tensors are not of the same size!!!\n");
+    auto limit = std::min(a.size(), b.size());
 
-    std::vector<T> arr(b.size(), (T)0);
-    for(size_t i=0; i< a.size(); i++)
+    std::vector<T> arr(limit, (T)0);
+    for(size_t i=0; i<limit; i++)
     {
         arr[i] = (T)(a[i] - b[i]);
     }
@@ -64,11 +62,10 @@ std::vector<T> operator -(const std::vector<T> &a, const std::vector<T> &b) //st
 template <typename T>
 std::vector<T> operator /(const std::vector<T> &a, const std::vector<T> &b) //std::Vector Division
 {
-    if(a.size() != b.size())
-        throw std::runtime_error("Tensors are not of the same size!!!\n");
+    auto limit = std::min(a.size(), b.size());
 
-    std::vector<T> arr(a.size(), (T)0);
-    for(size_t i=0; i<a.size(); i++)
+    std::vector<T> arr(limit, (T)0);
+    for(size_t i=0; i<limit; i++)
     { 
         if (b[i] == T(0))
             throw std::runtime_error("Division by zero in vector division\n");
@@ -347,13 +344,13 @@ std::vector<uint8_t> operator==(const std::vector<T>& a, const U& b) {
 
 template <typename T, typename U>
 requires (std::is_arithmetic_v<U>)
-std::vector<uint8_t> operator==(const U& b, const std::vector<T>& a) {
+std::vector<uint8_t> operator ==(const U& b, const std::vector<T>& a) {
     return a == b;
 }
 
 template <typename T, typename U>
 requires (std::is_arithmetic_v<U>)
-std::vector<uint8_t> operator!=(const std::vector<T>& a, const U& b) {
+std::vector<uint8_t> operator !=(const std::vector<T>& a, const U& b) {
     std::vector<uint8_t> arr(a.size(), 0);
     for (size_t i = 0; i < a.size(); i++)
         arr[i]=(a[i] != static_cast<T>(b));
@@ -362,16 +359,44 @@ std::vector<uint8_t> operator!=(const std::vector<T>& a, const U& b) {
 
 template <typename T, typename U>
 requires (std::is_arithmetic_v<U>)
-std::vector<uint8_t> operator!=(const U& b, const std::vector<T>& a) {
+std::vector<uint8_t> operator !=(const U& b, const std::vector<T>& a) {
     return a != b;
 }
 
 template <typename T>
-std::vector<T>& operator+=(std::vector<T>& a, const std::vector<T>& b)
+std::vector<T>& operator +=(std::vector<T>& a, const T b)
 {
-    if(a.size() != b.size())
-        throw std::runtime_error("Size mismatch in +=");
-    for(size_t i = 0; i < a.size(); i++)
+    for(size_t i = 0; i < a.size(); i++) a[i] += b;
+    return a;
+}
+
+template <typename T>
+std::vector<T>& operator -=(std::vector<T>& a, const T b)
+{
+    for(size_t i = 0; i < a.size(); i++) a[i] -= b;
+    return a;
+}
+
+template <typename T>
+std::vector<T>& operator *=(std::vector<T>& a, const T b)
+{
+    for(size_t i = 0; i < a.size(); i++) a[i] *= b;
+    return a;
+}
+
+template <typename T>
+std::vector<T>& operator /=(std::vector<T>& a, const T b)
+{
+    if(b == T(0)) throw std::runtime_error("Division by zero in /=");
+    for(size_t i = 0; i < a.size(); i++) a[i] /= b;
+    return a;
+}
+
+template <typename T>
+std::vector<T>& operator +=(std::vector<T>& a, const std::vector<T>& b)
+{
+    auto limit = std::min(a.size(), b.size());
+    for(size_t i = 0; i < limit; i++)
         a[i] += b[i];
     return a;
 }
@@ -379,9 +404,8 @@ std::vector<T>& operator+=(std::vector<T>& a, const std::vector<T>& b)
 template <typename T>
 std::vector<T>& operator -=(std::vector<T>& a, const std::vector<T>& b)
 {
-    if(a.size() != b.size())
-        throw std::runtime_error("Size mismatch in -=");
-    for(size_t i = 0; i < a.size(); i++)
+    auto limit = std::min(a.size(), b.size());
+    for(size_t i = 0; i < limit; i++)
         a[i] -= b[i];
     return a;
 }
@@ -389,9 +413,8 @@ std::vector<T>& operator -=(std::vector<T>& a, const std::vector<T>& b)
 template <typename T>
 std::vector<T>& operator *=(std::vector<T>& a, const std::vector<T>& b)
 {
-    if(a.size() != b.size())
-        throw std::runtime_error("Size mismatch in *=");
-    for(size_t i = 0; i < a.size(); i++)
+    auto limit = std::min(a.size(), b.size());
+    for(size_t i = 0; i < limit; i++)
         a[i] *= b[i];
     return a;
 }
@@ -399,9 +422,8 @@ std::vector<T>& operator *=(std::vector<T>& a, const std::vector<T>& b)
 template <typename T>
 std::vector<T>& operator /=(std::vector<T>& a, const std::vector<T>& b)
 {
-    if(a.size() != b.size())
-        throw std::runtime_error("Size mismatch in /=");
-    for(size_t i = 0; i < a.size(); i++)
+    auto limit = std::min(a.size(), b.size());
+    for(size_t i = 0; i < limit; i++)
     {
         if (b[i] == T(0))
             throw std::runtime_error("Division by zero in /=");
@@ -410,34 +432,6 @@ std::vector<T>& operator /=(std::vector<T>& a, const std::vector<T>& b)
     return a;
 }
 
-template <typename T>
-std::vector<T>& operator+=(std::vector<T>& a, const T b)
-{
-    for(size_t i = 0; i < a.size(); i++) a[i] += b;
-    return a;
-}
-
-template <typename T>
-std::vector<T>& operator-=(std::vector<T>& a, const T b)
-{
-    for(size_t i = 0; i < a.size(); i++) a[i] -= b;
-    return a;
-}
-
-template <typename T>
-std::vector<T>& operator*=(std::vector<T>& a, const T b)
-{
-    for(size_t i = 0; i < a.size(); i++) a[i] *= b;
-    return a;
-}
-
-template <typename T>
-std::vector<T>& operator/=(std::vector<T>& a, const T b)
-{
-    if(b == T(0)) throw std::runtime_error("Division by zero in /=");
-    for(size_t i = 0; i < a.size(); i++) a[i] /= b;
-    return a;
-}
 /**
  * mathematical functions......................................................................................
  */
@@ -497,12 +491,15 @@ std::vector<T> pow(const std::vector<T> &a, const T n) // Power of a std::vector
 template <typename T>
 std::vector<T> pow(const std::vector<T> &a, const std::vector<T> &b) // Power of a std::vector
 {
-    std::vector<T> arr(a.size(), 0);
+    auto limit = std::min(a.size(), b.size());
+
+    std::vector<T> arr(limit, 0);
     if(b.size() == 1)
-        return pow(a,b[0]);
-    else if(b.size() == a.size())
+        return pow(a, b[0]);
+
+    else if(b.size() > 1)
     {
-        for(size_t i = 0; i < a.size(); i++)
+        for(size_t i = 0; i < limit; i++)
         arr[i]=(T)std::pow(a[i], b[i]);
    }
    else{

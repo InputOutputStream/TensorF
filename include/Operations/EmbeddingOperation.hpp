@@ -68,8 +68,6 @@ class EmbeddingOperation : public Operation<T>
 
     template <typename T>
     void EmbeddingOperation<T>::reset_graph(){
-        this->t1->reset_graph(); 
-        this->idx_saved->reset_graph();
         if (this->t1) {
             this->t1->reset_graph();
             this->t1 = nullptr; // Drop strong reference

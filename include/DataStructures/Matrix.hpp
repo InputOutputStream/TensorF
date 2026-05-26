@@ -119,6 +119,14 @@ class Broadcast{
 
             std::vector<T> res;
 
+            // Fail loudly here rather than segfaulting silently inside the loop.
+            size_t expectedSourceSize = 1;
+            for (size_t s : source.shape) expectedSourceSize *= s;
+            if (source.data.size() < expectedSourceSize)
+                throw std::runtime_error("Broadcast::broadcastTo: source matrix has shape " +
+                    std::to_string(expectedSourceSize) + " elements but data vector has only " +
+                    std::to_string(source.data.size()) + " — was the matrix constructed without initializing its data?");
+
             for(auto s: new_shape)
                 ne *= s;
 
@@ -188,17 +196,13 @@ class Matrix
 
     bool verifyShape(const std::vector<T> &data, const shape_t &shape)
     {
-        bool s = 1;
         size_t p = 1;
-        for(size_t i = 0; i<shape.size(); i++)
-            {
-                p *=shape[i];
-            }
-        if(data.size() != p)
-            s = false;   
-
-        return s;
-    }               
+        for(size_t i = 0; i < shape.size(); i++) {
+            p *= shape[i];
+        }
+        // Allow the data vector to be exactly the logical size OR tail-padded for AVX2
+        return (data.size() == p || data.size() == avx2_pad(p));
+    }         
 
      //There is an error in the computes shapes method as we go from 1D to 2D 
         //Solution
@@ -754,6 +758,18 @@ class Matrix
         this->size  = this->data.size();
     }
 
+    Matrix(shape_t inshape)
+    {
+        size_t logical = 1;
+        for (size_t s : inshape) logical *= s;
+
+        this->shape = inshape;
+        this->data.resize(logical, T(0));  // MUST match shape; never leave empty
+        this->numElementsSeen = this->computeShapes(this->shape);
+        this->ndims = this->shape.size();
+        this->size  = logical;
+    }
+
     Matrix(const Matrix<T>* two)
     {
         if (two == nullptr)
@@ -793,14 +809,15 @@ class Matrix
         if (!verifyShape(indata, inshape))
             throw std::runtime_error("Matrix: shape and number of elements do not match");
 
-        size_t logical = indata.size();           // ← save before padding
-        // indata.resize(avx2_pad(logical), T(0));
+        // Compute the true logical size from the shape dimensions
+        size_t logical = 1;
+        for (size_t s : inshape) logical *= s;
 
         this->data = indata;
         this->shape = inshape;
         this->numElementsSeen = this->computeShapes(this->shape);
         this->ndims = this->shape.size();
-        this->size  = logical;                    // ← logical, not padded
+        this->size  = logical; // Keep logical size clean of tail padding
     }
 
     Matrix(std::vector<std::vector<T>> indata)
@@ -2009,7 +2026,6 @@ class Matrix
 
         this->matmul(rhs, indexStack, resElements, dim, out);
 
-        out.resize(total);  // trim padding before wrapping in Matrix
         return Matrix<T>(out, resShape);
     }
     

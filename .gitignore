@@ -60,11 +60,19 @@ SLM/*.gguf.1
 SLM/*.gguf
 SLM/.cache
 SLM/transformer-gpt-numpy
-Models/
 SLM/*.gguf
 SLM/transformer-gpt-numpy
-Models/
 SLM/*.gguf
 SLM/transformer-gpt-numpy
-Models/
+
+# Compiled / build artifacts
+*.d *.slo *.lo *.o *.obj *.gch *.pch
+*.ilk *.pdb *.so *.dylib *.dll
+*.mod *.smod *.lai *.la *.a *.lib
+*.exe *.out *.app *.dwo
+
+# Data & models
 Dataset/
+MNIST_CSV/
+Models/
+SLM/
