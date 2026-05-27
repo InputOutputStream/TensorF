@@ -38,8 +38,9 @@ class FeedForward: public Module<T>{
     Tensor_t<T> forward(Tensor_t<T> x) {   
         Tensor_t<T> a = l1.forward(x);
         Tensor_t<T> b = a->relu();
-
-        return l2.forward(b);
+        auto k = l2.forward(b);
+        // std::cerr << " feef forward out val : "<< k->val<< "\n";
+        return k;
     }
 };
 

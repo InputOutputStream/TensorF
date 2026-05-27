@@ -677,7 +677,6 @@ class Matrix
         return Matrix<T>();
     }
 
-
     Matrix<T> matmul(const Matrix<T>& rhs,
                     shape_t& indexStack,
                     shape_t& resElements,
@@ -686,21 +685,21 @@ class Matrix
     {
         if (indexStack.size() == (this->shape.size() - 2))
         {
-            // We are in the state where rhs and lhs matrices are both on 2d matrix format
-            // find the position in the lhs array where we are at
-            
-            size_t lhsStart{0}, rhsStart{0}, resStart{0}; //rhsStart and lhsStart denotes respectively the starting points of the multiplication within the matrix dimensions
+            size_t lhsStart{0}, rhsStart{0}, resStart{0};
 
+            size_t rhs_batch_dims = (rhs.shape.size() >= 2) ? rhs.shape.size() - 2 : 0;
             for (size_t i = 0; i < indexStack.size(); i++) {
                 lhsStart += indexStack[i] * this->numElementsSeen[i];
-                rhsStart += indexStack[i] * rhs.numElementsSeen[i]; // ← rhs strides
-                resStart += indexStack[i] * resElements[i];
+                resStart  += indexStack[i] * resElements[i];
+                if (i < rhs_batch_dims)
+                    rhsStart += indexStack[i] * rhs.numElementsSeen[i];
+                // rhs is 2D weight: rhsStart stays 0 for all batches
             }
-            matProduct2D(rhs, lhsStart,rhsStart, resStart, out);  // writes into out
-            return Matrix<T>();  // dummy, caller uses out
+
+            matProduct2D(rhs, lhsStart, rhsStart, resStart, out);
+            return Matrix<T>();
         }
 
-        // Push the extra dimensions to the index stack and recursively traverse the indices, the pop one once the operation for that index has been done
         for (size_t i = 0; i < this->shape[dim]; i++) {
             indexStack.push_back(i);
             this->matmul(rhs, indexStack, resElements, dim + 1, out);
@@ -749,6 +748,7 @@ class Matrix
     // NOTE: template<U> scalar constructor removed — Matrix(const T&) handles int/float/double scalars.
     // Keeping it caused ambiguity when T == float or T == int.
 
+    // requires (std::is_arithmetic_v<T>)
     Matrix(const T& indata)
     {
         this->shape.push_back(1);
@@ -756,18 +756,6 @@ class Matrix
         this->numElementsSeen = computeShapes(this->shape);
         this->ndims = this->shape.size();
         this->size  = this->data.size();
-    }
-
-    Matrix(shape_t inshape)
-    {
-        size_t logical = 1;
-        for (size_t s : inshape) logical *= s;
-
-        this->shape = inshape;
-        this->data.resize(logical, T(0));  // MUST match shape; never leave empty
-        this->numElementsSeen = this->computeShapes(this->shape);
-        this->ndims = this->shape.size();
-        this->size  = logical;
     }
 
     Matrix(const Matrix<T>* two)
@@ -1416,6 +1404,20 @@ class Matrix
             if (v != T(0)) return true;
         return false;
     }
+
+    static bool hasNaN(const Matrix<T>& m) {
+        for (auto& v : m.data)
+            if (std::isnan(v)) return true;
+        return false;
+    }
+
+    template <typename Pred>
+    static bool any(const Matrix<T>& m, Pred pred) {
+        for (auto& v : m.data)
+            if (pred(v)) return true;
+        return false;
+    }
+    // // then call // Matrix<T>::any(grad, [](T v){ return std::isnan(v); });
 
     static Matrix<T> concat(const std::vector<Matrix<T>>& mats, size_t axis) {
         for (size_t i = 1; i < mats.size(); i++)

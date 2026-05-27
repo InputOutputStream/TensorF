@@ -35,7 +35,7 @@ class LayerNorm : public Module<T>{
         this->register_parameter(beta);
     }
 
-    LayerNorm(std::initializer_list<size_t> inshape, T eps = 1e-5, T tol = 1e-9)
+    LayerNorm(std::initializer_list<size_t> inshape, T eps = 1e-5, T tol = 1e-7)
     {
         shape_t normalized_shape = Matrix<T>::getShape(inshape);
         this->eps = eps;

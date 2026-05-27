@@ -64,19 +64,19 @@ class Block : public Module<T>{
 
     Tensor_t<T> forward(Tensor_t<T> x, bool apply_mask){
 
-        std::cerr << " block input x shape : "<< x->shape<< "\n";
+        // std::cerr << " block input x val : "<< x->val<< "\n";
         Tensor_t<T> lna = this->ln1.forward(x);
-        std::cerr << " layer norm 1 shape : "<< lna->shape<< "\n";
+        // std::cerr << " layer norm 1 val : "<< lna->val<< "\n";
 
         Tensor_t<T> y = x + this->mha.forward(lna, apply_mask);
-        std::cerr << " mha out plus x shape : "<< y->shape<< "\n";
+        // std::cerr << " mha out plus x val : "<< y->val<< "\n";
 
         Tensor_t<T> lnb = this->ln2.forward(y);
-        std::cerr << " layer norm 2 shape : "<< lnb->shape<< "\n";
+        // std::cerr << " layer norm 2 val : "<< lnb->val<< "\n";
 
         Tensor_t<T> z = y + this->ffwd.forward(lnb);
 
-        std::cerr << " block out z shape : "<< z->shape<< "\n";
+        // std::cerr << " block out z val : "<< z->val<< "\n";
         return z;
     }
 

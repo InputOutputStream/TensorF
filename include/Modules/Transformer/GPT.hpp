@@ -70,30 +70,30 @@
             for(auto& block : this->decoder_blocks)
                 x_emdb = block->forward(x_emdb, apply_mask);
 
-            std::cerr << " x shape : "<< x_emdb->shape<< "\n";
+            // std::cerr << " x val : "<< x_emdb->val<< "\n";
 
             // Final layer norm
             Tensor_t<T> x_after_ln = this->ln_f.forward(x_emdb);
             
-            std::cerr << " x_after_ln shape : "<< x_after_ln->shape<< "\n";
+            // std::cerr << " x_after_ln val : "<< x_after_ln->val<< "\n";
 
             // Language modeling head
             Tensor_t<T> output = this->lm_head.forward(x_after_ln);  // (batch_size, seq_len, vocab_size)
             
-            std::cerr << " output shape : "<< output->shape<< "\n";
+            // std::cerr << " output val : "<< output->val<< "\n";
 
             // Compute loss if targets provided
             if (targets != nullptr){
                 // Reshape for loss calculation
                 auto logits_flat = output->reshape({batch_size * seq_len, this->vocab_size});  // (batch_size * seq_len, vocab_size)
-                std::cerr << " logits_flat shape : "<< logits_flat->shape<< "\n";
+                // std::cerr << " logits_flat val : "<< logits_flat->val<< "\n";
                 auto targets_flat = targets->reshape({batch_size* seq_len});  // (batch_size * seq_len,)
-                std::cerr << " targets_flat shape : "<< targets_flat->shape<< "\n";
+                // std::cerr << " targets_flat val : "<< targets_flat->val<< "\n";
                 auto targets_onehot = make_tensor<T>(Matrix<T>::one_hot(targets_flat->val, this->vocab_size));
-                std::cerr << " targets_onehot shape : "<< targets_onehot->shape<< "\n";
+                // std::cerr << " targets_onehot val : "<< targets_onehot->val<< "\n";
 
                 auto probs = logits_flat->softmax();
-                std::cerr << " probs shape : "<< probs->shape<< "\n";
+                // std::cerr << " probs val : "<< probs->val<< "\n";
 
                 return Tensor<T>::cross_entropy(targets_onehot, probs);
             }
@@ -154,10 +154,18 @@
         // Backward pass
         loss->backward(make_tensor<T>((T)1.0));
 
+        // After backward, before optimizer.step()
+        T total_grad_norm = 0;
+        for (auto p : this->parameters()) {
+            if (p->grad.get_size() == 0) continue;
+            for (auto g : p->grad.data)
+                total_grad_norm += g * g;
+        }
+        total_grad_norm = std::sqrt(total_grad_norm);
+        // std::cout << "Gradient norm before clipping: " << total_grad_norm << "\n";
+
         // Update parameters
         Op->step();
-
-        loss->reset_graph();
         
         return loss;
     }
@@ -181,11 +189,12 @@
                 std::cout << "Iters :" << iter << " Loss: " << loss->val << "...............................................................\n";
             }
 
-            // // Evaluation
-            // if((iter % eval_interval == 0) && iters > 0){
-            //     Op.zero_grad();
-            //     this->eval_step(get_batch_fn);
-            // }
+            // Evaluation
+            if((iter % eval_interval == 0) && iters > 0){
+                Op.zero_grad();
+                this->eval_step(get_batch_fn);
+            }
+            loss->reset_graph();
         }
     }
 

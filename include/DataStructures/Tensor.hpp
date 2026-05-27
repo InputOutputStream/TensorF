@@ -38,7 +38,6 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         Matrix<T> grad; //Tensor gradian
         shape_t shape;
         size_t ndims;
-        // Operation_t<T> frontOp = nullptr;
         Operation_t<T> backOp = nullptr;
 
     //....................................................................................................
@@ -46,7 +45,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->val  = Matrix<T>(T(0));
         this->ndims = 0;
         this->shape = {};
-        this->grad = Matrix<T>(T(0));  
+        this->grad = Matrix<T>(T(0));
     }
 
     Tensor(Matrix<T> *val) // ov
@@ -61,7 +60,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     Tensor(const Matrix<T> &val) // ov
     {
         this->val.copy_from(val);
-        this->grad = Matrix<T>();  
+        this->grad = Matrix<T>();
         this->val.copy_from(val);
         this->shape = this->val.shape;
         this->ndims = this->val.get_ndims();
@@ -76,10 +75,10 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->grad = Matrix<T>();
     }
 
-    Tensor(const Tensor_t<T> two) 
+    Tensor(const Tensor_t<T> two)
     {
         this->val.copy_from(two->val);
-        this->backOp = nullptr;      
+        this->backOp = nullptr;
         this->grad.copy_from(two->grad);
         this->shape = this->val.shape;
         this->ndims = this->val.get_ndims();
@@ -89,7 +88,8 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 //.....................................................................................
 
     void backward(Matrix<T> ingrad)
-    {// x = x - f`(x)*x
+    {
+        // x = x - f`(x)*x
         if (this->grad.get_size() > 0) {
             if (this->grad.shape != ingrad.shape)
                 throw std::runtime_error("Gradient shape mismatch in Tensor::backward");
@@ -97,7 +97,14 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         }
         else
             this->grad.copy_from(ingrad);
-
+        
+        if (Matrix<T>::hasNaN(grad))
+        {
+            this->backOp->to_string();
+            std::cerr << "grad value: " << grad << "\n";
+            throw std::runtime_error("Gradient NaN encountered during backprop");
+        }
+            
         if (this->backOp != nullptr) {
             // this->backOp->to_string();
             auto op = this->backOp;
@@ -106,7 +113,8 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     }
     
     void backward(Tensor_t<T> ingrad)
-    { // x = x - f`(x)*x
+    {
+        // x = x - f`(x)*x
         this->backward(ingrad->val);
     }
 
@@ -134,7 +142,6 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->val.copy_from(rhs.val);
         this->grad.copy_from(rhs.grad);
         this->backOp = rhs.backOp;
-        // this->frontOp = rhs.frontOp;
         return *this;
     }
 
@@ -259,14 +266,14 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     Tensor_t<T> var(size_t axis) {
         // var = mean((x - mean(x))^2)
-        auto mu   = this->mean(axis);                          
-        auto diff = this->shared_from_this() - mu;             
+        auto mu   = this->mean(axis);                         
+        auto diff = this->shared_from_this() - mu;            
         auto sq   = diff * diff;                              
-        return sq->mean(axis);                                 
+        return sq->mean(axis);                                
     }
 
     Tensor_t<T> std(size_t axis) {
-        return this->var(axis)->sqrt();                   
+        return this->var(axis)->sqrt();
     }
  
     // Static on graph

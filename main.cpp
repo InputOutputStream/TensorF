@@ -780,8 +780,6 @@ int main()
     std::cerr << "model predicted val: " << (res > (float)0.75)->val << " Actual val" << y_test->val << "\n";
 
 
-
-
     // GGUF loader;
     // loader.parse_gguf("SLM/SmolLM2-135M-Instruct.Q4_K_M.gguf");
 

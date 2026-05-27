@@ -55,7 +55,7 @@ class MultiHeadAttention : public Module<T>{
 
         // concat on last axis: {B,T,head_size} * n_heads -> {B,T,n_heads*head_size}
         Tensor_t<T> out = Tensor<T>::concat(head_outs, 2);
-        std::cerr << " mha concat out shape : "<< out->shape<< "\n";
+        // std::cerr << " mha concat out val : "<< out->val<< "\n";
     
         return this->proJ.forward(out);
     }

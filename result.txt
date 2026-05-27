@@ -1,0 +1,2 @@
+g++ -g -std=c++20 -O2 -Wall -Wextra -Iinclude  -c main.cpp -o main.o
+make: *** [Makefile:12: main.o] Interrupt

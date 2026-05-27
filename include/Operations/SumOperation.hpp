@@ -48,7 +48,7 @@ class SumOperation : public Operation<T>
     Tensor_t<T> SumOperation<T>::forward()
     {
         T s = this->t1->val.sum();
-        return std::make_shared<Tensor<T>>(Matrix<T>({s}), this->shared_from_this());
+        return std::make_shared<Tensor<T>>(Matrix<T>(s), this->shared_from_this());
     }
 
     template <typename T>
