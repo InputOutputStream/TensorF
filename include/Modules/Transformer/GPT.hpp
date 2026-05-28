@@ -101,47 +101,52 @@
             return output;
         }
 
-        Tensor_t<T> generate(Tensor_t<T> index, size_t max_new_tokens=50)
+    Tensor_t<T> generate(Tensor_t<T> index, size_t max_new_tokens = 50)
+    {
+        Tensor_t<T> current_index = index;
+
+        for (size_t i = 0; i < max_new_tokens; i++)
         {
-            // Make a copy to avoid modifying the input
-            Tensor_t<T> current_index = index;
-            
-            for (auto i = 0; i < max_new_tokens; i++)
+            // Crop context to last block_size tokens along sequence axis
+            size_t seq   = current_index->shape[1];
+            size_t start = (seq > this->max_sequence_length)
+                        ? (seq - this->max_sequence_length) : 0;
+            Matrix<T> index_cond = current_index->val.slice_axis(start, seq, 1);
+
+            // Forward: [B, seq_len, vocab_size]
+            Tensor_t<T> output = this->forward(make_tensor<T>(index_cond), nullptr, true);
+
+            size_t B = output->shape[0];
+            size_t S = output->shape[1];
+            size_t V = output->shape[2];
+
+            // Extract last time step via slice_axis → [B, 1, V] → reshape → [B, V]
+            Matrix<T> last_step = output->val.slice_axis(S - 1, S, 1);
+            Tensor_t<T> logits  = make_tensor<T>(last_step.reshape({B, V}));
+
+            // Softmax → probabilities [B, V]
+            Tensor_t<T> probs = logits->softmax();
+
+            // Sample one token per batch element
+            std::vector<Matrix<T>> index_next;
+            for (size_t j = 0; j < B; j++)
             {
-                // Crop to last block_size tokens                
-                size_t seq = current_index->shape[1];
-                size_t start = (seq > this->max_sequence_length) ? (seq - this->max_sequence_length) : 0;
-                Matrix<T> index_cond = current_index->val.slice_col(start, seq);
+                Tensor_t<T> prob_dist = probs->at({j});
+                prob_dist = prob_dist / prob_dist->sum();
 
-                // Get predictions 
-                Tensor_t<T> logits = this->forward(make_tensor<T>(index_cond), nullptr, true);
-                
-                // Focus on last time step
-                logits = make_tensor<T>(logits->val.slice_col(logits->shape[1]-1, logits->shape[1])); // (batch_size, vocab_size)
-
-                // Apply softmax to get probabilities
-                Tensor_t<T> probs = logits->softmax();
-                
-                // Sample from distribution
-                size_t batch_size = probs->shape[0];
-                std::vector<Matrix<T>> index_next;
-
-                for(int j=0; j<batch_size; j++)
-                {
-                    // Handle potential numerical issues
-                    Tensor_t<T> prob_dist = probs->at({j});
-                    prob_dist = prob_dist / prob_dist->sum();  // Ensure probabilities sum to 1
-                    Tensor_t<T> next_token = make_tensor<T>(Matrix<T>::choice(this->vocab_size, prob_dist->val));
-                    index_next.push_back(next_token->val);
-                }
-
-                // index_next = index_next->reshape({-1, 1});
-                Matrix<T> new_tokens = Matrix<T>::stack(index_next, 0);  // (batch, 1)
-                current_index = make_tensor<T>(Matrix<T>::concat({current_index->val, new_tokens}, 1));
+                // choice() returns 1D {1} — must be {1,1} for stack()
+                Matrix<T> next_tok = Matrix<T>::choice(this->vocab_size, prob_dist->val);
+                index_next.push_back(next_tok.reshape({1, 1}));
             }
 
-            return current_index;
+            // stack [B, 1] then concat along sequence axis
+            Matrix<T> new_tokens = Matrix<T>::stack(index_next, 0);
+            current_index = make_tensor<T>(
+                Matrix<T>::concat({current_index->val, new_tokens}, 1));
         }
+
+        return current_index;
+    }
 
     Tensor_t<T> train_step(Optimizer<T> *Op, Tensor_t<T> inputs, Tensor_t<T> targets)
     {

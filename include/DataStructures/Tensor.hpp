@@ -293,10 +293,10 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     //     return -(ytrue * ypred->ln())->sum() / make_tensor<T>((T)N);
     // }
 
-    static Tensor_t<T> cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred) {
+    static Tensor_t<T> cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred, T eps = 1e-8) {
         size_t N = ypred->val.shape[0];
-        auto eps = make_tensor<T>((T)1e-9);
-        auto safe_pred = ypred + eps;          // prevents log(0)
+        auto Teps = make_tensor<T>(eps);
+        auto safe_pred = ypred + Teps;         
         return -(ytrue * safe_pred->ln())->sum() / make_tensor<T>((T)N);
     }
 

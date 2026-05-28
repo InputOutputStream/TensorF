@@ -51,6 +51,21 @@ private:
 
     std::mt19937        rng;
 
+public:
+
+    TextDataset(const std::string& folder,
+                size_t block_size,
+                size_t batch_size,
+                uint32_t seed = 42)
+        : folder_path(folder),
+          train_path(folder + "/train_split.txt"),
+          val_path(folder + "/val_split.txt"),
+          vocab_path(folder + "/vocab.txt"),
+          block_size(block_size),
+          batch_size(batch_size),
+          rng(seed)
+    {}
+
     // ── helpers ──────────────────────────────────────────────────────────
 
     std::vector<std::string> scan_txt_files() {
@@ -76,22 +91,6 @@ private:
         }
         return ids;
     }
-
-public:
-
-    TextDataset(const std::string& folder,
-                size_t block_size,
-                size_t batch_size,
-                uint32_t seed = 42)
-        : folder_path(folder),
-          train_path(folder + "/train_split.txt"),
-          val_path(folder + "/val_split.txt"),
-          vocab_path(folder + "/vocab.txt"),
-          block_size(block_size),
-          batch_size(batch_size),
-          rng(seed)
-    {}
-
     // ── load ─────────────────────────────────────────────────────────────
 
     void load() {
