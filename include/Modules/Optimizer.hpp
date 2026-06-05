@@ -264,6 +264,7 @@
                     }
                 }
             }
+            
             void step(){
                 
                 clip_grad_norm(1.0);

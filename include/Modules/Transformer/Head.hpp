@@ -64,21 +64,19 @@ class Head : public Module<T>{
         this->mask = Matrix<T>::where(tmp2, -Matrix<T>::inf(), (T)0.0);
     }
 
-    std::pair<Tensor_t<T>, Tensor_t<T>> scaled_dot_product_attention(Tensor_t<T> q, Tensor_t<T> k, 
-        Tensor_t<T> v, bool apply_mask){
-
+    std::pair<Tensor_t<T>, Tensor_t<T>> scaled_dot_product_attention(Tensor_t<T> q, Tensor_t<T> k, Tensor_t<T> v, bool apply_mask)
+    {
         size_t d_k = this->head_size;
 
         auto scaled_scores = q->matmul(k->transpose({0, 2, 1})) / (T)std::sqrt((double)d_k);
 
         if (apply_mask) {
-            if (this->mask.get_size() == 0)
-                this->set_mask(seq_length);  
+            size_t actual_seq = q->shape[1];   // ← runtime seq length, e.g. 22
+            this->set_mask(actual_seq);        // ← rebuild mask only when seq changes
             scaled_scores = scaled_scores + make_tensor<T>(this->mask);
         }
 
         auto attention = scaled_scores->softmax();
-
         return {attention->matmul(v), attention};
     }
 
@@ -105,7 +103,8 @@ class Head : public Module<T>{
 
         return values;        
     }
-
+    
+    friend class GGUFLoader<T>;
 };
 
 #endif // !HEAD__HPP

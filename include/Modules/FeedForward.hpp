@@ -42,6 +42,8 @@ class FeedForward: public Module<T>{
         // std::cerr << " feef forward out val : "<< k->val<< "\n";
         return k;
     }
+
+    friend class GGUFLoader<T>;
 };
 
 

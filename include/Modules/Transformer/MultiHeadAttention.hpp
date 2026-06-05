@@ -59,6 +59,8 @@ class MultiHeadAttention : public Module<T>{
     
         return this->proJ.forward(out);
     }
+
+    friend class GGUFLoader<T>;
 };
 
 #endif // !__MHA__HPP

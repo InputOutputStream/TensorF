@@ -10,10 +10,12 @@
 template <typename T>
     class Parameter {
         public:
+            std::string param_name;
             Tensor_t<T> tensor;   
             bool requires_grad;  
 
             Parameter(Tensor_t<T> t) : tensor(t) {}
+            Parameter(Tensor_t<T> t, std::string name) : tensor(t), param_name(name) {}
     };
 
     template <typename T>

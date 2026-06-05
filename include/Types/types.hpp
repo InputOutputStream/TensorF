@@ -21,6 +21,10 @@
     template <typename T>
     class Module;
 
+    template <typename T>
+    class GGUFLoader;
+
+
 
     template <typename T>
     using Operation_t=std::shared_ptr<Operation<T>>;

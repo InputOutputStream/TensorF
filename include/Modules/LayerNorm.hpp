@@ -56,6 +56,8 @@ class LayerNorm : public Module<T>{
         auto xhat  = (x - mu) / stdev;                  // {B,T,D}
         return this->gamma * xhat + this->beta;
     }
+
+    friend class GGUFLoader<T>;
 };
 
  #endif // !__LAYER__NORM__

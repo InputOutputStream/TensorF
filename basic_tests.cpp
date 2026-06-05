@@ -540,7 +540,7 @@ void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int iters)
     auto param2 = l2.parameters(); 
     params.insert(params.end(), param2.begin(), param2.end());
 
-    Optimizer<T> Op(params, 0.5, SGD);
+    Optimizer<T> Op(params, 0.0001, SGD);
 
     for(int iter = 1; iter <= iters; iter++)
     {
@@ -610,7 +610,7 @@ class Model{
         }
 
         void train(int epoch, int iters, Tensor_t<T> x, Tensor_t<T> y) {  
-            Optimizer<T> Op(parameters, 1e-4, ADAMw);
+            Optimizer<T> Op(parameters, 0.1, ADAMw);
             std::cerr << "Train.....................................................................\n";
             for (int iter = 0; iter < (iters*epoch); iter++) {
                 Op.zero_grad();              // must zero grads each iteration
@@ -662,13 +662,13 @@ void nn_mnist()
     auto X = make_tensor<T>(x_train);
     auto y = make_tensor<T>(Matrix<T>::one_hot(labels_train, 10));
     
-    auto epoch = 10, iters = 100;
+    auto epoch = 1, iters = 10;
 
     // FeedForward<T> model(x_train.shape[1], 64, 10);
     Model<T> model(x_train.shape[1]);
     model.load("Models/model.hge");
 
-    Optimizer<T> Op(model.parameters, 1e-4, ADAMw);
+    Optimizer<T> Op(model.parameters, 0.01, ADAMw);
     std::cerr << "Train.....................................................................\n";
     
     for (int iter = 0; iter < (iters*epoch); iter++) 
@@ -780,20 +780,37 @@ int main()
     std::cerr << "model predicted val: " << (res > (float)0.75)->val << " Actual val" << y_test->val << "\n";
 
 
-    // GGUF loader;
-    // loader.parse_gguf("SLM/SmolLM2-135M-Instruct.Q4_K_M.gguf");
 
-    // // List all tensors
-    // for (auto& t : loader.tensors)
-    //     std::cout << t.name << " type=" << t.ggml_type << "\n";
 
-    // // Load a specific tensor as float
-    // for (auto& info : loader.tensors) {
-    //     if (info.name == "token_embd.weight") {
-    //         Matrix<float> embd = loader.load_tensor<float>(loader.file, info, loader.data_start_offset);
-    //         // use embd...
-    //     }
-    // }
 
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    cout << "\n=== GGUF Test ===\n";
+    GGUF loader;
+
+    loader.parse_gguf("SLM/SmolLM2-135M-Instruct.Q4_K_M.gguf");
+
+    // List all tensors
+    for (auto& t : loader.tensors)
+        std::cout << t.name << " type=" << t.ggml_type << "\n";
+
+    // Load a specific tensor as float
+    for (auto& info : loader.tensors) {
+        if (info.name == "token_embd.weight") {
+            Matrix<float> embd = loader.load_tensor<float>(loader.file, info, loader.data_start_offset);
+            // use embd...
+        }
+    }
     return 0;
 }

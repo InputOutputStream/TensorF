@@ -32,6 +32,7 @@ enum GGUFValueType : uint32_t {
 };
 
 
+
 // GGML quantization types in Phi/SmolLM GGUF files
 enum GGMLType : uint32_t {
     F32  = 0,
@@ -44,6 +45,7 @@ enum GGMLType : uint32_t {
     Q5_K = 13,
 };
 
+// Add ggml type 6
 
 class GGUF{
     public:

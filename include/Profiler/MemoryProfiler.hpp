@@ -30,6 +30,7 @@
 #include <fstream>
 #include <sstream>
 #include <atomic>
+#include <thread>
 #include <functional>
 
 // ─── Stage enum ──────────────────────────────────────────────────────────────
@@ -136,27 +137,34 @@ public:
     // Run a workload and capture peak memory during it
     // Polls /proc/self/status every `poll_interval_ms` milliseconds
     void profile_workload(MemStage stage, std::function<void()> workload,
-                          int poll_interval_ms = 5) {
+                        int poll_interval_ms = 10) {
         MemSnapshot peak = read_proc_status();
+        std::atomic<bool> done{false};
 
-        // Launch workload in foreground — poll in a tight loop
-        // For simplicity (no threads), we snapshot before and after.
-        snapshot_before_workload_ = read_proc_status();
+        // Poll RSS in a background thread while workload runs
+        std::thread poller([&]() {
+            while (!done.load()) {
+                auto snap = read_proc_status();
+                if (snap.rss_kb > peak.rss_kb) peak = snap;
+                std::this_thread::sleep_for(
+                    std::chrono::milliseconds(poll_interval_ms));
+            }
+        });
 
-        // code for the workload goes here .........................................................
-        // During test we will de define what to pro
+
         workload();
-        MemSnapshot after = read_proc_status();
+        done.store(true);
+        poller.join();
 
-        // Take max of before/after for rss (conservative)
-        peak.rss_kb     = std::max(snapshot_before_workload_.rss_kb, after.rss_kb);
-        peak.vm_peak_kb = std::max(snapshot_before_workload_.vm_peak_kb, after.vm_peak_kb);
-        peak.heap_kb    = std::max(snapshot_before_workload_.heap_kb, after.heap_kb);
-        peak.vm_size_kb = std::max(snapshot_before_workload_.vm_size_kb, after.vm_size_kb);
+        // Final snapshot after workload
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        auto settled = read_proc_status();
+        if (settled.rss_kb > peak.rss_kb) peak = settled;
+
         peak.timestamp_us = elapsed_us();
         peak.valid = true;
-
         snapshots_[(int)stage] = peak;
+        snapshots_settled_[(int)stage] = settled;  // new field
     }
 
     // Build the report
@@ -166,6 +174,7 @@ public:
 
         const auto& base  = snapshots_[(int)MemStage::BASELINE];
         const auto& load  = snapshots_[(int)MemStage::LOADED];
+        const auto& load_settled = snapshots_settled_[(int)MemStage::LOADED];
         const auto& train = snapshots_[(int)MemStage::TRAIN];
         const auto& infer = snapshots_[(int)MemStage::INFER];
 
@@ -181,6 +190,8 @@ public:
             r.train_overhead_mb = (int64_t)train.rss_mb() - (int64_t)load.rss_mb();
         if (load.valid && infer.valid)
             r.infer_overhead_mb = (int64_t)infer.rss_mb() - (int64_t)load.rss_mb();
+        if (load_settled.valid && infer.valid)
+            r.infer_overhead_mb = (int64_t)infer.rss_mb() - (int64_t)load_settled.rss_mb();
 
         // Peak RSS across all valid stages
         for (const auto& s : snapshots_) {
@@ -270,7 +281,7 @@ public:
     }
 
 private:
-    std::array<MemSnapshot, (int)MemStage::COUNT> snapshots_;
+    std::array<MemSnapshot, (int)MemStage::COUNT> snapshots_, snapshots_settled_;
     MemSnapshot snapshot_before_workload_;
     Clock::time_point start_time_;
 

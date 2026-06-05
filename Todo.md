@@ -1,28 +1,5 @@
 
 
-cpp
-// loss.hpp — just free functions
-template<typename T> Tensor_t<T> mse(Tensor_t<T> pred, Tensor_t<T> target);
-template<typename T> Tensor_t<T> bce(Tensor_t<T> pred, Tensor_t<T> target);
-DataLoader
-Three responsibilities, keep them separate in your head:
-
-1. Storage — holds the full dataset, nothing fancy, just two tensors (X and y)
-
-2. Shuffling — shuffle an index vector, not the data itself. Never copy the data around.
-
-3. Batching — slice the shuffled indices, return a pair of tensors for that batch
-
-The tricky part for you will be slicing — you'll need a Matrix::slice(start, end, axis) method that returns a subset of rows. That's the only new primitive you need. Everything else is bookkeeping.
-
-Design decision to make upfront: does your DataLoader own the data or reference it? I'd recommend it owns it (takes tensors by value at construction), keeps things simple and avoids dangling references.
-
-Order I'd tackle it
-LogOperation → bce loss → Matrix::slice → DataLoader → test with XOR batched
-
-Don't skip the slice — without it your DataLoader can only return the full dataset, which defeats the purpose.
-
-
 ## Layer 3 — GPU with SYCL
 
 ### The architecture decision

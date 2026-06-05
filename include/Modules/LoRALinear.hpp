@@ -33,6 +33,8 @@ public:
         auto lora = x->matmul(A)->matmul(B);    // trained path
         return base + scale * lora;
     }
+    
+    friend class GGUFLoader<T>;
 };
 
 #endif

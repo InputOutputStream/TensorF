@@ -38,6 +38,8 @@ class PositionalEncoding : public Module<T> {
         // std::cerr << " PositionalEncoding this->weight->embed(indices) val : "<< this->weight->embed(indices)->val<< "\n";
         return this->weight->embed(indices);
     }
+
+    friend class GGUFLoader<T>;
 };
 
 #endif

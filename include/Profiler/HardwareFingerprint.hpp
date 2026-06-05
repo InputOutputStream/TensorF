@@ -237,15 +237,25 @@ static CPUInfo detect_cpu() {
     if (!base_f.empty()) cpu.base_freq_mhz = std::stod(base_f);
 
     // CPU Generation heuristic
+
     if (cpu.vendor == CPUVendor::INTEL) {
-        if      (cpu.has_amx)          cpu.gen = CPUGen::INTEL_SAPPHIRE_RAPIDS;
-        else if (cpu.has_avx512_vnni)  cpu.gen = CPUGen::INTEL_ICE_LAKE;
-        else if (cpu.has_avx512f)      cpu.gen = CPUGen::INTEL_SKYLAKE;
-        else if (cpu.has_avx2 && cpu.model_name.find("12th") != std::string::npos)
-                                        cpu.gen = CPUGen::INTEL_ALDER_LAKE;
-        else if (cpu.has_avx2)         cpu.gen = CPUGen::INTEL_HASWELL;
-        else                           cpu.gen = CPUGen::INTEL_PRE_HASWELL;
-    } else if (cpu.vendor == CPUVendor::AMD) {
+        if      (cpu.has_amx)         cpu.gen = CPUGen::INTEL_SAPPHIRE_RAPIDS;
+        else if (cpu.has_avx512_vnni) cpu.gen = CPUGen::INTEL_ICE_LAKE;
+        else if (cpu.has_avx512f)     cpu.gen = CPUGen::INTEL_SKYLAKE;
+            else if (cpu.has_avx2) {
+            // Distinguish Haswell/Skylake/later by model number
+            int gen_num = 0;
+            size_t dash = cpu.model_name.find('-');
+            if (dash != std::string::npos)
+                try { gen_num = std::stoi(cpu.model_name.substr(dash + 1)) / 1000; } catch (...) {}
+            if      (gen_num >= 12) cpu.gen = CPUGen::INTEL_ALDER_LAKE;
+            else if (gen_num >= 10) cpu.gen = CPUGen::INTEL_ICE_LAKE;
+            else if (gen_num >= 6)  cpu.gen = CPUGen::INTEL_SKYLAKE;
+            else if (gen_num >= 4)  cpu.gen = CPUGen::INTEL_HASWELL;
+            else cpu.gen = CPUGen::INTEL_HASWELL; // fallback
+        }
+    }
+    else if (cpu.vendor == CPUVendor::AMD) {
         // Detect Zen generation from model name keywords
         const std::string& m = cpu.model_name;
         if      (m.find("9") != std::string::npos && cpu.has_avx512f)
@@ -264,7 +274,22 @@ static CPUInfo detect_cpu() {
                                         cpu.gen = CPUGen::AMD_ZEN2;
         else if (cpu.has_avx2)          cpu.gen = CPUGen::AMD_ZEN1;
     }
-
+    else if (cpu.vendor == CPUVendor::ARM) {
+        // ARM NEON is mandatory on AArch64 — equivalent to SSE2 for floats
+        cpu.has_sse2  = has_flag("asimd") || has_flag("neon"); // reuse sse2 as "has SIMD"
+        // SVE = scalable vector extension (like AVX-512 in spirit)
+        bool has_sve  = has_flag("sve");
+        bool has_sve2 = has_flag("sve2");
+        if      (has_sve2) cpu.gen = CPUGen::UNKNOWN; // no ARM gen enum yet
+        else if (has_sve)  cpu.gen = CPUGen::UNKNOWN;
+        // At least don't return BASELINE for a machine with NEON
+        if (has_flag("asimd") || has_flag("neon"))
+            cpu.gen = CPUGen::UNKNOWN; // placeholder, better than nothing
+    }
+    else {
+        cpu.gen = CPUGen::INTEL_PRE_HASWELL;
+    }
+   
     return cpu;
 }
 
@@ -275,16 +300,16 @@ static CacheInfo detect_cache() {
 
     // /sys/devices/system/cpu/cpu0/cache/index*/
     auto read_cache_level = [](int idx) -> std::pair<std::string, size_t> {
-        std::string base = "/sys/devices/system/cpu/cpu0/cache/index"
-                         + std::to_string(idx);
+        std::string base = "/sys/devices/system/cpu/cpu0/cache/index" + std::to_string(idx);
         std::string level = read_file(base + "/level");
+            if (level.empty()) return {"__EOF__", 0};  // path doesn't exist → sto
         std::string type  = read_file(base + "/type");
         std::string size  = read_file(base + "/size");
         while (!level.empty() && level.back() == '\n') level.pop_back();
         while (!type.empty()  && type.back()  == '\n') type.pop_back();
         while (!size.empty()  && size.back()  == '\n') size.pop_back();
 
-        if (type == "Instruction") return {"", 0};  // skip I-cache
+        if (type == "Instruction") return {"__SKIP__", 0};  // exists but skip it
 
         size_t bytes = 0;
         if (!size.empty()) {
@@ -299,7 +324,8 @@ static CacheInfo detect_cache() {
     // Scan up to 8 cache levels
     for (int i = 0; i < 8; i++) {
         auto [lvl, bytes] = read_cache_level(i);
-        if (lvl.empty() && bytes == 0) break;
+        if (lvl == "__EOF__") break;   // ← only break when path is gone
+        if (lvl == "__SKIP__") continue; // ← skip I-cache but keep iterating
         if      (lvl == "1" && c.l1d_bytes == 0) c.l1d_bytes = bytes;
         else if (lvl == "2" && c.l2_bytes  == 0) c.l2_bytes  = bytes;
         else if (lvl == "3" && c.l3_bytes  == 0) c.l3_bytes  = bytes;
@@ -320,7 +346,7 @@ static CacheInfo detect_cache() {
 
 // ─── RAM Detection ───────────────────────────────────────────────────────────
 
-static RAMInfo detect_ram() {
+static RAMInfo detect_ram(const CPUInfo& cpu) {
     RAMInfo ram;
 
     // Total + available from /proc/meminfo
@@ -359,9 +385,10 @@ static RAMInfo detect_ram() {
             }
             pos += 6;
         }
-        ram.speed_mts = max_speed;
-        ram.channels  = (uint8_t)(slots_populated >= 4 ? 4 :
-                                  slots_populated >= 2 ? 2 : 1);
+
+        ram.channels = (uint8_t)(slots_populated >= 4 ? 4 : slots_populated >= 2 ? 2 : 1);
+        uint8_t max_channels = (cpu.physical_cores > 16) ? 8 : 2;
+        ram.channels = std::min(ram.channels, max_channels);
     }
 
     // Theoretical bandwidth: speed_MT/s × bus_width(8B) × channels / 1000
@@ -517,7 +544,7 @@ inline HardwareFingerprint detect_hardware() {
     HardwareFingerprint fp;
     fp.cpu      = detect_cpu();
     fp.cache    = detect_cache();
-    fp.ram      = detect_ram();
+    fp.ram      = detect_ram(fp.cpu);
     fp.storage  = detect_storage();
     fp.software = detect_software();
     fp.capability_score = compute_capability_score(fp);

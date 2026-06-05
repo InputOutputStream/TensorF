@@ -1557,7 +1557,7 @@ class Matrix
     }
 
     Matrix<T> elemsAt(Matrix<T> indices) {
-        size_t dim        = this->shape[1];   // embed_dim
+        size_t dim        = this->shape.back();   
         size_t vocab_size = this->shape[0];
         size_t n_tokens   = indices.data.size();
 
@@ -2340,40 +2340,11 @@ class Matrix
 
 //------------------------------------------------------------------------------------
 
-    // template <typename T>
-    // Matrix<T> sumGradForBroadcast(Matrix<T> grad, shape_t originalShape){
-    //     shape_t gradShape = grad.shape;
-    //     int i = 0, j = 0;
-    //     Matrix<T> res(grad);
-    //     j = originalShape.size()-1;
-
-    //     for(i = gradShape.size()-1; i >= 0; i--)
-    //     {
-    //         if(j >=0 && originalShape[j] == 1 && gradShape[i] > 1)
-    //         {  
-    //             res = res.sum(i);
-    //             gradShape = res.shape;  
-    //             j--;
-    //         }
-    //         else if(j >= 0 && originalShape[j] == gradShape[i])
-    //         {
-    //             j--;
-    //         }
-    //         else if(j < 0){
-    //             res = res.sum(i);
-    //             gradShape = res.shape;  
-    //         }
-    //     }
-
-    //     if(res.shape != originalShape)
-    //     { 
-    //         res = Matrix<T>(res.data, originalShape);
-    //     }  
-        
-    //     return res;
+    // void clip_and_noise(Matrix<float>& delta, float clip_norm = 1.0f, float noise_std = 0.01f) {
+    //     float norm = delta.frobenius_norm();
+    //     if (norm > clip_norm) delta = delta * (clip_norm / norm);
+    //     delta = delta + Matrix<float>::gaussian_noise(delta.shape, 0.0f, noise_std);
     // }
-
-
 
     template <typename T>
     Matrix<T> sumGradForBroadcast(Matrix<T> grad, std::vector<size_t> originalShape) {

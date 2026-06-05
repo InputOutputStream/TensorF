@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <numeric>
 #include <random>
+#include <fcntl.h>
 #include <string>
 #include <cstdio>
 #include <functional>
@@ -128,9 +129,9 @@ public:
     size_t l3_bytes = 8 * 1024 * 1024; // 8 MB default
 
     void set_cache_sizes(size_t l1, size_t l2, size_t l3) {
-        l1_bytes = l1;
-        l2_bytes = l2;
-        l3_bytes = l3;
+        l1_bytes = l1 > 0 ? l1 : 32  * 1024;
+        l2_bytes = l2 > 0 ? l2 : 256 * 1024;   //  when detection fails
+        l3_bytes = l3 > 0 ? l3 : 8   * 1024 * 1024;
     }
 
     // ── 1. Matmul throughput ─────────────────────────────────────────────────
@@ -204,7 +205,9 @@ public:
 
     // ── 2. Memory bandwidth ──────────────────────────────────────────────────
     // STREAM-style benchmark: operate on arrays much larger than L3
+    
 
+    __attribute__((optimize("O3,fast-math")))
     BandwidthBench bench_bandwidth(size_t array_mb = 256, int iters = 5) {
         BandwidthBench result;
         size_t n = (array_mb * 1024 * 1024) / sizeof(float);
@@ -217,11 +220,12 @@ public:
         {
             std::vector<double> bws;
             for (int i = 0; i < iters; i++) {
-                volatile float sum = 0;
+                float acc = 0.0f;
                 auto t0 = Clock::now();
-                for (size_t j = 0; j < n; j++) sum += A[j];
+                for (size_t j = 0; j < n; j++) acc += A[j];
                 double s = elapsed_s(t0);
-                (void)sum;
+                volatile float sink = acc;  // one volatile write to prevent elimination
+                (void)sink;
                 bws.push_back((double)(n * sizeof(float)) / 1e9 / s);
             }
             result.read_gbs = median(bws);
@@ -273,19 +277,35 @@ public:
             // Follow the chain — defeats prefetcher
             const int REPS = 1 << 24;
             size_t idx = 0;
+            volatile size_t sink = 0;
             auto t0 = Clock::now();
+    
+            // Round n up to power of 2 for fast masking
+            size_t mask = 1;
+            while (mask < n) mask <<= 1;
+            mask -= 1;
             for (int i = 0; i < REPS; i++)
-                idx = arr[idx % n];
+                idx = arr[idx & mask];  // bitmask instead of % n
+            sink = idx;  // forces the chain to actually execute
             double s = elapsed_s(t0);
-            (void)idx;
 
             return (s / REPS) * 1e9; // ns per access
         };
 
-        result.l1_latency_ns  = measure_latency(l1_bytes / 2);
-        result.l2_latency_ns  = measure_latency(l2_bytes * 2);
-        result.l3_latency_ns  = measure_latency(l3_bytes * 2);
-        result.ram_latency_ns = measure_latency(512 * 1024 * 1024ULL); // 512 MB
+        auto safe_latency = [&](size_t target_bytes) -> double {
+            // Try the target, halve until it fits or give up
+            for (size_t sz = target_bytes; sz >= 1024 * 1024; sz /= 2) {
+                try {
+                    return measure_latency(sz);
+                } catch (const std::bad_alloc&) { continue; }
+            }
+            return 0.0;
+        };
+        
+        result.l1_latency_ns  = safe_latency(l1_bytes / 2);
+        result.l2_latency_ns  = safe_latency(l2_bytes * 2);
+        result.l3_latency_ns  = safe_latency(l3_bytes * 2);
+        result.ram_latency_ns = safe_latency(512 * 1024 * 1024ULL); // 512 MB
 
         return result;
     }
@@ -316,6 +336,15 @@ public:
                 }
                 fclose(f);
                 result.seq_write_mbs = (double)n_bytes / 1e6 / elapsed_s(t0);
+            }
+        }
+
+        // After writing, before reading:
+        {
+            int fd = open(path.c_str(), O_RDONLY);
+            if (fd >= 0) {
+                posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+                close(fd);
             }
         }
 

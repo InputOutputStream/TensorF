@@ -27,6 +27,8 @@ class Embedding: public Module<T>{
         // std::cerr << "Embedding this->embeddings->embed(indices) val : "<< this->embeddings->embed(indices)->val<< "\n";
         return this->embeddings->embed(indices);
     }
+
+    friend class GGUFLoader<T>;
 };
 
 #endif // !__EMBEDDING_H_

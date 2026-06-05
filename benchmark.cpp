@@ -32,7 +32,24 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-// ── TensorF profiler headers (all header-only) ────────────────────────────────
+#include "Types/types.hpp"
+#include "DataStructures/Matrix.hpp"
+#include "DataStructures/Tensor.hpp"
+#include "Modules/Transformer/GPT.hpp"
+#include "ModelLoader/ModelLoader.hpp"
+#include "DataLoader/DataLoading.hpp"
+#include "DataLoader/GGUF.hpp"
+#include "Tokenizer/GPT2Tokenizer.hpp"
+
+#include <iostream>
+#include <vector>
+#include <fstream>
+#include <sstream>
+#include <filesystem>
+#include <random>
+#include <unordered_map>
+
+// ── TensorF profiler headers  ────────────────────────────────
 #include "Profiler/Profiler.hpp"
 #include "Profiler/HyperparamAdvisor.hpp"   // for QuantPolicy in workload lambdas
 #include "Profiler/protocol/ProfilerProtocol.hpp"
@@ -157,175 +174,65 @@ int main(int argc, char* argv[]) {
 
     auto wall_start = std::chrono::steady_clock::now();
 
-    // ── 1. Run the full profiling pipeline ───────────────────────────────────
+    // ── 1. Baseline  ────────────────────────────────────────
     Profiler profiler;
+    // snapshot baseline before loading anything
     profiler.run(opts.vocab_size, /*verbose=*/!opts.quiet);
 
-    // ── 2. Profile actual workloads using synthetic data sized to the advised config ──
-    //
-    // These lambdas simulate the three lifecycle stages of a transformer model
-    // (load, train step, inference) using the HyperparamConfig the advisor produced.
-    // No real model is needed: we allocate and operate on tensors of the exact
-    // same shape a real model would use, so the RSS deltas are accurate.
+    // ── 2. Profile LOAD stage — actual model loading ──────────────────────────
+    GPT2HyperParams hp {
+        .vocab_size = 50257,
+        .d_model    = 768,
+        .block_size = 1024,
+        .n_layer    = 12,
+        .n_head     = 12
+    };
 
-    const HyperparamConfig& cfg = profiler.config();
-    const size_t B  = cfg.batch_size;
-    const size_t T  = cfg.block_size;
-    const size_t C  = cfg.n_embed;
-    const size_t L  = cfg.n_layers;
-    const size_t V  = opts.vocab_size;
-
-    // Byte-width per element (respects advised quantization)
-    const size_t bpp = [&]() -> size_t {
-        switch (cfg.algo.quant) {
-            case QuantPolicy::FP16:
-            case QuantPolicy::FP8_E4M3:
-            case QuantPolicy::FP8_E5M2: return 2;
-            case QuantPolicy::INT8:     return 1;
-            case QuantPolicy::INT4:     return 1;  // packed; real size is 0.5B/elem
-            default:                    return 4;  // float32
-        }
-    }();
-
-    if (!opts.quiet) {
-        printf("\n[Workload] Simulating model lifecycle (B=%zu T=%zu C=%zu L=%zu V=%zu bpp=%zu)\n",
-               B, T, C, L, V, bpp);
-    }
-
-    // ── STAGE: LOADED — allocate weight tensors (parameters only, no activations) ──
-    //
-    // Standard transformer parameter layout:
-    //   token embedding:  V × C
-    //   position embed:   T × C
-    //   per layer: Q/K/V/O projections (4 × C×C), FFN up/down/gate (3 × C×4C),
-    //              2 LayerNorm (γ+β, each C)
-    //   final LN + lm_head: C + C + V×C
+    GPT2Tokenizer tokenizer;
+    GPT<float>* model_ptr = nullptr;  // heap so we control lifetime  
 
     profiler.profile_load([&]() {
-        size_t tok_embed  = V * C * bpp;
-        size_t pos_embed  = T * C * bpp;
-        size_t per_layer  = (4 * C * C          // QKV + O projections
-                           + 3 * C * (4 * C)    // FFN: gate, up, down
-                           + 4 * C) * bpp;      // 2 LayerNorm × (γ+β)
-        size_t lm_head    = V * C * bpp + 2 * C * bpp;  // weight + final LN
-
-        size_t total_bytes = tok_embed + pos_embed + L * per_layer + lm_head;
-
-        if (!opts.quiet)
-            printf("[Workload] Allocating %.1f MB of parameter tensors...\n",
-                   total_bytes / 1024.0 / 1024.0);
-
-        // Allocate and touch every page so the OS actually commits the memory.
-        // Using volatile to prevent the compiler from eliding the writes.
-        auto params = std::make_unique<uint8_t[]>(total_bytes);
-        volatile uint8_t* p = params.get();
-        // Touch in 4KB strides (one write per page is enough to commit)
-        for (size_t i = 0; i < total_bytes; i += 4096)
-            p[i] = static_cast<uint8_t>(i & 0xFF);
-        // Force the allocation to live until the snapshot is taken
-        p[total_bytes - 1] = 0xFF;
-
-        // Keep params alive for the snapshot — release after the lambda returns.
-        // The snapshot is taken by profile_load() after workload() returns.
-        // We intentionally do NOT release here so the RSS reflects loaded state.
-        params.release();  // intentional: simulates weights staying in RAM
+        tokenizer.load("SLM/gpt2-tokenizer/vocab.json",
+                    "SLM/gpt2-tokenizer/merges.txt");
+        GGUFLoader<float> loader;
+        // Allocate on heap — keeps RSS elevated after lambda returns
+        model_ptr = new GPT<float>(std::move(loader.load_model("SLM/gpt2-small-f32.gguf", hp)));
     });
+    // RSS delta here = actual cost of loading GPT-2 weights into RAM
 
-    // ── STAGE: TRAIN — forward + backward + gradient/optimizer state ──────────
-    //
-    // Training RSS = params + activations (forward) + gradients + Adam m1+m2
-    //   Activations per layer:  B × T × C × 4 (residuals, attn scores, FFN intermediates)
-    //   Gradients:              same size as params
-    //   Adam m1 + m2:           2 × params size
-
-    profiler.profile_train_step([&]() {
-        size_t per_layer  = (4 * C * C + 3 * C * 4 * C + 4 * C) * bpp;
-        size_t param_bytes = (V * C + T * C + L * per_layer + V * C) * bpp;
-
-        // Activations: B × T × C × factor (4 covers: input, after attn, after FFN, residual)
-        size_t act_bytes   = B * T * C * 4 * sizeof(float);  // always float32 for gradients
-        // Gradients: same shape as params
-        size_t grad_bytes  = param_bytes;
-        // Adam moments: 2 × params
-        size_t adam_bytes  = 2 * param_bytes;
-
-        size_t total_bytes = act_bytes + grad_bytes + adam_bytes;
-
-        if (!opts.quiet)
-            printf("[Workload] Allocating %.1f MB for activations + gradients + Adam state...\n",
-                   total_bytes / 1024.0 / 1024.0);
-
-        auto train_buf = std::make_unique<uint8_t[]>(total_bytes);
-        volatile uint8_t* p = train_buf.get();
-
-        // Simulate a forward pass: sequential writes (activations building up)
-        for (size_t i = 0; i < act_bytes; i += 4096)
-            p[i] = static_cast<uint8_t>(i);
-
-        // Simulate backward pass: gradient accumulation
-        size_t grad_start = act_bytes;
-        for (size_t i = 0; i < grad_bytes; i += 4096)
-            p[grad_start + i] = static_cast<uint8_t>(i ^ 0xAA);
-
-        // Simulate Adam update: read+write moment buffers
-        size_t adam_start = act_bytes + grad_bytes;
-        for (size_t i = 0; i < adam_bytes; i += 4096) {
-            p[adam_start + i] = static_cast<uint8_t>(p[grad_start + (i % grad_bytes)] + 1);
-        }
-
-        p[total_bytes - 1] = 0x01;
-        train_buf.release();  // keep RSS elevated for snapshot
-    });
-
-    // ── STAGE: INFER — forward pass only (KV cache + activations, no grads) ───
-    //
-    // Inference RSS = params + KV cache (per-layer K and V for all T positions)
-    //                + activations (one layer at a time → smaller than training)
-    //   KV cache: 2 × L × T × C × bpp  (K and V for every layer)
-    //   Activations: B × T × C × 2 (input + one layer's output, reused)
+    // ── 3. Profile INFER stage — actual generate() call ──────────────────────
+    std::string prompt  = "What is the date of today in ankara";
+    Tensor_t<float> context;
 
     profiler.profile_infer_step([&]() {
-        // KV cache: K and V for each layer, full context length
-        size_t kv_cache_bytes = 2 * L * T * C * bpp;
+        auto token_ids = tokenizer.encode(prompt);
+        std::vector<float> ctx_data(token_ids.begin(), token_ids.end());
+        context = make_tensor<float>(
+            Matrix<float>(ctx_data, {1, ctx_data.size()})
+        );
+        auto out = model_ptr->generate(context, 30);
 
-        // Activations during inference: much smaller than training (no grad storage)
-        // Just input embeddings + one layer's intermediate buffers (reused per layer)
-        size_t act_bytes = B * T * C * 2 * sizeof(float);
-
-        size_t total_bytes = kv_cache_bytes + act_bytes;
-
-        if (!opts.quiet)
-            printf("[Workload] Allocating %.1f MB for KV cache + inference activations...\n",
-                   total_bytes / 1024.0 / 1024.0);
-
-        auto infer_buf = std::make_unique<uint8_t[]>(total_bytes);
-        volatile uint8_t* p = infer_buf.get();
-
-        // Simulate autoregressive decode: fill KV cache token by token
-        for (size_t tok = 0; tok < T; tok++) {
-            size_t offset = tok * C * bpp;
-            if (offset + C * bpp <= kv_cache_bytes) {
-                for (size_t c = 0; c < C * bpp; c += 64)   // 64B = cache line
-                    p[offset + c] = static_cast<uint8_t>(tok ^ c);
-            }
-        }
-
-        // Simulate activation reuse per layer
-        for (size_t layer = 0; layer < L; layer++) {
-            size_t act_offset = kv_cache_bytes;
-            for (size_t i = 0; i < act_bytes; i += 4096)
-                p[act_offset + i] = static_cast<uint8_t>(layer);
-        }
-
-        p[total_bytes - 1] = 0x02;
-        infer_buf.release();  // keep RSS elevated for snapshot
+        // Decode and print so the compiler doesn't optimize the call away
+        size_t prompt_len = token_ids.size();
+        std::vector<int> generated;
+        for (size_t i = prompt_len; i < out->val.data.size(); i++)
+            generated.push_back((int)out->val.data[i]);
+        std::cout << "Généré: " << tokenizer.decode(generated) << "\n";
     });
+    // RSS delta here = activations + KV cache + intermediate tensors during forward
 
-    // ── 3. Human-readable summary ────────────────────────────────────────────
+    // ── 4. Profile TRAIN stage (optional) ────────────────────────────────────
+    // profiler.profile_train_step([&]() {
+    //     auto [inputs, targets] = get_batch_fn("train");
+    //     model_ptr->train_step(&optimizer, inputs, targets);
+    // });
+
+
+    // ── 5. Human-readable summary ────────────────────────────────────────────
     if (!opts.quiet)
         profiler.print_summary();
 
-    // ── 4. JSON output ───────────────────────────────────────────────────────
+    // ── 6. JSON output ───────────────────────────────────────────────────────
     std::string json = profiler.to_json();
 
     if (opts.json_only || opts.dry_run) {
@@ -333,7 +240,7 @@ int main(int argc, char* argv[]) {
         if (opts.json_only) return 0;
     }
 
-    // ── 5. Binary serialization ──────────────────────────────────────────────
+    // ── 7. Binary serialization ──────────────────────────────────────────────
     uint64_t client_id = make_client_id();
 
     ChecksumType chk = opts.internet
@@ -365,7 +272,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    // ── 6. Transport dispatch ─────────────────────────────────────────────────
+    // ── 8. Transport dispatch ─────────────────────────────────────────────────
     TransportConfig tcfg;
     tcfg.server_host   = opts.server_host;
     tcfg.tcp_port      = opts.tcp_port;
@@ -394,6 +301,9 @@ int main(int argc, char* argv[]) {
         printf("\n[main] Total profiling time: %lld ms\n", (long long)wall_ms);
         printf("[main] Profile send: %s\n", sent ? "OK" : "FAILED");
     }
+
+    // Cleanup
+    delete model_ptr;
 
     return sent ? 0 : 1;
 }

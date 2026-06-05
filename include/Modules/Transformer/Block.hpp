@@ -80,6 +80,7 @@ class Block : public Module<T>{
         return z;
     }
 
+    friend class GGUFLoader<T>;
 };
 
 #endif // !__BLOCK__HPP

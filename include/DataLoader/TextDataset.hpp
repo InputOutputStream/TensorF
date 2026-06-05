@@ -82,10 +82,17 @@ public:
         return std::string((std::istreambuf_iterator<char>(f)), {});
     }
 
+    static bool is_allowed_char(char c) {
+        unsigned char u = (unsigned char)c;
+        // Allow: printable ASCII + newline + tab
+        return (u >= 32 && u <= 126) || c == '\n' || c == '\t';
+    }
+
     std::vector<int> encode(const std::string& text) {
         std::vector<int> ids;
         ids.reserve(text.size());
         for (char c : text) {
+            if (!is_allowed_char(c)) continue;  // ← skip garbage chars
             auto it = stoi.find(c);
             if (it != stoi.end()) ids.push_back(it->second);
         }
@@ -107,7 +114,7 @@ public:
         for (auto& f : files) {
             std::string text = read_file(folder_path + "/" + f);
             total += text.size();
-            for (char c : text) vocab_set.insert(c);
+            for (char c : text) if (is_allowed_char(c)) vocab_set.insert(c);
             contents.push_back({f, std::move(text)});
         }
 

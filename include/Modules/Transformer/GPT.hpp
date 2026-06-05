@@ -13,9 +13,7 @@
 
 #include <vector>
 #include <functional>
-
-
-    
+   
     template <typename T>
     class GPT: public Module<T>{
 
@@ -60,10 +58,13 @@
             Tensor_t<T> tok_embed = this->embedding_table.forward(index);  // (batch_size, seq_len, input_dim)
             
             // Positional embeddings
-            Tensor_t<T> pos_indices = make_tensor<T>(Matrix<T>::arrange(seq_len));
-            Tensor_t<T> pos_embed = this->position_embedding_table.forward(pos_indices);  // (seq_len, input_dim)
-            
+            // Give it a {1, seq_len} shape so embed output is {1, seq_len, D}
+            // which broadcasts correctly against tok_embed {B, seq_len, D}
+            Tensor_t<T> pos_indices = make_tensor<T>(Matrix<T>::arrange(seq_len).reshape({1, seq_len}));// {1, seq_len}
+            Tensor_t<T> pos_embed = this->position_embedding_table.forward(pos_indices);  // {1, seq_len, D}
+
             // Add embeddings
+            // Now tok_embed {B, seq_len, D} + pos_embed {1, seq_len, D}
             Tensor_t<T> x_emdb = tok_embed + pos_embed;
             
             // Through transformer blocks
@@ -91,7 +92,6 @@
                 // std::cerr << " targets_flat val : "<< targets_flat->val<< "\n";
                 auto targets_onehot = make_tensor<T>(Matrix<T>::one_hot(targets_flat->val, this->vocab_size));
                 // std::cerr << " targets_onehot val : "<< targets_onehot->val<< "\n";
-
                 auto probs = logits_flat->softmax();
                 // std::cerr << " probs val : "<< probs->val<< "\n";
 
@@ -101,114 +101,131 @@
             return output;
         }
 
-    Tensor_t<T> generate(Tensor_t<T> index, size_t max_new_tokens = 50)
-    {
-        Tensor_t<T> current_index = index;
+        std::vector<T> topk_softmax(const std::vector<T>& logits, size_t V, 
+                                    int k = 40, float temp = 0.8f) {
+            // Apply temperature
+            std::vector<T> scaled(logits.begin(), logits.begin() + V);
+            for (auto& v : scaled) v /= temp;
 
-        for (size_t i = 0; i < max_new_tokens; i++)
+            // Find top-k indices by partial sort
+            std::vector<size_t> indices(V);
+            std::iota(indices.begin(), indices.end(), 0);
+            std::partial_sort(indices.begin(), indices.begin() + k, indices.end(),
+                [&scaled](size_t a, size_t b){ return scaled[a] > scaled[b]; });
+
+            // Softmax over top-k only, zero out the rest
+            T mx = scaled[indices[0]];
+            std::vector<T> probs(V, T(0));
+            T sum = T(0);
+            for (int i = 0; i < k; i++) {
+                probs[indices[i]] = std::exp(scaled[indices[i]] - mx);
+                sum += probs[indices[i]];
+            }
+            for (int i = 0; i < k; i++) probs[indices[i]] /= sum;
+
+            return probs;
+        }
+
+        Tensor_t<T> generate(Tensor_t<T> index, size_t max_new_tokens = 50, float temperature = 0.7f, size_t k = 40)
         {
-            // Crop context to last block_size tokens along sequence axis
-            size_t seq   = current_index->shape[1];
-            size_t start = (seq > this->max_sequence_length)
-                        ? (seq - this->max_sequence_length) : 0;
-            Matrix<T> index_cond = current_index->val.slice_axis(start, seq, 1);
+            Tensor_t<T> current_index = index;
 
-            // Forward: [B, seq_len, vocab_size]
-            Tensor_t<T> output = this->forward(make_tensor<T>(index_cond), nullptr, true);
-
-            size_t B = output->shape[0];
-            size_t S = output->shape[1];
-            size_t V = output->shape[2];
-
-            // Extract last time step via slice_axis → [B, 1, V] → reshape → [B, V]
-            Matrix<T> last_step = output->val.slice_axis(S - 1, S, 1);
-            Tensor_t<T> logits  = make_tensor<T>(last_step.reshape({B, V}));
-
-            // Softmax → probabilities [B, V]
-            Tensor_t<T> probs = logits->softmax();
-
-            // Sample one token per batch element
-            std::vector<Matrix<T>> index_next;
-            for (size_t j = 0; j < B; j++)
+            for (size_t i = 0; i < max_new_tokens; i++)
             {
-                Tensor_t<T> prob_dist = probs->at({j});
-                prob_dist = prob_dist / prob_dist->sum();
+                size_t seq   = current_index->shape[1];
+                size_t start = (seq > this->max_sequence_length)
+                            ? (seq - this->max_sequence_length) : 0;
+                Matrix<T> index_cond = current_index->val.slice_axis(start, seq, 1);
 
-                // choice() returns 1D {1} — must be {1,1} for stack()
-                Matrix<T> next_tok = Matrix<T>::choice(this->vocab_size, prob_dist->val);
-                index_next.push_back(next_tok.reshape({1, 1}));
+                Tensor_t<T> output = this->forward(make_tensor<T>(index_cond), nullptr, true);
+
+                size_t B = output->shape[0];
+                size_t S = output->shape[1];
+                size_t V = output->shape[2];
+
+                // Extract last timestep → {B, V}
+                Matrix<T> last_step = output->val.slice_axis(S - 1, S, 1);
+                Tensor_t<T> logits  = make_tensor<T>(last_step.reshape({B, V}));
+
+                // Sampling loop 
+                std::vector<Matrix<T>> index_next;
+                for (size_t j = 0; j < B; j++)
+                {
+                    // Extract row j from last_step {B, V}
+                    std::vector<T> row(logits->val.data.begin() + j * V,
+                                    logits->val.data.begin() + j * V + V);
+
+                    // Top-k filtered softmax
+                    auto probs_vec = topk_softmax(row, V, k, temperature);
+                    Matrix<T> prob_mat(probs_vec, {V});
+
+                    Matrix<T> next_tok = Matrix<T>::choice(V, prob_mat);
+                    index_next.push_back(next_tok.reshape({1, 1}));
+                }
+
+                Matrix<T> new_tokens = Matrix<T>::stack(index_next, 0);
+                current_index = make_tensor<T>(
+                    Matrix<T>::concat({current_index->val, new_tokens}, 1));
             }
 
-            // stack [B, 1] then concat along sequence axis
-            Matrix<T> new_tokens = Matrix<T>::stack(index_next, 0);
-            current_index = make_tensor<T>(
-                Matrix<T>::concat({current_index->val, new_tokens}, 1));
+            return current_index;
         }
 
-        return current_index;
-    }
-
-    Tensor_t<T> train_step(Optimizer<T> *Op, Tensor_t<T> inputs, Tensor_t<T> targets)
-    {
-        // Zero gradients
-        Op->zero_grad();
-
-        // Forward pass
-        Tensor_t<T> loss = this->forward(inputs, targets, true);
-        
-        // Backward pass
-        loss->backward(make_tensor<T>((T)1.0));
-
-        // After backward, before optimizer.step()
-        T total_grad_norm = 0;
-        for (auto p : this->parameters()) {
-            if (p->grad.get_size() == 0) continue;
-            for (auto g : p->grad.data)
-                total_grad_norm += g * g;
-        }
-        total_grad_norm = std::sqrt(total_grad_norm);
-        // std::cout << "Gradient norm before clipping: " << total_grad_norm << "\n";
-
-        // Update parameters
-        Op->step();
-        
-        return loss;
-    }
-
-
-    void train(std::function<std::pair<Tensor_t<T>, Tensor_t<T>>(std::string)> get_batch_fn,
-    size_t iters, size_t eval_interval)
-    {
-        Optimizer<T> Op(this->parameters(), 1e-4, ADAMw);
-
-        for(size_t iter=0; iter < iters; iter++)
+        Tensor_t<T> train_step(Optimizer<T> *Op, Tensor_t<T> inputs, Tensor_t<T> targets)
         {
-            // Get training batch
-            auto [inputs, targets] = get_batch_fn("train");
-            
-            // Training step
-            Tensor_t<T> loss = this->train_step(&Op, inputs, targets);
-            
-            // Print progress
-            if (iter % eval_interval == 0){
-                std::cout << "Iters :" << iter << " Loss: " << loss->val << "...............................................................\n";
-            }
+            // Zero gradients
+            Op->zero_grad();
 
-            // Evaluation
-            if((iter % eval_interval == 0) && iters > 0){
-                Op.zero_grad();
-                this->eval_step(get_batch_fn);
-            }
-            loss->reset_graph();
+            // Forward pass
+            Tensor_t<T> loss = this->forward(inputs, targets, true);
+            
+            // Backward pass
+            loss->backward(make_tensor<T>((T)1.0));
+
+            // Update parameters
+            Op->step();
+            
+            return loss;
         }
-    }
 
-    void eval_step(std::function<std::pair<Tensor_t<T>, Tensor_t<T>>(std::string)> get_batch_fn) {
-        auto [inputs, targets] = get_batch_fn("val");
-        auto val_loss = this->forward(inputs, targets, true);
-        std::cout << "Validation Loss: " << val_loss->val << "............................................................................\n";
-    }
 
+        void train(std::function<std::pair<Tensor_t<T>, Tensor_t<T>>(std::string)> get_batch_fn,
+        size_t iters, size_t eval_interval)
+        {
+            Optimizer<T> Op(this->parameters(), 1e-4, ADAMw);
+
+            for(size_t iter=0; iter < iters; iter++)
+            {
+                // Get training batch
+                auto [inputs, targets] = get_batch_fn("train");
+                
+                // Training step
+                Tensor_t<T> loss = this->train_step(&Op, inputs, targets);
+                
+                // Print progress
+                if (iter % eval_interval == 0){
+                    std::cout << "Iters :" << iter << " Loss: " << loss->val << "...............................................................\n";
+                }
+
+                // Evaluation
+                if((iter % eval_interval == 0) && iters > 0){
+                    Op.zero_grad();
+                    this->eval_step(get_batch_fn);
+                }
+                loss->reset_graph();
+            }
+        }
+
+        void eval_step(std::function<std::pair<Tensor_t<T>, Tensor_t<T>>(std::string)> get_batch_fn) {
+            auto [inputs, targets] = get_batch_fn("val");
+            auto val_loss = this->forward(inputs, targets, true);
+            std::cout << "Validation Loss: " << val_loss->val << "............................................................................\n";
+        }
+
+        // friend std::ostream & operator <<(std::ostream &out, Matrix<E> &m);
+
+
+    friend class GGUFLoader<T>;
 };
 
 #endif

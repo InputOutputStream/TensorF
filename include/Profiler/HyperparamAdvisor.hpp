@@ -93,11 +93,11 @@ struct AlgoPolicy {
 
 struct HyperparamConfig {
     // Model dimensions
-    size_t batch_size  = 8;
-    size_t block_size  = 128;
-    size_t n_embed     = 256;
-    size_t n_layers    = 4;
-    size_t n_heads     = 4;
+    size_t batch_size  = 128;
+    size_t block_size  = 1024;
+    size_t n_embed     = 768;
+    size_t n_layers    = 12;
+    size_t n_heads     = 12;
 
     // Derived
     size_t head_dim()     const { return n_embed / n_heads; }
@@ -343,7 +343,7 @@ private:
         uint64_t ram_mb = fp.ram.available_mb;
 
         // If plenty of RAM and good ISA → no quant (best quality)
-        if (ram_mb >= 32768 && fp.cpu.has_avx2)
+        if (ram_mb >= 32768)
             return QuantPolicy::NONE;
 
         // AMX available → INT8 is extremely fast (hardware native)
@@ -400,7 +400,8 @@ private:
         uint64_t param_budget_mb = usable_mb / 2;
 
         // Binary-search the max n_layers that fits
-        size_t lo = 1, hi = 96;
+        size_t lo = 1, hi = 48;  
+
         while (lo < hi) {
             size_t mid = (lo + hi + 1) / 2;
             uint64_t est = MemoryProfiler::estimate_param_ram_mb(

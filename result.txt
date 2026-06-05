@@ -1,2 +1,345 @@
-g++ -g -std=c++20 -O2 -Wall -Wextra -Iinclude  -c main.cpp -o main.o
-make: *** [Makefile:12: main.o] Interrupt
+➜  TensorF git:(main) ✗ make run           
+g++ -g -std=c++20 -O2 -Wall -Wextra -Iinclude  -c SmollLLM.cpp -o SmollLLM.o
+SmollLLM.cpp: In function ‘int main()’:
+SmollLLM.cpp:42:12: warning: unused variable ‘n_heads’ [-Wunused-variable]
+   42 |     size_t n_heads = 2;
+      |            ^~~~~~~
+SmollLLM.cpp:43:12: warning: unused variable ‘n_layers’ [-Wunused-variable]
+   43 |     size_t n_layers = 1; // number of decoder blocks
+      |            ^~~~~~~~
+SmollLLM.cpp:44:12: warning: unused variable ‘input_dim’ [-Wunused-variable]
+   44 |     size_t input_dim = 4;
+      |            ^~~~~~~~~
+SmollLLM.cpp:49:12: warning: unused variable ‘iters’ [-Wunused-variable]
+   49 |     size_t iters = 5000;
+      |            ^~~~~
+SmollLLM.cpp:51:12: warning: unused variable ‘evals’ [-Wunused-variable]
+   51 |     size_t evals = 1000;
+      |            ^~~~~
+SmollLLM.cpp:57:12: warning: unused variable ‘vocab_size’ [-Wunused-variable]
+   57 |     size_t vocab_size = ds.vocab_size();
+      |            ^~~~~~~~~~
+SmollLLM.cpp:77:10: warning: variable ‘get_batch’ set but not used [-Wunused-but-set-variable]
+   77 |     auto get_batch     = [&](std::string split) { return ds.get_batch(split); };
+      |          ^~~~~~~~~
+Files found: 14
+Train chars: 7440707  Val chars: 249631
+Vocab size: 191
+[GGUFLoader] Parsing GGUF: SLM/SmolLM2-135M-Instruct-f16.gguf
+GGUF Version: 3
+Tensors: 272 | KV Pairs: 33
+
+
+Binary tensor data starts at byte offset: 1785664
+[GGUFLoader] Building model skeleton...
+[GGUFLoader] Model has 1926 parameter tensors.
+[GGUFLoader] Loading: token_embd.weight  dims=[576,49152]  type=1
+[GGUFLoader] Loading: output_norm.weight  dims=[576]  type=0
+[GGUFLoader] WARNING: tensor 'output.weight' not found in GGUF.
+[GGUFLoader] Loading: token_embd.weight  dims=[576,49152]  type=1
+[GGUFLoader] Loading: blk.0.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.0.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.0.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.0.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.0.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.0.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.0.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.0.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.0.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.0.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.1.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.1.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.1.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.1.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.1.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.1.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.1.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.1.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.1.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.1.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.2.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.2.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.2.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.2.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.2.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.2.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.2.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.2.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.2.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.2.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.3.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.3.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.3.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.3.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.3.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.3.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.3.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.3.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.3.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.3.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.4.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.4.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.4.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.4.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.4.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.4.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.4.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.4.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.4.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.4.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.5.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.5.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.5.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.5.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.5.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.5.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.5.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.5.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.5.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.5.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.6.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.6.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.6.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.6.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.6.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.6.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.6.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.6.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.6.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.6.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.7.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.7.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.7.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.7.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.7.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.7.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.7.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.7.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.7.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.7.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.8.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.8.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.8.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.8.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.8.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.8.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.8.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.8.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.8.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.8.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.9.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.9.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.9.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.9.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.9.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.9.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.9.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.9.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.9.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.9.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.10.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.10.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.10.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.10.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.10.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.10.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.10.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.10.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.10.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.10.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.11.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.11.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.11.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.11.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.11.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.11.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.11.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.11.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.11.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.11.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.12.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.12.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.12.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.12.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.12.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.12.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.12.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.12.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.12.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.12.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.13.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.13.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.13.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.13.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.13.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.13.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.13.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.13.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.13.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.13.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.14.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.14.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.14.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.14.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.14.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.14.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.14.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.14.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.14.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.14.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.15.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.15.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.15.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.15.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.15.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.15.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.15.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.15.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.15.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.15.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.16.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.16.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.16.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.16.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.16.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.16.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.16.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.16.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.16.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.16.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.17.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.17.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.17.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.17.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.17.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.17.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.17.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.17.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.17.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.17.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.18.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.18.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.18.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.18.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.18.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.18.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.18.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.18.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.18.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.18.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.19.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.19.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.19.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.19.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.19.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.19.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.19.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.19.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.19.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.19.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.20.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.20.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.20.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.20.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.20.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.20.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.20.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.20.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.20.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.20.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.21.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.21.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.21.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.21.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.21.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.21.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.21.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.21.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.21.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.21.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.22.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.22.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.22.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.22.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.22.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.22.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.22.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.22.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.22.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.22.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.23.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.23.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.23.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.23.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.23.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.23.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.23.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.23.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.23.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.23.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.24.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.24.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.24.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.24.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.24.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.24.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.24.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.24.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.24.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.24.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.25.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.25.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.25.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.25.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.25.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.25.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.25.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.25.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.25.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.25.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.26.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.26.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.26.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.26.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.26.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.26.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.26.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.26.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.26.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.26.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.27.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.27.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.27.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.27.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.27.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.27.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.27.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.27.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.27.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.27.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.28.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.28.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.28.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.28.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.28.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.28.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.28.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.28.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.28.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.28.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.29.attn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.29.ffn_norm.weight  dims=[576]  type=0
+[GGUFLoader] Loading: blk.29.attn_output.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.29.attn_q.weight  dims=[576,576]  type=1
+[GGUFLoader] Loading: blk.29.attn_k.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.29.attn_v.weight  dims=[576,192]  type=1
+[GGUFLoader] Loading: blk.29.ffn_up.weight  dims=[576,1536]  type=1
+[GGUFLoader] Shape mismatch for 'blk.29.ffn_up.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Loading: blk.29.ffn_down.weight  dims=[1536,576]  type=1
+[GGUFLoader] Shape mismatch for 'blk.29.ffn_down.weight': GGUF has 884736 elements, model has 1327104. Skipping.
+[GGUFLoader] Done loading weights.
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  Invalid broadcast operation
+make: *** [Makefile:18: run] Aborted (core dumped)
+➜  TensorF git:(main) ✗ 
+

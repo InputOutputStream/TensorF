@@ -43,6 +43,7 @@
                 return res;
             }
 
-    };
+    friend class GGUFLoader<T>;
+};
 
 #endif
