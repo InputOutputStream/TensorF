@@ -1,12 +1,13 @@
-#ifndef HEAD__HPP
-#define HEAD__HPP
+#ifndef LLAMA_HEAD__HPP
+#define LLAMA_HEAD__HPP
 
 #include <vector>
 #include <memory>
 #include <algorithm>
 
-#include "../Module.hpp"
-#include "../Linear.hpp"
+#include "../../Module.hpp"
+#include "../../Linear.hpp"
+#include "../../RotationalPositionalEncoding.hpp"
 
 template <typename T>
 class Head : public Module<T>{
@@ -15,7 +16,8 @@ class Head : public Module<T>{
         size_t input_dim;
         size_t seq_length;
         size_t head_size;
-    
+        RotationalPositionalEncoding<T> rope;
+
         Linear<T> K;
         Linear<T> Q;
         Linear<T> V;
@@ -24,26 +26,26 @@ class Head : public Module<T>{
 
     public:
 
-    Head(size_t head_size, size_t input_dim, size_t sequence_length, bool bias=true): 
-      K(input_dim, head_size, bias),
-      Q(input_dim, head_size, bias),
-      V(input_dim, head_size, bias)
+    Head(size_t head_size, size_t input_dim, size_t sequence_length, bool bias=true):
+        input_dim(input_dim),
+        seq_length(sequence_length),
+        head_size(head_size),
+        rope(head_size, sequence_length),
+        K(input_dim, head_size, bias),
+        Q(input_dim, head_size, bias),
+        V(input_dim, head_size, bias)
     {
-        this->input_dim = input_dim;
-        this->seq_length = sequence_length;
-        this->head_size = head_size;
-
         this->register_module(&Q);
         this->register_module(&K);
         this->register_module(&V);
-
     }
 
     Head(Head&& other)
-        : Module<T>(), // fresh, empty submodules list
+        : Module<T>(),
         input_dim(other.input_dim),
         seq_length(other.seq_length),
         head_size(other.head_size),
+        rope(std::move(other.rope)),
         K(std::move(other.K)),
         Q(std::move(other.Q)),
         V(std::move(other.V)),
@@ -64,15 +66,16 @@ class Head : public Module<T>{
         this->mask = Matrix<T>::where(tmp2, -Matrix<T>::inf(), (T)0.0);
     }
 
-    std::pair<Tensor_t<T>, Tensor_t<T>> scaled_dot_product_attention(Tensor_t<T> q, Tensor_t<T> k, Tensor_t<T> v, bool apply_mask)
+    std::pair<Tensor_t<T>, Tensor_t<T>> scaled_dot_product_attention(
+        Tensor_t<T> q, Tensor_t<T> k, Tensor_t<T> v, bool apply_mask)
     {
         size_t d_k = this->head_size;
 
         auto scaled_scores = q->matmul(k->transpose({0, 2, 1})) / (T)std::sqrt((double)d_k);
 
         if (apply_mask) {
-            size_t actual_seq = q->shape[1];   // ← runtime seq length, e.g. 22
-            this->set_mask(actual_seq);        // ← rebuild mask only when seq changes
+            size_t actual_seq = q->shape[1];
+            this->set_mask(actual_seq);
             scaled_scores = scaled_scores + make_tensor<T>(this->mask);
         }
 
@@ -81,30 +84,30 @@ class Head : public Module<T>{
     }
 
     Tensor_t<T> forward(Tensor_t<T> x, bool apply_mask=true){
-        // """Forward pass through attention head"""
-    
-        // std::cerr << " head input x val : "<< x->val<< "\n";
 
-        // Compute Q, K, V projections
+        // Q, K, V projections
         Tensor_t<T> q = this->Q.forward(x);  // (B, T, head_size)
-        Tensor_t<T> k = this->K.forward(x);  // (B, T, head_size) 
+        Tensor_t<T> k = this->K.forward(x);  // (B, T, head_size)
         Tensor_t<T> v = this->V.forward(x);  // (B, T, head_size)
 
-        // std::cerr << " q val : "<< q->val<< "\n";
-        // std::cerr << " k val : "<< k->val<< "\n";
-        // std::cerr << " v val : "<< v->val<< "\n";
+        // Apply positional encoding to Q and K 
 
-        // Apply scaled dot-product attention
+        size_t T_len = x->shape[1];
+        Tensor_t<T> pos_indices = make_tensor<T>(Matrix<T>::arrange(T_len).reshape({1, T_len}));  // {1, T}
+
+        Tensor_t<T> pe = this->rope.forward(pos_indices);  // {T, head_size}
+        // pe broadcasts over batch dimension when added to {B, T, head_size}
+        q = q + pe;
+        k = k + pe;
+
         auto res = this->scaled_dot_product_attention(q, k, v, apply_mask);
 
-        Tensor_t<T> values = res.first;
-        Tensor_t<T> attention = res.second;
-        // std::cerr << " scaled dot product values and attention val : "<< values->val<< attention->val << "\n";
-
-        return values;        
+        return res.first;
     }
     
     friend class GGUFLoader<T>;
+    friend class LlamaGGUFLoader<T>; 
+
 };
 
-#endif // !HEAD__HPP
+#endif // !LLAMA_HEAD__HPP

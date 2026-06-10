@@ -711,8 +711,8 @@ class Matrix
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 
     protected: 
-        size_t size;
-        size_t ndims;
+        mutable size_t size;
+        mutable size_t ndims;
         bool gpu_nv = false;
         bool gpu_it = false;
 
@@ -1149,13 +1149,13 @@ class Matrix
     } 
 //°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 
-    size_t get_size()
+    size_t get_size() const
     {
         this->size = this->data.size();
         return this->data.size();
     }
 
-    size_t get_ndims()
+    size_t get_ndims() const
     {
         this->ndims = this->shape.size();
         return this->shape.size();
@@ -1336,6 +1336,10 @@ class Matrix
         return Matrix<T>(this->data, new_shape);
     }
 
+    std::vector<T> get_data(){
+        return this->data;
+    }
+
     // Matrix static functions
     //********************************************************************************* */
 
@@ -1417,7 +1421,22 @@ class Matrix
             if (pred(v)) return true;
         return false;
     }
-    // // then call // Matrix<T>::any(grad, [](T v){ return std::isnan(v); });
+
+    static Matrix<T> concat(std::initializer_list<Matrix<T>> list, size_t axis)
+    {
+        
+        if (list.size() == 0) return Matrix<T>();
+
+        std::vector<Matrix<T>> s;
+
+        for (const auto& item : list)
+        {   
+            s.push_back(item);
+        }
+        
+        return Matrix<T>::concat(s, axis);
+        
+    }
 
     static Matrix<T> concat(const std::vector<Matrix<T>>& mats, size_t axis) {
         for (size_t i = 1; i < mats.size(); i++)
@@ -1477,6 +1496,10 @@ class Matrix
         }
         return Matrix<T>(res, cond.shape);
     }
+
+    static Matrix<T> randomn(std::initializer_list<size_t> s){ return randn(getShape(s)); }
+    static Matrix<T> randomn(shape_t s)                      { return randn(s); }
+    static Matrix<T> eye(std::initializer_list<size_t> s){ return eye(getShape(s)[0]); }
 
     static Matrix<T> stack(std::vector<Matrix<T>> list, size_t axis)
     {        

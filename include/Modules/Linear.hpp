@@ -19,7 +19,7 @@
             Linear(size_t in_features, size_t out_features, bool sbias = true) 
             {
                 // Glorot 
-                auto limit = std::sqrt((T)0.01 / (T)(in_features + out_features));
+                auto limit = std::sqrt((T)6.0 / (T)(in_features + out_features));
                 this->weight = make_tensor<T>(Matrix<T>::randu(-limit, limit, {in_features, out_features}));
                 this->register_parameter(this->weight);
                 this->sbias = sbias;
@@ -44,6 +44,9 @@
             }
 
     friend class GGUFLoader<T>;
+    friend class GPTGGUFLoader<T>; 
+    friend class LlamaGGUFLoader<T>; 
+
 };
 
 #endif

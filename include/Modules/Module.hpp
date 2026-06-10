@@ -36,7 +36,7 @@ template <typename T>
                 submodules.push_back(m);
             }
 
-            std::vector<Tensor_t<T>> parameters()
+            std::vector<Tensor_t<T>> parameters() const
             {
                 std::vector<Tensor_t<T>> all = params;
                 for(auto m : this->submodules)

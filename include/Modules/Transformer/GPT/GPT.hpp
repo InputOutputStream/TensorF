@@ -1,13 +1,13 @@
 #ifndef __GPT_HPP__
 #define __GPT_HPP__
 
-#include "../../Types/types.hpp"
-#include "../Module.hpp"
+#include "../../../Types/types.hpp"
+#include "../../Module.hpp"
 
-#include "../PositionalEncoding.hpp"
-#include "../Embedding.hpp"
-#include "../LayerNorm.hpp"
-#include "../Linear.hpp"
+#include "../../PositionalEncoding.hpp"
+#include "../../Embedding.hpp"
+#include "../../LayerNorm.hpp"
+#include "../../Linear.hpp"
 
 #include "Block.hpp"
 
@@ -49,6 +49,8 @@
                 this->register_module(decoder_blocks.back().get());
             }
         }
+
+        size_t get_vocab_size() const { return vocab_size; }
 
         Tensor_t<T> forward(Tensor_t<T> index, Tensor_t<T> targets, bool apply_mask=true)
         {
@@ -226,6 +228,8 @@
 
 
     friend class GGUFLoader<T>;
+    friend class GPTGGUFLoader<T>; 
+
 };
 
 #endif

@@ -1,13 +1,14 @@
 #ifndef __GPT_HPP__
 #define __GPT_HPP__
 
-#include "../../Types/types.hpp"
-#include "../Module.hpp"
+#include "../../../Types/types.hpp"
+#include "../../Module.hpp"
 
-#include "../PositionalEncoding.hpp"
-#include "../Embedding.hpp"
-#include "../LayerNorm.hpp"
-#include "../Linear.hpp"
+
+#include "../../PositionalEncoding.hpp"
+#include "../../Embedding.hpp"
+#include "../../LayerNorm.hpp"
+#include "../../Linear.hpp"
 
 #include "Block.hpp"
 
@@ -214,6 +215,6 @@
 
 
     friend class GGUFLoader<T>;
+    friend class GPTGGUFLoader<T>; 
 };
-
 #endif

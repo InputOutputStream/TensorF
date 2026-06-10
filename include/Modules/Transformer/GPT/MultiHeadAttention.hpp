@@ -5,8 +5,8 @@
 #include <memory>
 #include <algorithm>
 
-#include "../Module.hpp"
-#include "../Linear.hpp"
+#include "../../Module.hpp"
+#include "../../Linear.hpp"
 
 #include "Head.hpp"
 
@@ -61,6 +61,7 @@ class MultiHeadAttention : public Module<T>{
     }
 
     friend class GGUFLoader<T>;
+    friend class GPTGGUFLoader<T>; 
 };
 
 #endif // !__MHA__HPP

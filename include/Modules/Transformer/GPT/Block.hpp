@@ -5,13 +5,13 @@
 #include <memory>
 #include <algorithm>
 
-#include "../Module.hpp"
-#include "../FeedForward.hpp"
-#include "../LayerNorm.hpp"
-#include "../Linear.hpp"
+#include "../../Module.hpp"
+#include "../../LayerNorm.hpp"
+#include "../../Linear.hpp"
 
 #include "MultiHeadAttention.hpp"
 #include "Head.hpp"
+#include "FeedForward.hpp"
 
 template <typename T>
 class Block : public Module<T>{
@@ -36,9 +36,6 @@ class Block : public Module<T>{
         ln1({input_dim}),  
         ln2({input_dim})  
     {
-        if (input_dim % n_heads != 0)
-            throw std::runtime_error("Block: input_dim must be divisible by n_heads");
-
         this->register_module(&mha);
         this->register_module(&ffwd);
         this->register_module(&ln1);
@@ -80,7 +77,8 @@ class Block : public Module<T>{
         return z;
     }
 
-    friend class GGUFLoader<T>;
+    friend class GGUFLoader<T>;    
+    friend class GPTGGUFLoader<T>; 
 };
 
 #endif // !__BLOCK__HPP

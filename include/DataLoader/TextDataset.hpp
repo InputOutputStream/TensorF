@@ -70,12 +70,29 @@ public:
 
     std::vector<std::string> scan_txt_files() {
         std::vector<std::string> files;
-        for (const auto& entry : fs::directory_iterator(folder_path))
-            if (entry.is_regular_file() && entry.path().extension() == ".txt")
+        for (const auto& entry : fs::directory_iterator(folder_path)) {
+            if (!entry.is_regular_file()) continue;
+
+            auto ext = entry.path().extension();
+            if (ext == ".txt" || ext.empty()) {
+                // For extensionless files, peek at the first bytes
+                if (ext.empty()) {
+                    std::ifstream f(entry.path(), std::ios::binary);
+                    char buf[512] = {};
+                    f.read(buf, sizeof(buf));
+                    std::string_view sample(buf, f.gcount());
+                    // Reject if non-printable bytes > 10% → likely binary
+                    int non_print = 0;
+                    for (unsigned char c : sample)
+                        if (c < 9 || (c > 13 && c < 32) || c == 127) non_print++;
+                    if (non_print > (int)(sample.size() * 0.10)) continue;
+                }
                 files.push_back(entry.path().filename().string());
+            }
+        }
         return files;
     }
-
+    
     std::string read_file(const std::string& path) {
         std::ifstream f(path);
         if (!f.is_open()) throw std::runtime_error("Cannot open: " + path);

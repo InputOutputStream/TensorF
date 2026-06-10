@@ -39,7 +39,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         shape_t shape;
         size_t ndims;
         Operation_t<T> backOp = nullptr;
-
+        bool requires_grad = true;
     //....................................................................................................
     Tensor() {
         this->val  = Matrix<T>(T(0));
@@ -89,6 +89,9 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     void backward(Matrix<T> ingrad)
     {
+        if(!requires_grad)
+            return;
+
         // x = x - f`(x)*x
         if (this->grad.get_size() > 0) {
             if (this->grad.shape != ingrad.shape)
@@ -287,12 +290,6 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     //loss functions
 
-    // static Tensor_t<T> cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred)
-    // {
-    //     size_t N = ypred->val.shape[0];  // batch size only
-    //     return -(ytrue * ypred->ln())->sum() / make_tensor<T>((T)N);
-    // }
-
     static Tensor_t<T> cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred, T eps = 1e-8) {
         size_t N = ypred->val.shape[0];
         auto Teps = make_tensor<T>(eps);
@@ -312,6 +309,13 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     {
 
         return pow((ytrue - ypred), (T)2)->sum() / (T)ytrue->val.shape[0];
+    }
+
+    // .............................................................................................
+
+    static Tensor_t<T> rms_norm(Tensor_t<T> x, Tensor_t<T> weight, T eps = 1e-5) {
+        auto rms = (x * x)->mean() + eps;  // E[x²]
+        return (x / rms->sqrt()) * weight;
     }
 
     static Tensor_t<T> transpose(Tensor_t<T> ten){

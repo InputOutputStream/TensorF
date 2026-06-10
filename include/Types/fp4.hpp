@@ -1,9 +1,8 @@
+#pragma once
+
 #include <cstdint>
 #include <cmath>
 #include <iostream>
-
-#ifndef __FP4_HPP
-#define __FP4_HPP
 
 // Type 4 bits via champ de bits dans un uint8_t
 struct uint4_t {
@@ -74,6 +73,3 @@ std::ostream& operator<<(std::ostream& os, const FP4<E,M>& v) {
     return os;
 }
 
-
-
-#endif

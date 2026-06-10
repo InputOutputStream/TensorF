@@ -35,6 +35,9 @@ public:
     }
     
     friend class GGUFLoader<T>;
+    friend class GPTGGUFLoader<T>; 
+    friend class LlamaGGUFLoader<T>; 
+
 };
 
 #endif

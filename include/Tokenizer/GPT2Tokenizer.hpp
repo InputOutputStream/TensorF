@@ -1,7 +1,5 @@
-#ifndef __GPT2_TOKENIZER__HPP
-#define __GPT2_TOKENIZER__HPP
-
 #pragma once
+
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -180,5 +178,3 @@ public:
     }
 };
 
-
-#endif

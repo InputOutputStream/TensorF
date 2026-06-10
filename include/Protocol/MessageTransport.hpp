@@ -44,7 +44,7 @@
 #include <poll.h>
 #include <sys/types.h>
 
-#include "ProfilerProtocol.hpp"
+#include "MessageProtocol.hpp"
 
 // ─── Default ports / paths ───────────────────────────────────────────────────
 
@@ -372,3 +372,4 @@ static bool send_profile(const WireBuffer& wb, const TransportConfig& cfg) {
     fprintf(stderr, "[Transport] All transports failed\n");
     return false;
 }
+        

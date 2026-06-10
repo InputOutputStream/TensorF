@@ -29,6 +29,8 @@ class Embedding: public Module<T>{
     }
 
     friend class GGUFLoader<T>;
+    friend class GPTGGUFLoader<T>; 
+    friend class LlamaGGUFLoader<T>; 
 };
 
 #endif // !__EMBEDDING_H_

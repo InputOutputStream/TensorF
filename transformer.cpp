@@ -4,11 +4,11 @@
 #include "DataStructures/Tensor.hpp"
 
 #include "Modules/Linear.hpp"
-#include "Modules/FeedForward.hpp"
 #include "Modules/Optimizer.hpp"
 #include "Modules/Relu.hpp"
 
-#include "Modules/Transformer/GPT.hpp"
+// #include "Modules/Transformer/GPT/GPT.hpp"
+#include "Modules/Transformer/Llama/Llama.hpp"
 
 #include "DataLoader/GGUF.hpp"
 #include "DataLoader/DataLoading.hpp"
@@ -36,15 +36,14 @@
 int main()
 {
 
-    size_t n_heads = 2;
-    size_t n_layers = 1; 
-    size_t input_dim = 4;
-    size_t block_size = 2;
-    size_t batch_size = 2;
-    // size_t max_sequence_length = 100;
-    size_t iters = 5000;
+    size_t n_heads = 4;
+    size_t n_layers = 12; 
+    size_t input_dim = 128;
+    size_t block_size = 4;
+    size_t batch_size = 4;
+    size_t iters = 1;
     // size_t epochs = 10;
-    size_t evals = 1000;
+    size_t evals = 1;
     const std::string folder_path = "Dataset";
 
     TextDataset<float> ds("Dataset", block_size, batch_size);
@@ -52,12 +51,12 @@ int main()
 
     size_t vocab_size = ds.vocab_size();
 
-    GPT<float> model(vocab_size, input_dim, block_size, n_heads, n_layers);
-    model.load("Models/GPT.hge");
+    Llama<float> model(vocab_size, input_dim, block_size, n_heads, n_layers);
+    // model.load("Models/Llama.hge");
 
     auto get_batch     = [&](std::string split) { return ds.get_batch(split); };
-    // model.train(get_batch, iters, evals);
-    // model.save("Models/GPT.hge");
+    model.train(get_batch, iters, evals);
+    model.save("Models/Llama.hge");
 
     std::string prompt = "the data type is int";
     std::vector<float> enc_in;

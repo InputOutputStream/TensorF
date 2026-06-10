@@ -1,5 +1,4 @@
-#ifndef __FP8_HPP
-#define  __FP8_HPP
+#pragma once
 
 #include <ctype.h>
 #include <stdint.h>
@@ -53,4 +52,3 @@ struct std::numeric_limits<FP8<E,M>> {
     }
 };
 
-#endif

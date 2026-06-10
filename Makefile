@@ -1,8 +1,8 @@
 CC      = g++
 CFLAGS  = -g -std=c++20 -O2 -Wall -Wextra -Iinclude # -fsanitize=address,undefined 
 LDFLAGS = -lopenblas
-TARGET  = benchmark
-SRCS    = benchmark.cpp
+TARGET  = GPT2
+SRCS    = GPT2.cpp
 OBJS    = $(SRCS:.cpp=.o)
 
 $(TARGET): $(OBJS)

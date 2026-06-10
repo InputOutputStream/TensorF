@@ -2,9 +2,9 @@
 #include "DataStructures/Matrix.hpp"
 #include "DataStructures/Tensor.hpp"
 #include "Modules/Transformer/GPT/GPT.hpp"
-#include "ModelLoader/GPTLoader.hpp"
+#include "ModelLoader/GPT2Loader.hpp"
 #include "DataLoader/DataLoading.hpp"
-// #include "DataLoader/GGUF.hpp"
+#include "DataLoader/GGUF.hpp"
 #include "Tokenizer/GPT2Tokenizer.hpp"
 
 #include <iostream>
@@ -30,7 +30,7 @@ void run_gpt2_inference() {
     GPT2Tokenizer tokenizer;
     tokenizer.load("SLM/gpt2-tokenizer/vocab.json", "SLM/gpt2-tokenizer/merges.txt");
 
-    GPTGGUFLoader<float> loader;
+    GGUFLoader<float> loader;
     GPT<float> model = loader.load_model("SLM/gpt2-small-f32.gguf", hp);
 
     std::string prompt = "The data type is int";

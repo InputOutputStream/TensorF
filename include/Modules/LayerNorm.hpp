@@ -58,6 +58,9 @@ class LayerNorm : public Module<T>{
     }
 
     friend class GGUFLoader<T>;
+    friend class GPTGGUFLoader<T>; 
+    friend class LlamaGGUFLoader<T>; 
+
 };
 
  #endif // !__LAYER__NORM__

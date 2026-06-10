@@ -31,16 +31,6 @@
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-#include "Types/types.hpp"
-#include "DataStructures/Matrix.hpp"
-#include "DataStructures/Tensor.hpp"
-#include "Modules/Transformer/GPT.hpp"
-#include "ModelLoader/ModelLoader.hpp"
-#include "DataLoader/DataLoading.hpp"
-#include "DataLoader/GGUF.hpp"
-#include "Tokenizer/GPT2Tokenizer.hpp"
-
 #include <iostream>
 #include <vector>
 #include <fstream>
@@ -49,11 +39,20 @@
 #include <random>
 #include <unordered_map>
 
+#include "Types/types.hpp"
+#include "DataStructures/Matrix.hpp"
+#include "DataStructures/Tensor.hpp"
+#include "Modules/Transformer/GPT/GPT.hpp"
+#include "ModelLoader/GPT2Loader.hpp"
+#include "DataLoader/DataLoading.hpp"
+#include "DataLoader/GGUF.hpp"
+#include "Tokenizer/GPT2Tokenizer.hpp"
+
 // ── TensorF profiler headers  ────────────────────────────────
 #include "Profiler/Profiler.hpp"
 #include "Profiler/HyperparamAdvisor.hpp"   // for QuantPolicy in workload lambdas
-#include "Profiler/protocol/ProfilerProtocol.hpp"
-#include "Profiler/protocol/ProfilerTransport.hpp"
+#include "Profiler/protocol/MessageProtocol.hpp"
+#include "Profiler/protocol/MessageTransport.hpp"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities

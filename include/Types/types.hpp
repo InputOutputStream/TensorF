@@ -1,5 +1,4 @@
-#ifndef __TYPES__
-#define __TYPES__
+#pragma once
 
     #include <memory>
     #include <vector>
@@ -16,14 +15,19 @@
     class Tensor;
 
     template <typename T>
+    class GGUFLoader;
+
+    template <typename T>
+    class GPTGGUFLoader;
+    
+    template <typename T>
+    class LlamaGGUFLoader;
+
+    template <typename T>
     class Operation;
 
     template <typename T>
     class Module;
-
-    template <typename T>
-    class GGUFLoader;
-
 
 
     template <typename T>
@@ -70,4 +74,3 @@
     template<typename T> struct is_fp4 : std::false_type {};
     template<unsigned short E, unsigned short M> struct is_fp4<FP4<E,M>> : std::true_type {};
 
-#endif // !__TYPES__
