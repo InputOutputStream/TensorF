@@ -41,6 +41,8 @@ int main()
     size_t input_dim = 128;
     size_t block_size = 4;
     size_t batch_size = 4;
+    size_t n_kv_heads  = 3;
+    size_t ffn_hidden  = 5;
     size_t iters = 1;
     // size_t epochs = 10;
     size_t evals = 1;
@@ -51,7 +53,7 @@ int main()
 
     size_t vocab_size = ds.vocab_size();
 
-    Llama<float> model(vocab_size, input_dim, block_size, n_heads, n_layers);
+    Llama<float> model(vocab_size, input_dim, block_size, n_heads, n_layers, ffn_hidden);
     // model.load("Models/Llama.hge");
 
     auto get_batch     = [&](std::string split) { return ds.get_batch(split); };

@@ -266,12 +266,14 @@ static CPUInfo detect_cpu() {
                  m.find("5800") != std::string::npos ||
                  m.find("5900") != std::string::npos ||
                  m.find("5950") != std::string::npos)
-                                        cpu.gen = CPUGen::AMD_ZEN3;
+
+                cpu.gen = CPUGen::AMD_ZEN3;
         else if (m.find("3000") != std::string::npos ||
                  m.find("3600") != std::string::npos ||
                  m.find("3700") != std::string::npos ||
                  m.find("3900") != std::string::npos)
-                                        cpu.gen = CPUGen::AMD_ZEN2;
+                
+                 cpu.gen = CPUGen::AMD_ZEN2;
         else if (cpu.has_avx2)          cpu.gen = CPUGen::AMD_ZEN1;
     }
     else if (cpu.vendor == CPUVendor::ARM) {

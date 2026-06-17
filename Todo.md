@@ -1,5 +1,4 @@
 
-
 ## Layer 3 — GPU with SYCL
 
 ### The architecture decision

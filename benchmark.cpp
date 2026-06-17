@@ -43,7 +43,7 @@
 #include "DataStructures/Matrix.hpp"
 #include "DataStructures/Tensor.hpp"
 #include "Modules/Transformer/GPT/GPT.hpp"
-#include "ModelLoader/GPT2Loader.hpp"
+#include "ModelLoader/GPTLoader.hpp"
 #include "DataLoader/DataLoading.hpp"
 #include "DataLoader/GGUF.hpp"
 #include "Tokenizer/GPT2Tokenizer.hpp"
@@ -51,8 +51,8 @@
 // ── TensorF profiler headers  ────────────────────────────────
 #include "Profiler/Profiler.hpp"
 #include "Profiler/HyperparamAdvisor.hpp"   // for QuantPolicy in workload lambdas
-#include "Profiler/protocol/MessageProtocol.hpp"
-#include "Profiler/protocol/MessageTransport.hpp"
+#include "Protocol/MessageProtocol.hpp"
+#include "Protocol/MessageTransport.hpp"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities
@@ -193,7 +193,7 @@ int main(int argc, char* argv[]) {
     profiler.profile_load([&]() {
         tokenizer.load("SLM/gpt2-tokenizer/vocab.json",
                     "SLM/gpt2-tokenizer/merges.txt");
-        GGUFLoader<float> loader;
+        GPTGGUFLoader<float> loader;
         // Allocate on heap — keeps RSS elevated after lambda returns
         model_ptr = new GPT<float>(std::move(loader.load_model("SLM/gpt2-small-f32.gguf", hp)));
     });
