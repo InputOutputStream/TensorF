@@ -4,7 +4,6 @@
 #include <cmath>
 
 #include "../Types/types.hpp"
-#include "Linear.hpp"
 #include "Optimizer.hpp"
 #include "Module.hpp"
 

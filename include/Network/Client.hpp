@@ -2,7 +2,7 @@
 #define CLIENT_HPP__
 
 // Provides read_exact / write_exact — do NOT redefine them here.
-#include "../Network/io_utils.hpp"
+#include "io_utils.hpp"
 
 #include "../DataStructures/Matrix.hpp"
 #include "../DataStructures/Tensor.hpp"
@@ -102,6 +102,41 @@ public:
 
         return { make_tensor<T>(Matrix<T>(ibuf, {batch_sz, block_sz})),
                  make_tensor<T>(Matrix<T>(tbuf, {batch_sz, block_sz})) };
+    }
+
+    // ── Logits wire protocol (federated distillation) ───────────────────────
+    //
+    // Used instead of send()/receive() when the round exchanges soft
+    // predictions on a shared "proxy" batch rather than full weight
+    // deltas (see Trainer::compute_logits / Trainer::distill_logits).
+    // It's the same flat-float framing as the weight protocol above, with
+    // two extra header fields so the receiver can reshape the buffer back
+    // into [n_examples, vocab_size] without an out-of-band shape agreement.
+    // This is also what lets clients run different model architectures —
+    // unlike weight averaging, only the proxy batch + vocab size need to
+    // line up, not the parameter layout.
+    //
+    //   send/receive → [uint64 n_examples][uint64 vocab_size]
+    //                  [uint64 total_bytes][T × n_examples*vocab_size]
+
+    bool sendLogits(const std::vector<T>& flat_logits,
+                    uint64_t n_examples, uint64_t vocab_size) {
+        uint64_t total_bytes = flat_logits.size() * sizeof(T);
+        return write_exact(sock_, &n_examples, sizeof(uint64_t)) &&
+               write_exact(sock_, &vocab_size, sizeof(uint64_t)) &&
+               write_exact(sock_, &total_bytes, sizeof(uint64_t)) &&
+               write_exact(sock_, flat_logits.data(), total_bytes);
+    }
+
+    bool receiveLogits(std::vector<T>& flat_logits,
+                       uint64_t& n_examples, uint64_t& vocab_size) {
+        uint64_t total_bytes = 0;
+        if (!read_exact(sock_, &n_examples, sizeof(uint64_t)) ||
+            !read_exact(sock_, &vocab_size,  sizeof(uint64_t)) ||
+            !read_exact(sock_, &total_bytes, sizeof(uint64_t)))
+            return false;
+        flat_logits.resize(total_bytes / sizeof(T));
+        return read_exact(sock_, flat_logits.data(), total_bytes);
     }
 };
 

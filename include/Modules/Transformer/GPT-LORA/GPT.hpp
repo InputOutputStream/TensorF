@@ -52,6 +52,26 @@
 
         size_t get_vocab_size() const { return vocab_size; }
 
+        // ── Accessors added for GPTLoRA.hpp (and anything else that wants to
+        //    reuse a pretrained GPT<T>'s backbone without re-loading from GGUF) ──
+        //
+        // Pure additions — nothing below changes existing behaviour. They exist
+        // so GPTLoRA<T> can copy backbone weights tensor-for-tensor:
+        //   auto pretrained = loader.load_model(path, hp);   // GPT<T>, as today
+        //   GPTLoRA<T> student(...);
+        //   student.load_backbone_from(pretrained);          // see GPTLoRA.hpp
+        //
+        // get_lm_head() assumes Linear<T> exposes a public weight tensor the
+        // same way LoRALinear<T> does (see LoRALinear.hpp's `Tensor_t<T> weight`).
+        // If Linear<T>'s field is named differently, GPTLoRA::load_head_from()
+        // is the one place that needs adjusting.
+        size_t get_block_size() const { return max_sequence_length; }
+        PositionalEncoding<T>& get_position_embedding() { return position_embedding_table; }
+        Embedding<T>&          get_embedding_table()    { return embedding_table; }
+        LayerNorm<T>&          get_ln_f()                { return ln_f; }
+        Linear<T>&             get_lm_head()             { return lm_head; }
+        const std::vector<std::unique_ptr<Block<T>>>& get_blocks() const { return decoder_blocks; }
+
         Tensor_t<T> forward(Tensor_t<T> index, Tensor_t<T> targets, bool apply_mask=true)
         {
             size_t batch_size = index->shape[0], seq_len = index->shape[1]; 

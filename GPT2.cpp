@@ -27,14 +27,23 @@ void run_gpt2_inference() {
         .n_head     = 12
     };
 
-    GPT2Tokenizer tokenizer;
-    tokenizer.load("SLM/gpt2-tokenizer/vocab.json", "SLM/gpt2-tokenizer/merges.txt");
 
     GPTGGUFLoader<float> loader;
     GPT<float> model = loader.load_model("SLM/gpt2-small-f32.gguf", hp);
 
+    GPT2Tokenizer tokenizer;
+    tokenizer = loader.load_tokenizer();
+    if (tokenizer.encoder.empty()) {
+        std::cerr << "Failed to load tokenizer from GGUF.\n";
+        return;
+    }
+
     std::string prompt = "The data type is int";
     std::vector<int> token_ids = tokenizer.encode(prompt);
+
+    int i= 0;
+    for(auto t: token_ids)  
+        std::cout <<"Token :" <<i++ <<": " << t <<"\n";
 
     // Construire le contexte {1, seq_len}
     std::vector<float> ctx_data(token_ids.begin(), token_ids.end());
@@ -44,7 +53,7 @@ void run_gpt2_inference() {
     );
 
     // Générer 50 nouveaux tokens
-    auto out = model.generate(context, 30, 0.6f, 20);
+    auto out = model.generate(context, 30, 0.8f, 30);
 
     // Décoder seulement les tokens générés (après le prompt)
     size_t prompt_len = token_ids.size();

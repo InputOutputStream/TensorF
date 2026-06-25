@@ -29,9 +29,9 @@ class Block : public Module<T>{
 
     public:
 
-    Block(size_t input_dim, size_t sequence_length, size_t n_heads): 
-        mha(checked_head_size(input_dim, n_heads), input_dim, sequence_length, n_heads),
-        ffwd(input_dim, 4 * input_dim, input_dim),
+    Block(size_t input_dim, size_t sequence_length, size_t n_heads, size_t rank, T alpha): 
+        mha(checked_head_size(input_dim, n_heads), input_dim, sequence_length, n_heads, rank, alpha),
+        ffwd(input_dim, 4 * input_dim, input_dim, rank, alpha),
         ln1({input_dim}),  
         ln2({input_dim})  
     {

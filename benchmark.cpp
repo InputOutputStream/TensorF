@@ -1,5 +1,4 @@
 /*
- * main.cpp — TensorF Client Profiler
  * ====================================
  * Orchestrates the full profiling pipeline:
  *   1. Hardware detection + benchmarks   (Profiler::run)
@@ -172,7 +171,8 @@ int main(int argc, char* argv[]) {
     if (opts.help) { print_usage(argv[0]); return 0; }
 
     auto wall_start = std::chrono::steady_clock::now();
-
+    std::string model_path ="SLM/gpt2-small-f32.gguf";
+    
     // ── 1. Baseline  ────────────────────────────────────────
     Profiler profiler;
     // snapshot baseline before loading anything
@@ -191,15 +191,13 @@ int main(int argc, char* argv[]) {
     GPT<float>* model_ptr = nullptr;  // heap so we control lifetime  
 
     profiler.profile_load([&]() {
-        tokenizer.load("SLM/gpt2-tokenizer/vocab.json",
-                    "SLM/gpt2-tokenizer/merges.txt");
         GPTGGUFLoader<float> loader;
+        model_ptr = new GPT<float>(std::move(loader.load_model(model_path, hp)));
+        tokenizer = loader.load_tokenizer();
         // Allocate on heap — keeps RSS elevated after lambda returns
-        model_ptr = new GPT<float>(std::move(loader.load_model("SLM/gpt2-small-f32.gguf", hp)));
     });
     // RSS delta here = actual cost of loading GPT-2 weights into RAM
 
-    // ── 3. Profile INFER stage — actual generate() call ──────────────────────
     std::string prompt  = "What is the date of today in ankara";
     Tensor_t<float> context;
 

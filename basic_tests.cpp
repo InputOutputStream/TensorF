@@ -533,8 +533,8 @@ void sigmoidTest()
 template<typename T>
 void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int iters)
 {
-    Linear<T> l1(input->val.shape[1], 2, true);
-    Linear<T> l2(2, 1, true);
+    Linear<T> l1(2, input->val.shape[1], true);
+    Linear<T> l2(1, 2, true);
 
     std::vector<Tensor_t<T>> params(l1.parameters());
     auto param2 = l2.parameters(); 
@@ -585,9 +585,9 @@ class Model{
 
     public:
         Model(size_t x_train_shape)
-            : l1(x_train_shape, 64, true),
+            : l1(64, x_train_shape, true),
             l2(64, 64, true),
-            l3(64, 10, true)
+            l3(10, 64, true)
         {
             std::vector<Tensor_t<T>> param1 = l1.parameters();
             parameters.insert(parameters.end(), param1.begin(), param1.end());

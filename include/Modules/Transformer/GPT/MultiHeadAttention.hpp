@@ -20,7 +20,7 @@ class MultiHeadAttention : public Module<T>{
     public:
 
     MultiHeadAttention(size_t head_size, size_t input_dim, size_t sequence_length, size_t n_heads): 
-    proJ(head_size * n_heads, input_dim, true)
+    proJ(input_dim, head_size * n_heads, true)
     {
         this->n_heads = n_heads;
         

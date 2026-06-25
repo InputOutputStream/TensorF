@@ -16,8 +16,8 @@ class FeedForward: public Module<T>{
     public:
 
     FeedForward(size_t in_features, size_t hidden, size_t out_features)
-    : l1(in_features, hidden, true),
-      l2(hidden, out_features, true)
+    : l1(hidden, in_features, true),
+      l2(out_features, hidden, true)
         {
             this->register_module(&l1);
             this->register_module(&l2);

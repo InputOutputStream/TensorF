@@ -202,10 +202,14 @@ static CPUInfo detect_cpu() {
 
     // ISA flags (first processor block is enough)
     std::string flags_line = find_field("flags");
+    // Pad with sentinel spaces so every flag — including the first and the
+    // last token in the line, which has no trailing space or newline after
+    // find_field's substr/ltrim — is uniformly surrounded by spaces.
+    // Without this, has_flag() silently misses whichever flag happens to be
+    // last in /proc/cpuinfo's flag list (e.g. amx_int8, avx512_vnni).
+    std::string flags_padded = " " + flags_line + " ";
     auto has_flag = [&](const std::string& f) {
-        return flags_line.find(" " + f + " ") != std::string::npos
-            || flags_line.find(" " + f + "\n") != std::string::npos
-            || flags_line.find(f + " ") == 0;
+        return flags_padded.find(" " + f + " ") != std::string::npos;
     };
     cpu.has_sse2        = has_flag("sse2");
     cpu.has_avx         = has_flag("avx");
@@ -391,6 +395,12 @@ static RAMInfo detect_ram(const CPUInfo& cpu) {
         ram.channels = (uint8_t)(slots_populated >= 4 ? 4 : slots_populated >= 2 ? 2 : 1);
         uint8_t max_channels = (cpu.physical_cores > 16) ? 8 : 2;
         ram.channels = std::min(ram.channels, max_channels);
+
+        // max_speed was computed above but never stored — without this,
+        // ram.speed_mts stays 0 forever, which zeroes out bandwidth_gbs
+        // below and silently breaks the RAM-bandwidth score in
+        // compute_capability_score() and any downstream advisor logic.
+        ram.speed_mts = max_speed;
     }
 
     // Theoretical bandwidth: speed_MT/s × bus_width(8B) × channels / 1000

@@ -16,11 +16,11 @@
             Tensor_t<T> bias = nullptr;
             bool sbias;
 
-            Linear(size_t in_features, size_t out_features, bool sbias = true) 
+            Linear(size_t out_features, size_t in_features, bool sbias = true) 
             {
                 // Glorot 
                 auto limit = std::sqrt((T)6.0 / (T)(in_features + out_features));
-                this->weight = make_tensor<T>(Matrix<T>::randu(-limit, limit, {in_features, out_features}));
+                this->weight = make_tensor<T>(Matrix<T>::randu(-limit, limit, {out_features, in_features}));
                 this->register_parameter(this->weight);
                 this->sbias = sbias;
                 this->bias = make_tensor<T>(Matrix<T>::zeros({out_features}));
@@ -33,11 +33,11 @@
                 Tensor_t<T> res;
                 if(sbias)
                    {
-                        res = x->matmul(weight) + bias;
+                        res = x->matmul(weight->transpose()) + bias;
                    }
                 else
                     {
-                        res = x->matmul(weight);
+                        res = x->matmul(weight->transpose());
                     }
                 // std::cerr << " Linear out val : "<< res->val<< "\n";
                 return res;

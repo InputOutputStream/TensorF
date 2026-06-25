@@ -33,7 +33,7 @@ class Llama: public Module<T>{
           max_sequence_length(block_size),
           ffn_hidden(ffn_hidden),
           embedding_table(vocab_size, input_dim),
-          lm_head(input_dim, vocab_size),
+          lm_head(vocab_size, input_dim),
           rms({input_dim})
     {
         this->register_module(&embedding_table);
@@ -108,6 +108,7 @@ class Llama: public Module<T>{
                          float temperature = 0.7f, size_t k = 40)
     {
         Tensor_t<T> current_index = index;
+        const int eos_token_id = 2;   // <|im_end|>
 
         for (size_t i = 0; i < max_new_tokens; i++)
         {
@@ -139,10 +140,16 @@ class Llama: public Module<T>{
             Matrix<T> new_tokens = Matrix<T>::stack(index_next, 0);
             current_index = make_tensor<T>(
                 Matrix<T>::concat({current_index->val, new_tokens}, 1));
+            
+            // Check EOS for the first batch element (assuming batch size 1)
+            auto last_id = current_index->val.at({0, current_index->shape[1] - 1});
+            if (last_id.data[0] == eos_token_id)
+                break;
         }
 
         return current_index;
     }
+
 
     Tensor_t<T> train_step(Optimizer<T>* Op, Tensor_t<T> inputs, Tensor_t<T> targets)
     {

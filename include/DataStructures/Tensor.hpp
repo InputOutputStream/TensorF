@@ -278,7 +278,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     Tensor_t<T> std(size_t axis) {
         return this->var(axis)->sqrt();
     }
- 
+
     // Static on graph
     
     static Tensor_t<T> concat(std::vector<Tensor_t<T>> tens, size_t axis){
@@ -336,6 +336,15 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     static Tensor_t<T> ones(std::initializer_list<size_t> shape){
         return make_tensor<T>(Matrix<T>::ones(shape));
+    }
+
+    static Tensor_t<T> GeLU(Tensor_t<T> x)
+    {
+       return x * ((x * (T)1.702)->sigmoid());
+    }
+
+    static Tensor_t<T> SiLU(Tensor_t<T> x){
+        return x * x->sigmoid();  
     }
 
     static Tensor_t<T> randn(std::initializer_list<size_t> shape){

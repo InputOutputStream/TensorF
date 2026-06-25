@@ -3,7 +3,7 @@
 
 
 #include "../../../Types/types.hpp"
-#include "../../Linear.hpp"
+#include "../../LoRALinear.hpp"
 #include "../../Optimizer.hpp"
 #include "../../Module.hpp"
 
@@ -11,14 +11,14 @@ template <typename T>
 class FeedForward: public Module<T>{
             
     private:
-        Linear<T> up;
-        Linear<T> down;
+        LoRALinear<T> up;
+        LoRALinear<T> down;
 
     public:
 
-    FeedForward(size_t in_features, size_t hidden, size_t out_features)
-    : up(hidden, in_features, true),
-      down(out_features, hidden, true)
+    FeedForward(size_t in_features, size_t hidden, size_t out_features, size_t rank, T alpha)
+    : up(hidden, in_features, rank, alpha),
+      down(out_features, hidden, rank, alpha)
         {
             this->register_module(&up);
             this->register_module(&down);

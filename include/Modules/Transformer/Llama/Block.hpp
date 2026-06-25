@@ -7,7 +7,6 @@
 
 #include "../../Module.hpp"
 #include "../../RMSNorm.hpp"
-#include "../../Linear.hpp"
 
 #include "MultiHeadAttention.hpp"
 #include "Head.hpp"

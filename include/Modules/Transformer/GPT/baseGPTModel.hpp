@@ -37,7 +37,7 @@
             embedding_table(vocab_size, input_dim),
 
             ln_f({input_dim}),
-            lm_head(input_dim, vocab_size)
+            lm_head(vocab_size, input_dim)
         {
             this->register_module(&position_embedding_table);
             this->register_module(&embedding_table);

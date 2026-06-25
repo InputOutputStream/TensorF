@@ -74,15 +74,15 @@ $(BIN)/smollm: SmollLLM.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 
 # ── Character-level Llama training ───────────────────────────────────────────
-transformer: $(BIN)/transformer
-$(BIN)/transformer: transformer.cpp
-	@echo "[CXX] $< → $@"
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+# transformer: $(BIN)/transformer
+# $(BIN)/transformer: transformer.cpp
+# 	@echo "[CXX] $< → $@"
+# 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 
 # ── Federated learning — server ───────────────────────────────────────────────
 
-SERVER_SRC ?= include/Network/server.cpp
-CLIENT_SRC ?= include/Network/client.cpp
+SERVER_SRC ?= include/Network/Server.cpp
+CLIENT_SRC ?= include/Network/Client.cpp
 
 server: $(BIN)/server
 $(BIN)/server: $(SERVER_SRC)
@@ -95,10 +95,10 @@ $(BIN)/client: $(CLIENT_SRC)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 
 # ── Benchmark / profiler ──────────────────────────────────────────────────────
-benchmark: $(BIN)/benchmark
-$(BIN)/benchmark: benchmark.cpp
-	@echo "[CXX] $< → $@"
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+# benchmark: $(BIN)/benchmark
+# $(BIN)/benchmark: benchmark.cpp
+# 	@echo "[CXX] $< → $@"
+# 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 
 # ── Tests unitaires ───────────────────────────────────────────────────────────
 tests: $(BIN)/basic_tests

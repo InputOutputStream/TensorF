@@ -1,65 +1,50 @@
 #include "Types/types.hpp"
-
 #include "DataStructures/Matrix.hpp"
-
 #include "Modules/Transformer/Llama/Llama.hpp"
 #include "ModelLoader/LlamaLoader.hpp"
-
-
 #include "DataLoader/GGUF.hpp"
 #include "DataLoader/DataLoading.hpp"
 #include "Tokenizer/LlamaTokenizer.hpp"
-
 #include <iostream>
 #include <vector>
-#include <cassert>
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <set>
-#include <filesystem>
-#include <random>
-
-
-// ─── main ───────────────────────────────────────────────────────────────────
-
-int main()
-{
-    size_t iters = 50;
-    size_t evals = 10;
-    const std::string folder_path = "Dataset";
-
+int main() {
     LlamaHyperParams hp {
-         .vocab_size  = 49152,
-         .input_dim   = 576,
-         .block_size  = 512,    // crop to 512 for memory; SmolLM2 trains at 8192
-         .n_heads     = 9,
-         .n_kv_heads  = 3,
-         .n_layer     = 30,
-         .ffn_hidden  = 1536,
-     };
-     
-    TextDataset<float> ds("Dataset", 4, 4);
-    ds.load();
-    
-    size_t vocab_size = ds.vocab_size();
+        .vocab_size  = 49152,
+        .input_dim   = 576,
+        .block_size  = 512,      // adjust if memory allows
+        .n_heads     = 9,
+        .n_kv_heads  = 3,
+        .n_layer     = 30,
+        .ffn_hidden  = 1536,
+    };
 
     LlamaGGUFLoader<float> loader;
-    Llama<float> model = loader.load_model("SLM/SmolLM2-135M-Instruct-f16.gguf", hp);
-    
-    // inspect the file first
-    // loader.inspect("SmolLM2-135M.gguf");
+    Llama<float> model = loader.load_model("SLM/lSmolLM2-135M-Instruct-f16.gguf", hp);
+    LlamaTokenizer tokenizer = loader.load_tokenizer();
 
-    auto get_batch     = [&](std::string split) { return ds.get_batch(split); };
-    // model.train(get_batch, iters, evals);
-    
-    LlamaTokenizer tokenizer;
+    std::string test = "<|im_start|>user\nHello<|im_end|>\n<|im_start|>assistant\n";
+    auto test_ids = tokenizer.encode(test);
+    std::cout << "Encoded IDs: ";
+    for (int id : test_ids) std::cout << id << " ";
+    std::cout << "\n";
+    std::cout << "Decoded back: " << tokenizer.decode(test_ids) << "\n";
 
-    std::string prompt = "the data type is int";
-    std::vector<int> token_ids = tokenizer.encode(prompt);
+
+    // ── Chat template for SmolLM instruct ──────────────────────────────
+    std::string system_msg = "You are a helpful assistant.";
+    std::string user_prompt = "the data type is int";
+    std::string formatted = 
+        "<|im_start|>system\n" + system_msg + "<|im_end|>\n" +
+        "<|im_start|>user\n" + user_prompt + "<|im_end|>\n" +
+        "<|im_start|>assistant\n";
+
+    // Encode with special-token awareness
+    std::vector<int> token_ids = tokenizer.encode(formatted);
+
+    std::cout << "Token IDs: ";
+    for (int id : token_ids) std::cout << id << " ";
+    std::cout << "\n";
 
     // Build context tensor
     std::vector<float> ctx_data(token_ids.begin(), token_ids.end());
@@ -68,13 +53,15 @@ int main()
     );
 
     // Generate
-    auto out = model.generate(context, 50, 0.6f, 40);
+    auto out = model.generate(context, 30, 0.6f, 40);
 
+    // Decode only the generated part
+    size_t prompt_len = token_ids.size();
     std::vector<int> generated_ids;
-    for (size_t i = token_ids.size(); i < out->val.data.size(); i++)
+    for (size_t i = prompt_len; i < out->val.data.size(); i++)
         generated_ids.push_back((int)out->val.data[i]);
 
-    std::cout << "Generated: " << tokenizer.decode(generated_ids) << std::endl;
+    std::cout << "Generated:\n" << tokenizer.decode(generated_ids) << std::endl;
 
     return 0;
 }

@@ -287,6 +287,7 @@ public:
             for (int i = 0; i < REPS; i++)
                 idx = arr[idx & mask];  // bitmask instead of % n
             sink = idx;  // forces the chain to actually execute
+            (void)sink;
             double s = elapsed_s(t0);
 
             return (s / REPS) * 1e9; // ns per access

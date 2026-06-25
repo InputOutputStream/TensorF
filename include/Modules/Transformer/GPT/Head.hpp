@@ -25,9 +25,9 @@ class Head : public Module<T>{
     public:
 
     Head(size_t head_size, size_t input_dim, size_t sequence_length, bool bias=true): 
-      K(input_dim, head_size, bias),
-      Q(input_dim, head_size, bias),
-      V(input_dim, head_size, bias)
+      K(head_size, input_dim, bias),
+      Q(head_size, input_dim, bias),
+      V(head_size, input_dim, bias)
     {
         this->input_dim = input_dim;
         this->seq_length = sequence_length;

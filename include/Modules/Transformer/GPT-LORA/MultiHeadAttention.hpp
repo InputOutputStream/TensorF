@@ -1,12 +1,12 @@
-#ifndef __LLAMA_MHA__HPP
-#define __LLAMA_MHA__HPP
+#ifndef __MHA__HPP
+#define __MHA__HPP
 
 #include <vector>
 #include <memory>
 #include <algorithm>
 
 #include "../../Module.hpp"
-#include "../../Linear.hpp"
+#include "../../LoRALinear.hpp"
 
 #include "Head.hpp"
 
@@ -14,19 +14,19 @@ template <typename T>
 class MultiHeadAttention : public Module<T>{
     private:
         size_t n_heads;
-        Linear<T> proJ;
+        LoRALinear<T> proJ;
         std::vector<std::unique_ptr<Head<T>>> Heads;
 
     public:
 
-    MultiHeadAttention(size_t head_size, size_t input_dim, size_t sequence_length, size_t n_heads): 
-    proJ(input_dim, head_size * n_heads, true)
+    MultiHeadAttention(size_t head_size, size_t input_dim, size_t sequence_length, size_t n_heads, size_t rank, T alpha): 
+    proJ(input_dim, head_size * n_heads, rank, alpha)
     {
         this->n_heads = n_heads;
         
         Heads.reserve(n_heads);
         for(size_t i = 0; i < n_heads; i++) {
-            Heads.push_back(std::make_unique<Head<T>>(head_size, input_dim, sequence_length));
+            Heads.push_back(std::make_unique<Head<T>>(head_size, input_dim, sequence_length, rank, alpha));
             this->register_module(Heads.back().get());
         }
         this->register_module(&proJ);
@@ -61,8 +61,7 @@ class MultiHeadAttention : public Module<T>{
     }
 
     friend class GGUFLoader<T>;
-    friend class LlamaGGUFLoader<T>; 
-
+    friend class GPTGGUFLoader<T>; 
 };
 
 #endif // !__MHA__HPP

@@ -23,7 +23,7 @@ class RotationalPositionalEncoding{
         auto even_i = Matrix<T>::arrange(0, this->input_dim, 2);
         std::vector<T> tmp;
         for(auto i: even_i.data){
-            tmp.push_back(std::pow(10000, (T)i/(T)input_dim));
+            tmp.push_back(std::pow(100000, (T)i/(T)input_dim));
         }
         Matrix<T> denominator(tmp);
         auto position = index->reshape({index->val.shape[index->ndims - 1], 1})->val;

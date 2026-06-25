@@ -17,7 +17,7 @@ public:
     Tensor_t<T> B;        // {rank, out} — trained
     T scale;              // alpha / rank
 
-    LoRALinear(size_t in, size_t out, size_t rank, T alpha) {
+    LoRALinear(size_t out, size_t in, size_t rank, T alpha) {
         weight = make_tensor<T>(Matrix<T>::zeros({in, out})); // load pretrained here
         A = make_tensor<T>(Matrix<T>::randn({in, rank}));
         B = make_tensor<T>(Matrix<T>::zeros({rank, out}));

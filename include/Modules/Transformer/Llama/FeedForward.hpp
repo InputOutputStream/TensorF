@@ -22,9 +22,9 @@ class FeedForward: public Module<T>{
     public:
 
     FeedForward(size_t in_features, size_t hidden, size_t out_features)
-    : gate_proj(in_features, hidden, false),   
-      up_proj  (in_features, hidden, false),
-      down_proj(hidden, out_features, false)
+    : gate_proj(hidden, in_features, false),   
+      up_proj  (hidden,  in_features, false),
+      down_proj(out_features,  hidden, false)
     {
         this->register_module(&gate_proj);
         this->register_module(&up_proj);
@@ -46,13 +46,11 @@ class FeedForward: public Module<T>{
 
     Tensor_t<T> forward(Tensor_t<T> x) {
         Tensor_t<T> gate_raw = gate_proj.forward(x);
-        Tensor_t<T> gate = gate_raw * gate_raw->sigmoid();  // SiLU
-
+        Tensor_t<T> gate = Tensor<T>::SiLU(gate_raw);  // SiLU
         Tensor_t<T> up = up_proj.forward(x);
 
         // Element-wise gating
         Tensor_t<T> hidden = gate * up;
-
         return down_proj.forward(hidden);
     }
 
