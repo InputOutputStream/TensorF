@@ -14,24 +14,35 @@
 #include <stdexcept>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 
 // ── Client<T> ─────────────────────────────────────────────────────────────────
 //
 // Lightweight networking base used by FederatedClient (client.cpp).
-// Owns the socket and implements the two wire protocols:
+// Owns the socket and implements three wire protocols:
 //
-//   Flat-tensor protocol  (params / deltas)
+//   Flat-tensor protocol  (params / deltas) — kept for reference/round-trip
+//   tests; FederatedClient's actual weight exchange uses the chunked
+//   protocol below instead.
 //     send   → [uint64 total_bytes][T × N]
 //     receive← [uint64 total_bytes][T × N]
+//
+//   Chunked flat-tensor protocol (params / deltas) — what send_deltas()/
+//   receive_weights() in client.cpp actually use. Same logical payload as
+//   above, streamed in caller-chosen pieces instead of one big message, so
+//   peak extra memory is ~chunk_elems*sizeof(T) instead of the whole
+//   model's size. See io_utils.hpp's send_chunked()/recv_chunked().
+//     sendChunked    → [uint64 total_elems] then [uint64 chunk_len][T×chunk_len]…
+//     receiveChunked ← same
 //
 //   Batch protocol  (server → client data streaming)
 //     receive← [uint64 batch_size][uint64 block_size]
 //               [T × batch*block  inputs]
 //               [T × batch*block  targets]
 //
-// FederatedClient builds the flat vectors from its own model.parameters()
-// and passes them directly to send() / receive(), keeping model ownership
-// in the subclass.
+// FederatedClient builds the flat vectors (or chunk callbacks) from its own
+// model.parameters() and passes them directly to these methods, keeping
+// model ownership in the subclass.
 
 template<typename T>
 class Client {
@@ -102,6 +113,31 @@ public:
 
         return { make_tensor<T>(Matrix<T>(ibuf, {batch_sz, block_sz})),
                  make_tensor<T>(Matrix<T>(tbuf, {batch_sz, block_sz})) };
+    }
+
+    // ── Chunked flat-tensor wire protocol ───────────────────────────────────
+    //
+    // Same logical payload as send()/receive() above (a flattened model's
+    // worth of T), but streamed in caller-chosen chunk_elems-sized pieces
+    // instead of one [total_bytes][T×N] message — so the peak extra memory
+    // for the transfer is ~chunk_elems*sizeof(T), not the whole model's size.
+    // This is what makes federated rounds viable on very low-RAM machines;
+    // see Modes.md's --chunk-mb for how to size it.
+    //
+    // Client<T> itself stays model-agnostic here too (consistent with
+    // send()/receive()): FederatedClient (client.cpp) supplies get_chunk/
+    // on_chunk callbacks that read from / write into student.parameters()
+    // directly — Client<T> just forwards to io_utils.hpp's generic
+    // send_chunked()/recv_chunked() over this object's own socket.
+
+    bool sendChunked(uint64_t total_elems, size_t chunk_elems,
+                     const std::function<void(uint64_t offset, size_t len, T* out)>& get_chunk) {
+        return send_chunked<T>(sock_, total_elems, chunk_elems, get_chunk);
+    }
+
+    bool receiveChunked(uint64_t expected_total,
+                        const std::function<void(uint64_t offset, const T* data, size_t len)>& on_chunk) {
+        return recv_chunked<T>(sock_, expected_total, on_chunk);
     }
 
     // ── Logits wire protocol (federated distillation) ───────────────────────

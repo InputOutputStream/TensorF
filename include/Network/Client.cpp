@@ -13,8 +13,9 @@
  *
  *  Networking is delegated entirely to Client<float> (Client.hpp):
  *    connect_to_server()  → net.connect_to_server()
- *    send_deltas()        → trainer.get_flat_weights() + net.send()
- *    receive_weights()    → net.receive() + trainer.set_flat_weights()
+ *    send_deltas()        → streams student.parameters() via net.sendChunked()
+ *    receive_weights()    → net.receiveChunked() straight into student.parameters()
+ *    (no full-model flat buffer is built on either side — see --chunk-mb)
  *
  *  Build:
  *    make client         (CLIENT_SRC=include/Network/client.cpp in Makefile)
@@ -54,6 +55,7 @@
 #include <functional>
 #include <optional>
 #include <filesystem>
+#include <algorithm>
 
 // ─── POSIX networking ────────────────────────────────────────────────────────
 #include <unistd.h>
@@ -164,6 +166,18 @@ struct ClientOptions {
     size_t      save_every   = 1;       // save every N rounds (0 = never)
     size_t      max_rounds   = 0;       // 0 = run forever (existing behaviour)
     std::string quantize     = "none";  // "none" | "fp8" | "fp4" — extra compressed save
+
+    // ── Chunked transfer (low-RAM machines) ───────────────────────────────
+    // Sizes THIS client's outgoing send_deltas() chunks. Smaller = less peak
+    // memory for the round-trip (weight deltas are chunked straight from/
+    // into student.parameters() — no full-model flat buffer is ever built),
+    // more per-chunk framing overhead (8 bytes/chunk, negligible above a
+    // few hundred KB). Doesn't need to match the server's own --chunk-mb —
+    // recv_chunked() reads whatever chunk size the sender announces. Lower
+    // this (e.g. 1-2) on the weak machine specifically; the server's
+    // --chunk-mb separately controls how big the BROADCAST chunks back to
+    // this client are, so lower that too if THIS client is the weak one.
+    double      chunk_mb     = 8.0;
 };
 
 GPT2HyperParams GPTp {
@@ -200,6 +214,10 @@ static void print_usage(const char* prog) {
         "  --save-every <n>    Save every n rounds, 0=never (default: 1)\n"
         "  --rounds <n>        Max rounds, 0=run forever (default: 0)\n"
         "  --quantize <fmt>    Also save a compressed checkpoint: none|fp8|fp4 (default: none)\n"
+        "  --chunk-mb <n>      Outgoing weight-delta chunk size in MB (default: 8). Lower\n"
+        "                      this on a low-RAM machine; also lower the SERVER's own\n"
+        "                      --chunk-mb if this client is the one that's weak (that\n"
+        "                      controls the broadcast chunk size coming back to it).\n"
         "  --quiet             Suppress verbose output\n"
         "  --help              Show this help\n",
         prog);
@@ -232,6 +250,7 @@ static ClientOptions parse_args(int argc, char* argv[]) {
         else if (a == "--save-every" && i+1 < argc) o.save_every  = atoi(argv[++i]);
         else if (a == "--rounds"     && i+1 < argc) o.max_rounds  = atoi(argv[++i]);
         else if (a == "--quantize"   && i+1 < argc) o.quantize    = argv[++i];
+        else if (a == "--chunk-mb"   && i+1 < argc) o.chunk_mb    = atof(argv[++i]);
         else { fprintf(stderr, "[client] Unknown option: %s\n", a.c_str()); o.help = true; }
     }
     // Default checkpoint path, namespaced by client-id so concurrent clients
@@ -260,6 +279,17 @@ struct RoundStats {
     double  tokens_per_sec  = 0;
     double  rss_mb          = 0;
     std::string generated;
+
+    // ── Network bandwidth (this round) ───────────────────────────────────
+    // send = bytes written during send_deltas()/sendLogits()
+    // recv = bytes read during receive_weights()/receiveLogits()
+    // Captured via io_utils.hpp's global counters (snapshot-diffed around
+    // each call) — see send_deltas()/receive_weights() and
+    // run_feddistill_round() below.
+    double  send_mb         = 0;
+    double  send_mbps       = 0;
+    double  recv_mb         = 0;
+    double  recv_mbps       = 0;
 };
 
 static void print_round_stats(const RoundStats& s) {
@@ -268,8 +298,10 @@ static void print_round_stats(const RoundStats& s) {
     printf("╠══════════════════════════════════════════════════════════╣\n");
     printf("║  Training total   : %8.1f ms                          ║\n", s.train_total_ms);
     printf("║  Training loss    : %8.4f                             ║\n", s.train_loss);
-    printf("║  Send deltas      : %8.1f ms                          ║\n", s.send_ms);
-    printf("║  Receive weights  : %8.1f ms                          ║\n", s.recv_ms);
+    printf("║  Send deltas      : %8.1f ms   (%6.2f MB, %6.1f MB/s)    ║\n",
+           s.send_ms, s.send_mb, s.send_mbps);
+    printf("║  Receive weights  : %8.1f ms   (%6.2f MB, %6.1f MB/s)    ║\n",
+           s.recv_ms, s.recv_mb, s.recv_mbps);
     printf("║  Encode (prompt)  : %8.3f ms  [%zu tokens]            ║\n",
            s.encode_ms, s.prompt_tokens);
     printf("║  Inference        : %8.1f ms  [%zu tokens]            ║\n",
@@ -334,37 +366,158 @@ class FederatedClient {
         return ok;
     }
 
-    /// Serialise student weights via trainer and send to server.
-    /// Returns elapsed milliseconds.
-    double send_deltas() {
+    // ── Flat-offset ↔ tensor mapping for chunked I/O ──────────────────────────
+    // Mirrors Server.hpp's FlatParamCursor exactly (same logical layout as
+    // Trainer::get_flat_weights()/set_flat_weights(), just walked
+    // incrementally instead of via one big flat buffer). Duplicated here
+    // rather than shared because Client.hpp deliberately stays model-
+    // agnostic (see its own header comment) — this cursor needs
+    // Tensor_t<T>, so it lives where the model is actually visible.
+    struct FlatParamCursor {
+        const std::vector<Tensor_t<float>>& params;
+        size_t   tensor_idx    = 0;
+        size_t   pos_in_tensor = 0;
+        uint64_t flat_pos      = 0;
+
+        explicit FlatParamCursor(const std::vector<Tensor_t<float>>& p) : params(p) {}
+
+        void seek(uint64_t target) {
+            while (flat_pos < target && tensor_idx < params.size()) {
+                size_t tsize = params[tensor_idx]->val.get_size();
+                size_t remaining = tsize - pos_in_tensor;
+                uint64_t need = target - flat_pos;
+                size_t step = static_cast<size_t>(std::min<uint64_t>(need, remaining));
+                pos_in_tensor += step;
+                flat_pos      += step;
+                if (pos_in_tensor >= tsize) { tensor_idx++; pos_in_tensor = 0; }
+            }
+        }
+
+        /// Copy `len` elements OUT of params at flat offset `offset` into
+        /// `dst` — used when SENDING (building an outgoing chunk).
+        void read_into(uint64_t offset, size_t len, float* dst) {
+            seek(offset);
+            size_t written = 0;
+            while (written < len) {
+                auto& data = params[tensor_idx]->val.data;
+                size_t avail = data.size() - pos_in_tensor;
+                size_t take  = std::min(avail, len - written);
+                std::copy(data.begin() + pos_in_tensor,
+                          data.begin() + pos_in_tensor + take,
+                          dst + written);
+                written       += take;
+                pos_in_tensor += take;
+                flat_pos      += take;
+                if (pos_in_tensor >= data.size()) { tensor_idx++; pos_in_tensor = 0; }
+            }
+        }
+
+        /// Copy `len` elements from `src` INTO params at flat offset
+        /// `offset` — used when RECEIVING (applying an incoming chunk).
+        void write_from(uint64_t offset, const float* src, size_t len) {
+            seek(offset);
+            size_t written = 0;
+            while (written < len) {
+                auto& data = params[tensor_idx]->val.data;
+                size_t avail = data.size() - pos_in_tensor;
+                size_t take  = std::min(avail, len - written);
+                std::copy(src + written, src + written + take,
+                          data.begin() + pos_in_tensor);
+                written       += take;
+                pos_in_tensor += take;
+                flat_pos      += take;
+                if (pos_in_tensor >= data.size()) { tensor_idx++; pos_in_tensor = 0; }
+            }
+        }
+    };
+
+    // ── Network I/O result: elapsed time + bytes actually moved ──────────────
+    // bytes comes from io_utils.hpp's global counters (snapshot-diffed around
+    // the call), so it reflects real wire bytes including protocol headers,
+    // not just sizeof(flat)*N.
+    struct NetIoStats {
+        double   ms   = 0;     // -1 on failure (receive_weights() only)
+        uint64_t bytes = 0;
+        double   mb   = 0;
+        double   mbps = 0;
+    };
+
+    /// Stream student.parameters() to the server in opts.chunk_mb-sized
+    /// pieces — no full-model flat buffer is ever built (that's what
+    /// trainer.get_flat_weights() would do; this reads straight from the
+    /// source tensors instead). This is what keeps peak memory for the
+    /// round-trip down to ~chunk_mb regardless of model size, the actual
+    /// fix for "client freezes/gets killed after receiving weights" on a
+    /// low-RAM machine.
+    NetIoStats send_deltas() {
+        auto params = student.parameters();
+        uint64_t total = 0;
+        for (auto& p : params) total += p->val.get_size();
+        size_t chunk_elems = std::max<size_t>(
+            1, static_cast<size_t>(opts.chunk_mb * 1024.0 * 1024.0 / sizeof(float)));
+
+        FlatParamCursor cursor(params);
+        uint64_t before = net_bytes_sent();
         Timer t;
-        // trainer.get_flat_weights() packs student.parameters() → flat vector.
-        net.send(trainer.get_flat_weights());
-        return t.ms();
+        bool ok = net.sendChunked(total, chunk_elems,
+            [&cursor](uint64_t offset, size_t len, float* out) {
+                cursor.read_into(offset, len, out);
+            });
+        NetIoStats r;
+        r.ms    = ok ? t.ms() : -1.0;
+        r.bytes = net_bytes_sent() - before;
+        r.mb    = r.bytes / 1e6;
+        r.mbps  = r.ms > 0 ? r.mb / (r.ms / 1000.0) : 0.0;
+        return r;
     }
 
-    /// Receive updated global weights from server and apply to student.
-    /// Returns elapsed milliseconds, or -1 on connection drop.
-    double receive_weights() {
-        std::vector<float> flat;
+    /// Receive updated global weights in chunks, writing each one straight
+    /// into student.parameters() as it arrives — no full-model flat buffer
+    /// on this side either. r.ms == -1 on connection drop or a size
+    /// mismatch (wrong model architecture for this checkpoint/server).
+    NetIoStats receive_weights() {
+        auto params = student.parameters();
+        uint64_t total = 0;
+        for (auto& p : params) total += p->val.get_size();
+
+        FlatParamCursor cursor(params);
+        uint64_t before = net_bytes_received();
         Timer t;
-        if (!net.receive(flat)) return -1.0;
-        double recv_ms = t.ms();
-        // trainer.set_flat_weights() unpacks flat → student.parameters().
-        trainer.set_flat_weights(flat);
-        return recv_ms;
+        NetIoStats r;
+        bool ok;
+        try {
+            ok = net.receiveChunked(total,
+                [&cursor](uint64_t offset, const float* data, size_t len) {
+                    cursor.write_from(offset, data, len);
+                });
+        } catch (const std::exception& e) {
+            printf("[client] receive_weights: %s\n", e.what());
+            r.ms = -1.0;
+            return r;
+        }
+        if (!ok) { r.ms = -1.0; return r; }
+        r.ms    = t.ms();
+        r.bytes = net_bytes_received() - before;
+        r.mb    = r.bytes / 1e6;
+        r.mbps  = r.ms > 0 ? r.mb / (r.ms / 1000.0) : 0.0;
+        return r;
     }
 
     // ── Inference test ────────────────────────────────────────────────────────
 
     RoundStats run_inference(size_t round_no, double train_ms, double train_loss,
-                             double send_ms, double recv_ms) {
+                             double send_ms, double recv_ms,
+                             double send_mb = 0, double recv_mb = 0) {
         RoundStats rs;
         rs.round_no       = round_no;
         rs.train_total_ms = train_ms;
         rs.train_loss     = train_loss;
         rs.send_ms        = send_ms;
         rs.recv_ms        = recv_ms;
+        rs.send_mb        = send_mb;
+        rs.recv_mb        = recv_mb;
+        rs.send_mbps      = send_ms > 0 ? send_mb / (send_ms / 1000.0) : 0.0;
+        rs.recv_mbps      = recv_ms > 0 ? recv_mb / (recv_ms / 1000.0) : 0.0;
 
         Timer enc_t;
         auto token_ids  = tokenizer.encode(opts.prompt);
@@ -440,23 +593,28 @@ class FederatedClient {
         double train_ms = train_t.ms();
         mem.snapshot(MemStage::TRAIN);
 
-        double send_ms = 0, recv_ms = 0;
+        double send_ms = 0, recv_ms = 0, send_mb = 0, recv_mb = 0;
 
         if (!opts.no_federated && net.fd() >= 0) {
-            // trainer.get_flat_weights() → net.send()
-            send_ms = send_deltas();
-            printf("[client] Sent deltas in %.1f ms\n", send_ms);
+            // streams student.parameters() in chunks — net.sendChunked()
+            auto send_io = send_deltas();
+            send_ms = send_io.ms; send_mb = send_io.mb;
+            printf("[client] Sent deltas in %.1f ms (%.2f MB, %.1f MB/s)\n",
+                   send_ms, send_mb, send_io.mbps);
 
-            // net.receive() → trainer.set_flat_weights()
-            recv_ms = receive_weights();
-            if (recv_ms < 0) {
+            // net.receiveChunked() straight into student.parameters()
+            auto recv_io = receive_weights();
+            if (recv_io.ms < 0) {
                 printf("[client] Server disconnected during receive.\n");
                 return;
             }
-            printf("[client] Received weights in %.1f ms\n", recv_ms);
+            recv_ms = recv_io.ms; recv_mb = recv_io.mb;
+            printf("[client] Received weights in %.1f ms (%.2f MB, %.1f MB/s)\n",
+                   recv_ms, recv_mb, recv_io.mbps);
         }
 
-        auto rs = run_inference(round_no, train_ms, last_loss, send_ms, recv_ms);
+        auto rs = run_inference(round_no, train_ms, last_loss, send_ms, recv_ms,
+                                send_mb, recv_mb);
         if (opts.verbose)
             print_round_stats(rs);
     }
@@ -491,26 +649,34 @@ class FederatedClient {
 
         std::vector<float> flat_logits(logit_mat.data.begin(), logit_mat.data.end());
 
+        uint64_t send_bytes_before = net_bytes_sent();
         Timer send_t;
         // Client::sendLogits — wire: [n_examples][vocab_size][bytes][data]
         if (!net.sendLogits(flat_logits, n_examples, vocab_size)) {
             printf("[client] Failed to send logits — dropping round.\n");
             return;
         }
-        printf("[client] Sent logits (%zu examples × %zu vocab) in %.1f ms\n",
-               (size_t)n_examples, (size_t)vocab_size, send_t.ms());
+        double send_ms = send_t.ms();
+        double send_mb = (net_bytes_sent() - send_bytes_before) / 1e6;
+        printf("[client] Sent logits (%zu examples × %zu vocab) in %.1f ms (%.2f MB, %.1f MB/s)\n",
+               (size_t)n_examples, (size_t)vocab_size, send_ms,
+               send_mb, send_ms > 0 ? send_mb / (send_ms / 1000.0) : 0.0);
 
         // ── Phase 2: receive consensus and distill ────────────────────────────
         std::vector<float> consensus_flat;
         uint64_t recv_n = 0, recv_v = 0;
 
+        uint64_t recv_bytes_before = net_bytes_received();
         Timer recv_t;
         // Client::receiveLogits — wire: [n_examples][vocab_size][bytes][data]
         if (!net.receiveLogits(consensus_flat, recv_n, recv_v)) {
             printf("[client] Failed to receive consensus — dropping round.\n");
             return;
         }
-        printf("[client] Received consensus in %.1f ms\n", recv_t.ms());
+        double recv_ms = recv_t.ms();
+        double recv_mb = (net_bytes_received() - recv_bytes_before) / 1e6;
+        printf("[client] Received consensus in %.1f ms (%.2f MB, %.1f MB/s)\n",
+               recv_ms, recv_mb, recv_ms > 0 ? recv_mb / (recv_ms / 1000.0) : 0.0);
 
         // Reshape flat consensus into a Tensor [B*S, V] — this IS the teacher
         // signal. No teacher model involved; it came from the server over the wire.
@@ -523,7 +689,8 @@ class FederatedClient {
         printf("[client] Distillation loss: %.4f  (%.1f ms)\n", loss, distill_t.ms());
 
         mem.snapshot(MemStage::TRAIN);
-        auto rs = run_inference(round_no, distill_t.ms(), loss, send_t.ms(), recv_t.ms());
+        auto rs = run_inference(round_no, distill_t.ms(), loss, send_ms, recv_ms,
+                                send_mb, recv_mb);
         if (opts.verbose)
             print_round_stats(rs);
     }

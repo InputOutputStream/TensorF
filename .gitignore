@@ -56,6 +56,7 @@ MNIST_CSV/**
 # Models
 *.hge
 *.gguf
+*.tnsf
 SLM/*.gguf.1
 SLM/*.gguf
 SLM/.cache
