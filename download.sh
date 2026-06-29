@@ -17,11 +17,11 @@ wget -c "${BASE}/GPT-2-GGUF/resolve/main/GPT-2-q4_k_s.gguf"      -O gpt2-small-q
 # # ── GPT-2 Medium (345 M paramètres) ─────────────────────────
 # # 24 layers, 16 heads, d_model=1024
 # # Q4_K_S — 367 MB
-# wget -c "${BASE}/GPT-2-medium-GGUF/resolve/main/GPT-2-medium-q4_k_s.gguf" \
+wget -c "${BASE}/GPT-2-medium-GGUF/resolve/main/GPT-2-medium-q4_k_s.gguf" \
 #      -O gpt2-medium-q4.gguf
 
 # # Q8_0 — 484 MB
-# wget -c "${BASE}/GPT-2-medium-GGUF/resolve/main/GPT-2-medium-q8_0.gguf" \
+wget -c "${BASE}/GPT-2-medium-GGUF/resolve/main/GPT-2-medium-q8_0.gguf" \
 #      -O gpt2-medium-q8.gguf
 
 # # ── GPT-2 Large (774 M paramètres) ──────────────────────────
