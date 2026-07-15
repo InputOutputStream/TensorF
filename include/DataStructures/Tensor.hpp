@@ -103,7 +103,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         
         if (Matrix<T>::hasNaN(grad))
         {
-            this->backOp->to_string();
+            if (this->backOp) this->backOp->to_string();
             std::cerr << "grad value: " << grad << "\n";
             throw std::runtime_error("Gradient NaN encountered during backprop");
         }

@@ -178,6 +178,9 @@ bool recv_chunked(int fd, uint64_t expected_total,
     while (consumed < total) {
         uint64_t chunk_len = 0;
         if (!read_exact(fd, &chunk_len, sizeof(uint64_t))) return false;
+        if (chunk_len > total - consumed)
+            throw std::runtime_error("recv_chunked: chunk_len exceeds remaining stream");
+
         if (staging.size() < chunk_len) staging.resize(chunk_len);
         if (!read_exact(fd, staging.data(), chunk_len * sizeof(T))) return false;
         on_chunk(consumed, staging.data(), static_cast<size_t>(chunk_len));
