@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ModelLoader — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link">Types.hpp</a>
+<a href="../api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link">Operations (19)</a>
+<a href="../api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link">Modules / nn</a>
+<a href="../api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link">DataLoader</a>
+<a href="../api/modelloader.html" class="link current">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; ModelLoader/*.hpp</span>
+<h1>ModelLoader — GGUF weight loading</h1>
+<p class="lede">Populates a real <code>GPT&lt;T&gt;</code> or <code>Llama&lt;T&gt;</code> from a GGUF checkpoint
+&mdash; the same file format used by llama.cpp. Understanding the shape contract here matters more than the
+method list: get it wrong and weights load silently transposed.</p>
+
+<h2 id="shape-contract">The weight-shape contract</h2>
+<div class="callout warn">
+  <span class="lbl">GGUF layout vs. Matrix&lt;T&gt; layout</span>
+  GGUF stores <code>[out, in]</code> PyTorch weights with the <strong>fastest-varying dimension first</strong>
+  &mdash; i.e. on disk as <code>[in, out]</code>. <code>load_tensor()</code> reverses the dimension order while
+  reading, so the resulting <code>Matrix&lt;T&gt;</code> comes out as <code>{out, in}</code> — exactly
+  matching <code>Linear&lt;T&gt;</code>'s own weight convention. <strong>Net effect: no
+  <code>.transpose()</code> call is needed anywhere when copying a GGUF tensor into a
+  <code>Linear.weight</code>.</strong> This single reversal is why the loader code below never transposes
+  attention or MLP projection weights.
+</div>
+<table>
+<tr><th>GGUF tensor name</th><th>PyTorch shape</th><th>Matrix&lt;T&gt; shape after load_tensor()</th></tr>
+<tr><td><code>token_embd.weight</code></td><td><code>[vocab, D]</code></td><td><code>{vocab, D}</code> ✓ matches Embedding table directly</td></tr>
+<tr><td><code>*.attn_qkv.weight</code> (GPT-2 fused)</td><td><code>[3D, D]</code></td><td><code>{3D, D}</code> — sliced into 3 × <code>{head_size, D}</code> per head via <code>slice_row</code>, no transpose</td></tr>
+<tr><td><code>*.attn_output.weight</code></td><td><code>[D, D]</code></td><td><code>{D, D} = {out, in}</code> ✓</td></tr>
+<tr><td><code>*.ffn_up.weight</code></td><td><code>[4D, D]</code></td><td><code>{4D, D} = {out, in}</code> ✓</td></tr>
+<tr><td><code>*.ffn_down.weight</code></td><td><code>[D, 4D]</code></td><td><code>{D, 4D} = {out, in}</code> ✓</td></tr>
+</table>
+
+<h2 id="gptloader">GPTGGUFLoader&lt;T&gt;</h2>
+<div class="code-title">GPT2HyperParams</div>
+<pre><code><span class="kw">struct</span> GPT2HyperParams {
+    <span class="tp">size_t</span> vocab_size = 50257;
+    <span class="tp">size_t</span> d_model    = 768;
+    <span class="tp">size_t</span> block_size = 1024;
+    <span class="tp">size_t</span> n_layer    = 12;
+    <span class="tp">size_t</span> n_head     = 12;
+};</code></pre>
+<div class="method">
+  <div class="sig"><span class="name">GPT&lt;T&gt; load_model</span>(std::string path, GPT2HyperParams hp)</div>
+  <div class="body"><p>Opens the GGUF file, constructs an empty <code>GPT&lt;T&gt;</code> skeleton at the given
+  hyperparameters, then walks every block loading Q/K/V (sliced from the fused QKV weight), attention
+  output projection, both LayerNorms, and the GeLU MLP's up/down projections. Prints a per-layer progress
+  log and a final parameter-count report.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">GPT2Tokenizer load_tokenizer</span>()</div>
+  <div class="body"><p>Reads the <code>tokenizer.ggml.tokens</code> and <code>tokenizer.ggml.merges</code>
+  metadata arrays embedded in the same GGUF file and builds a ready-to-use
+  <a href="tokenizer.html#gpt2">GPT2Tokenizer</a>. Warns and returns an empty tokenizer if that metadata is
+  absent from the checkpoint.</p></div>
+</div>
+
+<h2 id="llamaloader">LlamaGGUFLoader&lt;T&gt;</h2>
+<div class="code-title">LlamaHyperParams</div>
+<pre><code><span class="kw">struct</span> LlamaHyperParams {
+    <span class="tp">size_t</span> vocab_size;
+    <span class="tp">size_t</span> input_dim;   <span class="cm">// embedding_length,       e.g. 576  (SmolLM2-135M)</span>
+    <span class="tp">size_t</span> block_size;  <span class="cm">// context_length,         e.g. 8192</span>
+    <span class="tp">size_t</span> n_heads;     <span class="cm">// attention.head_count,   e.g. 9</span>
+    <span class="tp">size_t</span> n_kv_heads;  <span class="cm">// attention.head_count_kv,e.g. 3</span>
+    <span class="tp">size_t</span> n_layer;     <span class="cm">// block_count,            e.g. 30</span>
+    <span class="tp">size_t</span> ffn_hidden;  <span class="cm">// feed_forward_length,    e.g. 1536</span>
+};</code></pre>
+<div class="method">
+  <div class="sig"><span class="name">Llama&lt;T&gt; load_model</span>(std::string path, LlamaHyperParams hp)</div>
+  <div class="body"><p>Same overall shape as the GPT loader — token embedding, per-block RoPE-attention
+  Q/K/V/O projections, RMSNorm weights, and SwiGLU gate/up/down projections.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">LlamaTokenizer load_tokenizer</span>()</div>
+  <div class="body"><p>Same metadata keys as the GPT-2 loader, but additionally splits each merge-rule
+  string on its first space into a <code>(left, right)</code> pair before handing them to
+  <a href="tokenizer.html#llama">LlamaTokenizer::load_from_gguf</a>.</p></div>
+</div>
+
+<div class="callout note">
+  <span class="lbl">n_kv_heads is parsed but not yet wired up</span>
+  <code>LlamaHyperParams::n_kv_heads</code> is read from GGUF metadata but <code>Llama&lt;T&gt;</code>'s
+  current attention implementation does not do grouped-query attention with a separate KV head count — every
+  head gets its own full Q/K/V, matching <code>n_heads</code>. For SmolLM2-135M where
+  <code>n_heads=9, n_kv_heads=3</code>, this means the loader currently expects (and the model computes with)
+  more K/V weight than a true GQA implementation would use. Worth checking against your specific checkpoint's
+  actual K/V weight shapes before assuming full compatibility.
+</div>
+
+<div class="pagefoot">
+  <a href="dataloader.html">← DataLoader</a>
+  <a href="tokenizer.html">Next: Tokenizer →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

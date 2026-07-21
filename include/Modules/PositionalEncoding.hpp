@@ -40,8 +40,8 @@ class PositionalEncoding : public Module<T> {
     }
 
     friend class GGUFLoader<T>;
-    friend class GPTGGUFLoader<T>; 
-    friend class LlamaGGUFLoader<T>; 
+    template <typename, template<typename> class> friend class GPTGGUFLoader;
+    template <typename, template<typename> class> friend class LlamaGGUFLoader; 
 
 };
 

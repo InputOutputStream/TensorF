@@ -55,6 +55,8 @@
 #include <atomic>
 #include <iomanip>
 #include <filesystem>
+#include <type_traits>
+#include <cmath>
 
 // ─── POSIX networking ────────────────────────────────────────────────────────
 #include <unistd.h>
@@ -77,7 +79,7 @@
 
 // ─── Server base + Trainer ───────────────────────────────────────────────────
 // Server.hpp now includes Trainner.hpp. The server's public `trainer` member
-// (Trainer<GPT<T>,T>, lr=0) owns FedDistill's aggregation math:
+// (Trainer<GPT<T, LinearT>,T>, lr=0) owns FedDistill's aggregation math:
 //   trainer.aggregate_logits(logits)  — FedDistill consensus
 // FedAvg weight aggregation is chunked and lives directly in Server.hpp/cpp
 // instead (round_accum) — see the file header above for why.
@@ -159,6 +161,16 @@ struct ServerOptions {
     // announces per chunk. Server-side aggregation peak memory is now
     // O(model_size) regardless of this value (see Server.hpp's round_accum).
     double      chunk_mb      = 8.0;
+
+    // ── LoRA ────────────────────────────────────────────────────────────
+    // When set, the server (and every client, via the matching --lora flag)
+    // instantiates GPT<T,LoRALinear> instead of GPT<T,Linear>: the dense
+    // GGUF checkpoint is still loaded as-is and copied into the backbone
+    // (see Server.hpp's constructor), but only the LoRA {A,B} adapters are
+    // trainable/exchanged. rank/alpha are ignored unless --lora is passed.
+    bool        lora          = false;
+    size_t      lora_rank     = 8;
+    float       lora_alpha    = 16.0f;
 };
 
 static void print_usage(const char* prog) {
@@ -181,6 +193,10 @@ static void print_usage(const char* prog) {
         "                      low-RAM server; doesn't need to match clients' own --chunk-mb.\n"
         "  --no-profile        Skip hardware profiling at startup\n"
         "  --json-log          Write profiler JSON to server_profile.json\n"
+        "  --lora              Train/exchange LoRA adapters instead of full weights\n"
+        "                      (backbone still loaded dense from --model, then frozen)\n"
+        "  --lora-rank <n>     LoRA rank, only used with --lora (default: 8)\n"
+        "  --lora-alpha <f>    LoRA alpha, only used with --lora (default: 16.0)\n"
         "  --quiet             Suppress verbose output\n"
         "  --help              Show this help\n",
         prog);
@@ -195,6 +211,7 @@ static ServerOptions parse_args(int argc, char* argv[]) {
         else if (a == "--json-log")    o.json_log    = true;
         else if (a == "--quiet")       o.verbose     = false;
         else if (a == "--feddistill")  o.feddistill  = true;
+        else if (a == "--lora")        o.lora        = true;
         else if (a == "--port"    && i+1 < argc) o.port        = (uint16_t)atoi(argv[++i]);
         else if (a == "--clients" && i+1 < argc) o.min_clients = atoi(argv[++i]);
         else if (a == "--rounds"  && i+1 < argc) o.max_rounds  = atoi(argv[++i]);
@@ -206,6 +223,8 @@ static ServerOptions parse_args(int argc, char* argv[]) {
         else if (a == "--save-every" && i+1 < argc) o.save_every = atoi(argv[++i]);
         else if (a == "--quantize"   && i+1 < argc) o.quantize   = argv[++i];
         else if (a == "--chunk-mb"   && i+1 < argc) o.chunk_mb   = atof(argv[++i]);
+        else if (a == "--lora-rank"  && i+1 < argc) o.lora_rank  = atoi(argv[++i]);
+        else if (a == "--lora-alpha" && i+1 < argc) o.lora_alpha = (float)atof(argv[++i]);
         else { fprintf(stderr, "[server] Unknown option: %s\n", a.c_str()); o.help = true; }
     }
     return o;
@@ -305,26 +324,26 @@ static void print_round_stats(const RoundStats& s) {
 //
 //  Adds: profiling, per-round stats, accept loop, round runners.
 
-template<typename T>
-class FederatedServer : public Server<T> {
+template<typename T, template<typename> class LinearT>
+class FederatedServer : public Server<T, LinearT> {
 
     // Bring inherited protected names into scope (required for template bases).
-    using Server<T>::model;
-    using Server<T>::tokenizer;
-    using Server<T>::trainer;
-    using Server<T>::server_fd;
-    using Server<T>::pool;
-    using Server<T>::locker;
-    using Server<T>::round_cv;
-    using Server<T>::round_accum;
-    using Server<T>::clients_done;
-    using Server<T>::logit_updates;
-    using Server<T>::client_sockets;
-    using Server<T>::min_clients;
-    using Server<T>::total_param_elems;
-    using Server<T>::param_sizes;
-    using Server<T>::round_done_cv;
-    using Server<T>::round_generation;
+    using Server<T, LinearT>::model;
+    using Server<T, LinearT>::tokenizer;
+    using Server<T, LinearT>::trainer;
+    using Server<T, LinearT>::server_fd;
+    using Server<T, LinearT>::pool;
+    using Server<T, LinearT>::locker;
+    using Server<T, LinearT>::round_cv;
+    using Server<T, LinearT>::round_accum;
+    using Server<T, LinearT>::clients_done;
+    using Server<T, LinearT>::logit_updates;
+    using Server<T, LinearT>::client_sockets;
+    using Server<T, LinearT>::min_clients;
+    using Server<T, LinearT>::total_param_elems;
+    using Server<T, LinearT>::param_sizes;
+    using Server<T, LinearT>::round_done_cv;
+    using Server<T, LinearT>::round_generation;
 
     // ── State added by this subclass ─────────────────────────────────────────
     std::atomic<size_t> total_rounds{0};
@@ -620,8 +639,36 @@ class FederatedServer : public Server<T> {
     };
 
 public:
+    // LinearT's Args differ (Linear: bias; LoRALinear: rank,alpha), and that
+    // choice has to be made at compile time even though --lora is a runtime
+    // CLI flag. Since LinearT is fixed once FederatedServer<T,LinearT> is
+    // instantiated (see main() below, which picks the instantiation based
+    // on o.lora), we can decide which Args to forward with a compile-time
+    // check on LinearT itself, via the usual tag-dispatch-to-delegating-
+    // constructor trick (a base-class init-list can't hold an `if constexpr`
+    // directly).
     FederatedServer(const ServerOptions& o)
-        : Server<T>(
+        : FederatedServer(o, std::bool_constant<
+              std::is_same_v<LinearT<T>, LoRALinear<T>>>{})
+    {}
+
+private:
+    // LoRA path: forward rank/alpha to GPT<T,LoRALinear>'s constructor.
+    FederatedServer(const ServerOptions& o, std::true_type /* is_lora */)
+        : Server<T, LinearT>(
+            o.model_path,
+            GPT2HyperParams{50257, 768, 1024, 12, 12},
+            o.min_clients,
+            o.chunk_mb,
+            o.lora_rank,
+            o.lora_alpha),
+          max_rounds(o.max_rounds),
+          opts(o)
+    { init_common(o); }
+
+    // Dense path: no extra Args (GPT<T,Linear> uses its default bias=true).
+    FederatedServer(const ServerOptions& o, std::false_type /* is_lora */)
+        : Server<T, LinearT>(
             o.model_path,
             // Pass the hyperparams as a literal so we don't depend on `hp`
             // being initialised (it isn't yet when the base ctor runs).
@@ -630,12 +677,14 @@ public:
             o.chunk_mb),
           max_rounds(o.max_rounds),
           opts(o)
-    {
+    { init_common(o); }
+
+    void init_common(const ServerOptions& o) {
         // Ownership: the server owns the global model, so the server decides
         // whether to resume it — same reasoning as the client's --load-path,
         // mirrored on the other side of the FedAvg round. Falls back to the
-        // GGUF weights the base Server<T> constructor already loaded above
-        // if no checkpoint path was given or the file doesn't exist yet.
+        // GGUF weights the base Server<T,LinearT> constructor already loaded
+        // above if no checkpoint path was given or the file doesn't exist yet.
         if (!opts.load_path.empty()) {
             if (std::filesystem::exists(opts.load_path)) {
                 trainer.load_checkpoint(opts.load_path);
@@ -648,6 +697,66 @@ public:
         }
     }
 
+    /// Reads the just-connected client's LoRA config and replies
+    /// accept/reject based on whether it matches this server's own.
+    /// Returns false on either a socket-level I/O failure or a genuine
+    /// config mismatch — in both cases the caller (start()'s accept loop)
+    /// should close the connection rather than dispatch it to
+    /// handleClient()/handleClientLogits(), where a mismatch would
+    /// otherwise only surface later as a confusing element-count exception
+    /// deep inside recv_chunked().
+    ///
+    /// Wire (matches Client<T>::sendLoraConfig/receiveLoraAck):
+    ///   read  ← [uint8 lora_enabled][uint32 rank][float alpha]
+    ///   write → [uint8 accepted][uint32 reason_len][char × reason_len]
+    bool negotiate_lora(int client_fd) {
+        // This server's own config is fixed at compile time (LinearT) plus
+        // opts.lora_rank/lora_alpha (only meaningful when LinearT=LoRALinear).
+        // main()'s run_server<LinearT>() dispatch already guarantees
+        // opts.lora agrees with this, so the compile-time check is the
+        // single source of truth here.
+        constexpr bool server_lora = std::is_same_v<LinearT<T>, LoRALinear<T>>;
+
+        uint8_t  client_enabled = 0;
+        uint32_t client_rank    = 0;
+        float    client_alpha   = 0.0f;
+        if (!read_exact(client_fd, &client_enabled, sizeof(uint8_t)) ||
+            !read_exact(client_fd, &client_rank,    sizeof(uint32_t)) ||
+            !read_exact(client_fd, &client_alpha,   sizeof(float))) {
+            std::cerr << "[server] fd=" << client_fd << ": failed to read LoRA handshake\n";
+            return false;
+        }
+        bool client_lora = (client_enabled != 0);
+
+        bool match = (client_lora == server_lora) &&
+                     (!server_lora ||
+                      (client_rank == (uint32_t)opts.lora_rank &&
+                       std::fabs(client_alpha - opts.lora_alpha) < 1e-6f));
+
+        std::string reason;
+        if (!match) {
+            reason = "LoRA config mismatch: server(lora=" + std::string(server_lora ? "1" : "0") +
+                      ",rank=" + std::to_string(opts.lora_rank) +
+                      ",alpha=" + std::to_string(opts.lora_alpha) +
+                      ") vs client(lora=" + std::string(client_lora ? "1" : "0") +
+                      ",rank=" + std::to_string(client_rank) +
+                      ",alpha=" + std::to_string(client_alpha) + ")";
+            std::cerr << "[server] fd=" << client_fd << ": " << reason << "\n";
+        }
+
+        uint8_t  ok  = match ? 1 : 0;
+        uint32_t len = (uint32_t)reason.size();
+        bool sent = write_exact(client_fd, &ok,  sizeof(uint8_t)) &&
+                    write_exact(client_fd, &len, sizeof(uint32_t)) &&
+                    (len == 0 || write_exact(client_fd, reason.data(), len));
+        if (!sent) {
+            std::cerr << "[server] fd=" << client_fd << ": failed to send LoRA handshake reply\n";
+            return false;
+        }
+        return match;
+    }
+
+public:
     // ── Hardware profiling ────────────────────────────────────────────────────
 
     void run_profiler() {
@@ -699,6 +808,19 @@ public:
             if (client_fd < 0) continue;
             printf("[server] New connection fd=%d\n", client_fd);
 
+            // Reject a client whose LoRA config doesn't match this server's
+            // before it ever reaches handleClient()/handleClientLogits() —
+            // a mismatch there would otherwise surface as a confusing
+            // element-count exception deep inside recv_chunked() (different
+            // parameter counts: dense vs LoRA-adapter-only, or different
+            // adapter dims for two different rank/alpha settings).
+            if (!negotiate_lora(client_fd)) {
+                printf("[server] fd=%d: LoRA handshake failed/rejected — dropping connection\n",
+                       client_fd);
+                ::close(client_fd);
+                continue;
+            }
+
             if (opts.feddistill) {
                 pool->enqueue([this, client_fd]() {
                     this->handleClientLogits(client_fd);   // ← Server<T>::handleClientLogits()
@@ -716,17 +838,14 @@ public:
 //  main
 // ════════════════════════════════════════════════════════════════════════════
 
-int main(int argc, char* argv[]) {
-    ServerOptions opts = parse_args(argc, argv);
-    if (opts.help) { print_usage(argv[0]); return 0; }
-
-    printf("═══════════════════════════════════════════════════════\n");
-    printf("  TensorF Federated Server\n");
-    printf("═══════════════════════════════════════════════════════\n");
-
+// FederatedServer<T,LinearT> is a compile-time instantiation, but --lora is
+// a runtime CLI flag — so main() picks between the two already-compiled
+// instantiations at startup rather than trying to branch inside one of them.
+template <template<typename> class LinearT>
+static int run_server(const ServerOptions& opts) {
     Timer startup;
     printf("[server] Loading model: %s\n", opts.model_path.c_str());
-    FederatedServer<float> server(opts);
+    FederatedServer<float, LinearT> server(opts);
     printf("[server] Model ready in %s\n", startup.str().c_str());
 
     if (!opts.no_profile)
@@ -734,4 +853,16 @@ int main(int argc, char* argv[]) {
 
     server.start();
     return 0;
+}
+
+int main(int argc, char* argv[]) {
+    ServerOptions opts = parse_args(argc, argv);
+    if (opts.help) { print_usage(argv[0]); return 0; }
+
+    printf("═══════════════════════════════════════════════════════\n");
+    printf("  TensorF Federated Server%s\n", opts.lora ? "  (LoRA)" : "");
+    printf("═══════════════════════════════════════════════════════\n");
+
+    return opts.lora ? run_server<LoRALinear>(opts)
+                      : run_server<Linear>(opts);
 }

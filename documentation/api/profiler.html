@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profiler — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link">Types.hpp</a>
+<a href="../api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link">Operations (19)</a>
+<a href="../api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link">Modules / nn</a>
+<a href="../api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link">DataLoader</a>
+<a href="../api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link current">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; Profiler/*.hpp</span>
+<h1>Profiler — hardware-aware hyperparameters</h1>
+<p class="lede">Before a federated client trains a single step, it fingerprints its own hardware and derives
+a batch size, block size, thread count, and quantization policy tuned to that specific machine. This is what
+lets one federated round include a Raspberry Pi and a 32-core workstation without either one being the
+bottleneck by accident.</p>
+
+<div class="diagram">
+  <div class="flow">
+    <div class="box">HardwareFingerprint<br><span class="dim" style="font-size:10.5px">CPU/RAM/cache/storage</span></div>
+    <div class="arrow">→</div>
+    <div class="box">BenchmarkRunner<br><span class="dim" style="font-size:10.5px">matmul GFLOPS probes</span></div>
+    <div class="arrow">→</div>
+    <div class="box hi">HyperparamAdvisor<br><span style="font-size:10.5px">AlgoPolicy + config</span></div>
+    <div class="arrow">→</div>
+    <div class="box">Profiler::to_json()</div>
+    <div class="arrow">→</div>
+    <div class="box">sent to Server</div>
+  </div>
+</div>
+
+<h2 id="fingerprint">HardwareFingerprint</h2>
+<p>Detects everything downstream decisions are based on, using only Linux <code>sysfs</code>/<code>procfs</code>
+&mdash; no external profiling dependency.</p>
+<table>
+<tr><th>Category</th><th>Detected fields</th></tr>
+<tr><td>CPU</td><td>Vendor (<code>INTEL</code>/<code>AMD</code>/<code>ARM</code>), model string,
+micro-architecture generation, ISA extension level</td></tr>
+<tr><td>ISA</td><td><code>BASELINE</code> (SSE2) → <code>AVX</code> → <code>AVX2</code> (+FMA) →
+<code>AVX512</code> → <code>AVX512_VNNI</code> (native int8 dot product, Ice Lake+) → <code>AMX</code> (tile
+matmul, Sapphire Rapids+, ~10× int8 throughput)</td></tr>
+<tr><td>Cache</td><td>L1/L2/L3 sizes</td></tr>
+<tr><td>RAM</td><td>Type (DDR4/DDR5), frequency, channel count, total capacity, estimated bandwidth</td></tr>
+<tr><td>Storage</td><td>Type (HDD / SATA SSD / NVMe Gen3/4/5), sequential read/write throughput</td></tr>
+<tr><td>Software</td><td>Compiler version, BLAS backend, OS</td></tr>
+</table>
+
+<h2 id="benchmark">BenchmarkRunner</h2>
+<p>Runs short real matmul probes at several tile sizes to find the <code>l3_optimal_n</code> matrix dimension
+&mdash; the size at which working set stops fitting in L3 cache and GFLOPS falls off — feeding directly into
+the batch-size derivation below.</p>
+
+<h2 id="advisor">HyperparamAdvisor</h2>
+<p>The decision engine. Given a fingerprint + benchmark, produces an <code>AlgoPolicy</code> and a
+<code>HyperparamConfig</code>.</p>
+
+<div class="code-title">AlgoPolicy</div>
+<pre><code><span class="kw">struct</span> AlgoPolicy {
+    <span class="tp">int</span>  num_threads        = 1;      <span class="cm">// OMP_NUM_THREADS recommendation</span>
+    QuantPolicy quant         = QuantPolicy::NONE;
+    <span class="tp">bool</span> dequant_on_the_fly = <span class="kw">false</span>;  <span class="cm">// dequantize each layer at inference time</span>
+};
+
+<span class="kw">enum</span> <span class="kw">class</span> QuantPolicy { NONE, /* float32, no quantization */
+                     FP8_E4M3 /* needs AVX-512 + explicit dequant */, ... };</code></pre>
+
+<div class="code-title">HyperparamConfig</div>
+<pre><code><span class="kw">struct</span> HyperparamConfig {
+    <span class="tp">size_t</span> batch_size = 128;
+    <span class="tp">size_t</span> block_size = 1024;
+    AlgoPolicy algo;
+    <span class="cm">// ... n_embed, n_layers used internally during derivation</span>
+};</code></pre>
+
+<h3>Derivation order</h3>
+<ol>
+  <li><strong>Quantization policy</strong> — selected first, from ISA capability and RAM pressure (weaker ISA
+  or tighter RAM → more aggressive quantization).</li>
+  <li><strong>block_size</strong> — constrained by available RAM minus the model's parameter footprint. KV
+  cache size is <code>2 × n_layers × block_size × n_embed × bytes_per_param</code>; the advisor solves for
+  the largest <code>block_size</code> (rounded down to a power of 2) that fits the remaining RAM budget.</li>
+  <li><strong>batch_size</strong> — constrained by L3 cache: the target is keeping one layer's KV cache plus
+  activations resident in L3. Uses <code>bench.matmul.l3_optimal_n</code> from the benchmark step, divided by
+  <code>block_size</code>, then clamped to <code>[1, 64]</code>.</li>
+</ol>
+<div class="callout note">
+  <span class="lbl">Why this order matters</span>
+  Quantization is chosen before <code>block_size</code>/<code>batch_size</code> because it directly changes
+  <code>bytes_per_param</code>, which both later steps depend on — deriving them in the other order would use
+  a stale byte-width assumption.
+</div>
+
+<h2 id="profiler-class">Profiler — orchestration &amp; serialization</h2>
+<div class="method">
+  <div class="sig"><span class="name">void run</span>(size_t vocab_size=50257, bool verbose=true)</div>
+  <div class="body"><p>Runs fingerprinting, benchmarking, and advisory derivation in sequence.</p></div>
+</div>
+<table>
+<tr><td><code>profile_load(fn)</code></td><td>Wraps a checkpoint-loading callable, recording peak RSS during that stage</td></tr>
+<tr><td><code>profile_train_step(fn)</code></td><td>Same, for a training step</td></tr>
+<tr><td><code>profile_infer_step(fn)</code></td><td>Same, for an inference step</td></tr>
+<tr><td><code>print_summary()</code></td><td>Human-readable console report of everything detected/decided</td></tr>
+<tr><td><code>to_json()</code></td><td>Serializes the full fingerprint + policy + memory profile to a JSON
+string, exactly what's transmitted to the federated <a href="../federated.html#server">Server</a> as part of
+client registration</td></tr>
+</table>
+
+<h2 id="memprofiler">MemoryProfiler</h2>
+<p>Measures peak resident-set-size deltas around a workload callable (via <code>/proc/self/status</code>),
+tagged by stage (<code>LOADED</code>, <code>TRAIN</code>, <code>INFER</code>). This is what tells the advisor
+"the model actually used X MB during a real forward/backward pass," closing the loop against the purely
+static parameter-count estimate used during initial <code>block_size</code> derivation.</p>
+
+<h2 id="usage">Usage</h2>
+<pre><code>Profiler p;
+p.run(<span class="cm">/*vocab_size=*/</span>50257);
+p.print_summary();
+
+std::string payload = p.to_json();
+<span class="cm">// send `payload` to Server as part of the client's REGISTER handshake —</span>
+<span class="cm">// see federated.html for the wire protocol</span></code></pre>
+
+<div class="pagefoot">
+  <a href="tokenizer.html">← Tokenizer</a>
+  <a href="../federated.html">Next: Federated Learning →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

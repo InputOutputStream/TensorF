@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modules — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link">Types.hpp</a>
+<a href="../api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link">Operations (19)</a>
+<a href="../api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link current">Modules / nn</a>
+<a href="../api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link">DataLoader</a>
+<a href="../api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; Modules/*.hpp</span>
+<h1>Modules — neural network layers</h1>
+<p class="lede">Every trainable layer subclasses <code>Module&lt;T&gt;</code>, which handles recursive parameter
+collection, gradient zeroing, and checkpoint save/load. Layers compose via <code>register_module</code>.</p>
+
+<h2 id="module">Module&lt;T&gt; — base class</h2>
+<pre><code><span class="kw">template</span> &lt;<span class="kw">typename</span> T&gt;
+<span class="kw">class</span> Module {
+    <span class="kw">protected</span>:
+        std::vector&lt;Tensor_t&lt;T&gt;&gt; params;
+        std::vector&lt;Module&lt;T&gt;*&gt;   submodules;
+        Serializer&lt;T&gt;             Ser;
+
+    <span class="kw">public</span>:
+        <span class="tp">void</span> register_parameter(Tensor_t&lt;T&gt; p);
+        <span class="tp">void</span> register_module(Module&lt;T&gt;* m);
+        std::vector&lt;Tensor_t&lt;T&gt;&gt; parameters() <span class="kw">const</span>;  <span class="cm">// recursive</span>
+        <span class="tp">void</span> zero_grad();                              <span class="cm">// recursive</span>
+        <span class="tp">void</span> save(std::string path);
+        <span class="tp">void</span> load(std::string path);
+};</code></pre>
+<p><code>parameters()</code> recursively concatenates this module's own registered parameters with every
+submodule's <code>parameters()</code> — this is what lets <code>Optimizer&lt;T&gt;</code> and
+<code>Trainer&lt;Model,T&gt;</code> collect an entire model's weights with a single call at the top level,
+regardless of nesting depth (GPT → Block → MultiHeadAttention → Head → Linear).</p>
+<div class="callout note">
+  <span class="lbl">save()/load() format</span>
+  Delegates to <code>Serializer&lt;T&gt;</code>, which writes a custom binary format (magic bytes
+  <code>"TNSF"</code>, version, tensor count, then per-tensor rank/dims/data). <code>load()</code> throws if the
+  loaded tensor count doesn't match <code>parameters().size()</code> — the checkpoint's architecture must match
+  exactly. See <a href="dataloader.html#serializer">DataLoader → Serializer</a>.
+</div>
+
+<h2 id="linear">Linear&lt;T&gt;</h2>
+<div class="method">
+  <div class="sig"><span class="name">Linear</span>(size_t out_features, size_t in_features, bool bias=true)</div>
+  <div class="body">
+    <p>Weight shape <code>{out_features, in_features}</code>, Glorot-uniform initialized
+    (<code>limit = sqrt(6/(in+out))</code>). Forward computes <code>x-&gt;matmul(weight-&gt;transpose()) + bias</code>
+    when <code>bias</code> is enabled, else without the addition. Bias, when present, is zero-initialized and
+    shape <code>{out_features}</code>.</p>
+  </div>
+</div>
+
+<h2 id="lora-linear">LoRALinear&lt;T&gt;</h2>
+<div class="method">
+  <div class="sig"><span class="name">LoRALinear</span>(size_t out, size_t in, size_t rank, T alpha)</div>
+  <div class="body">
+    <p>Low-Rank Adaptation layer: a frozen <code>weight {in,out}</code> (zero-initialized — meant to be loaded
+    from a pretrained checkpoint, never trained directly, and <strong>not</strong> registered as a parameter)
+    plus a trainable low-rank pair <code>A {in,rank}</code> (random-normal) and <code>B {rank,out}</code>
+    (zero-initialized, so the adapter starts as a mathematical no-op).</p>
+    <p>Forward: <code>base = x-&gt;matmul(weight)</code>; <code>lora = x-&gt;matmul(A)-&gt;matmul(B)</code>;
+    returns <code>base + scale * lora</code> where <code>scale = alpha / rank</code>.</p>
+    <p>Only <code>A</code> and <code>B</code> are registered as parameters — this is the mechanism the
+    <a href="../federated.html">federated LoRA-distillation setup</a> relies on to train a tiny adapter on a
+    frozen backbone.</p>
+  </div>
+</div>
+
+<h2 id="layernorm">LayerNorm&lt;T&gt;</h2>
+<div class="method">
+  <div class="sig"><span class="name">LayerNorm</span>(shape_t normalized_shape, T eps=1e-5, T tol=1e-9)</div>
+  <div class="body">
+    <p>Learnable <code>gamma</code> (ones-initialized) and <code>beta</code> (zeros-initialized), both shaped
+    <code>normalized_shape</code>. Normalizes over the <strong>last</strong> axis — standard for transformer
+    layer norm.</p>
+    <div class="code-title">forward</div>
+    <pre style="margin:0"><code>mu    = mean(x, axis=-1)                <span class="cm">// {..., 1}</span>
+sigma = sqrt(var(x, axis=-1) + eps)     <span class="cm">// {..., 1}</span>
+xhat  = (x - mu) / sigma                <span class="cm">// same shape as x</span>
+y     = gamma * xhat + beta</code></pre>
+  </div>
+</div>
+
+<h2 id="rmsnorm">RMSNorm&lt;T&gt;</h2>
+<div class="method">
+  <div class="sig"><span class="name">RMSNorm</span>(shape_t normalized_shape, T eps=1e-5)</div>
+  <div class="body">
+    <p>Used by the Llama family instead of LayerNorm. Skips mean-centring entirely and has no beta/bias
+    parameter — only a learnable <code>gamma</code> scale.</p>
+    <div class="code-title">forward</div>
+    <pre style="margin:0"><code>rms = sqrt( mean(x², axis=-1) + eps )
+out = gamma * (x / rms)</code></pre>
+  </div>
+</div>
+
+<h2 id="embedding">Embedding&lt;T&gt;</h2>
+<div class="method">
+  <div class="sig"><span class="name">Embedding</span>(size_t vocab_size, size_t input_dim)</div>
+  <div class="body"><p>Glorot-uniform table of shape <code>{vocab_size, input_dim}</code>. Forward is a table
+  lookup via <code>Tensor::embed(indices)</code>, backed by <code>EmbeddingOperation</code> (scatter-add
+  backward).</p></div>
+</div>
+
+<h2 id="positional">PositionalEncoding&lt;T&gt; / RotationalPositionalEncoding&lt;T&gt;</h2>
+<table>
+<tr><th>Class</th><th>Type</th><th>Notes</th></tr>
+<tr><td><code>PositionalEncoding</code></td><td>Learnable</td><td>A Glorot-uniform weight table
+<code>{max_sequence_length, input_dim}</code>, looked up the same way as <code>Embedding</code>. Used by the
+plain GPT model.</td></tr>
+<tr><td><code>RotationalPositionalEncoding</code> (RoPE)</td><td>Non-learnable, computed</td><td>Builds
+sin/cos position encodings via <code>Matrix&lt;T&gt;::sin</code>/<code>cos</code> over a frequency table, then
+interleaves and reshapes. Applied inside each attention <code>Head</code>, not at the embedding stage — see
+<a href="transformers.html#llama">Llama internals</a>.</td></tr>
+</table>
+
+<h2 id="feedforward">FeedForward&lt;T&gt;</h2>
+<div class="method">
+  <div class="sig"><span class="name">FeedForward</span>(size_t in_features, size_t hidden, size_t out_features)</div>
+  <div class="body">
+    <p>Two <code>Linear</code> layers with a ReLU in between: <code>l2(relu(l1(x)))</code>. Note this is the
+    <code>Modules/FeedForward.hpp</code> version; the <code>Modules/Transformer/GPT/FeedForward.hpp</code>
+    variant used inside GPT blocks is functionally the same shape but uses <code>GeLU</code> instead of ReLU
+    (see <a href="transformers.html">Transformers</a>).</p>
+  </div>
+</div>
+
+<h2 id="activation-modules">Relu&lt;T&gt; / Softmax&lt;T&gt;</h2>
+<p>Thin <code>Module&lt;T&gt;</code> wrappers around <code>Tensor::relu()</code> / <code>Tensor::softmax()</code>
+&mdash; useful for composing inside a <code>NeuralLayer</code> pipeline.</p>
+
+<h2 id="neurallayer">NeuralLayer&lt;T&gt;</h2>
+<div class="method">
+  <div class="sig"><span class="name">NeuralLayer</span>(std::initializer_list&lt;Module&lt;T&gt;*&gt; modules)</div>
+  <div class="body">
+    <p>A simple sequential container: registers every module passed in, and <code>forward(x)</code> pipes
+    <code>x</code> through each in order. Analogous to PyTorch's <code>nn.Sequential</code>.</p>
+    <pre style="margin:0"><code>Linear&lt;<span class="tp">float</span>&gt; l1(64, 32), l2(10, 64);
+Relu&lt;<span class="tp">float</span>&gt; act;
+NeuralLayer&lt;<span class="tp">float</span>&gt; net({&amp;l1, &amp;act, &amp;l2});
+Tensor_t&lt;<span class="tp">float</span>&gt; out = net.forward(x);</code></pre>
+  </div>
+</div>
+
+<h2 id="optimizer">Optimizer&lt;T&gt;</h2>
+<div class="method">
+  <div class="sig"><span class="name">Optimizer</span>(std::vector&lt;Tensor_t&lt;T&gt;&gt; params, T lr, Optimizer_t mode)</div>
+  <div class="body">
+    <p><code>Optimizer_t</code> is one of <code>SGD</code>, <code>ADAM</code>, <code>ADAMw</code>. Extra
+    constructor overloads let you override <code>beta1</code>, <code>beta2</code>, <code>eps</code>, and (for
+    AdamW) the weight-decay <code>lambda</code>.</p>
+    <table>
+    <tr><th>Method</th><th>Behavior</th></tr>
+    <tr><td><code>step()</code></td><td>Always calls <code>clip_grad_norm(1.0)</code> first, then dispatches to
+    the configured update rule.</td></tr>
+    <tr><td><code>zero_grad()</code></td><td>Zeros every managed parameter's gradient.</td></tr>
+    <tr><td><code>clip_grad_norm(max_norm)</code></td><td>Global L2 norm clipping across all parameters, BLAS-accelerated for float/double.</td></tr>
+    </table>
+    <p>All three update rules (<code>sgd</code>, <code>Adam</code>, <code>AdamW</code>) use
+    <code>cblas_saxpy</code>/<code>cblas_sscal</code>/<code>cblas_daxpy</code>/<code>cblas_dscal</code> for
+    <code>float</code>/<code>double</code>, falling back to elementwise <code>Matrix&lt;T&gt;</code> arithmetic
+    otherwise. AdamW applies decoupled weight decay (<code>p *= (1 - lr*lambda)</code>) before the Adam moment
+    update — distinct from L2 regularization added to the gradient.</p>
+  </div>
+</div>
+
+<div class="pagefoot">
+  <a href="overloads.html">← Overloads</a>
+  <a href="transformers.html">Next: Transformers →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

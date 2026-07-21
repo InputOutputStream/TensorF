@@ -42,7 +42,7 @@ class FeedForward: public Module<T>{
         up.load_pretrained(src.get_up());
         down.load_pretrained(src.get_down());
     }
-    
+
     Tensor_t<T> forward(Tensor_t<T> x) {   
         Tensor_t<T> a = l1.forward(x);
         Tensor_t<T> b = a->relu();
@@ -52,9 +52,8 @@ class FeedForward: public Module<T>{
     }
 
     friend class GGUFLoader<T>;
-    friend class GPTGGUFLoader<T>; 
-    friend class LlamaGGUFLoader<T>; 
-
+    template <typename, template<typename> class> friend class GPTGGUFLoader;
+    template <typename, template<typename> class> friend class LlamaGGUFLoader;
 };
 
 

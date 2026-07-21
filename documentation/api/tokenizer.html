@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenizer — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link">Types.hpp</a>
+<a href="../api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link">Operations (19)</a>
+<a href="../api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link">Modules / nn</a>
+<a href="../api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link">DataLoader</a>
+<a href="../api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link current">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; Tokenizer/*.hpp</span>
+<h1>Tokenizer</h1>
+<p class="lede">Byte-level BPE tokenization, matching GPT-2's original algorithm and pre-tokenization regex.
+An abstract base handles everything shared; two subclasses differ only in <code>encode()</code>/<code>decode()</code>
+and how they're loaded.</p>
+
+<h2 id="base">Tokenizer — abstract base</h2>
+<pre><code><span class="kw">class</span> Tokenizer {
+<span class="kw">public</span>:
+    <span class="kw">virtual</span> ~Tokenizer() = <span class="kw">default</span>;
+    <span class="kw">virtual</span> std::vector&lt;<span class="tp">int</span>&gt;  encode(<span class="kw">const</span> std::string&amp; text) = 0;
+    <span class="kw">virtual</span> std::string       decode(<span class="kw">const</span> std::vector&lt;<span class="tp">int</span>&gt;&amp; ids) = 0;
+
+<span class="kw">protected</span>:
+    std::unordered_map&lt;std::string, <span class="tp">int</span>&gt; encoder;   <span class="cm">// token_str -> id</span>
+    std::unordered_map&lt;<span class="tp">int</span>, std::string&gt; decoder;   <span class="cm">// id -> token_str</span>
+    std::unordered_map&lt;uint8_t, char32_t&gt; byte_encoder;
+    std::unordered_map&lt;char32_t, uint8_t&gt; byte_decoder;
+
+    <span class="tp">void</span> build_byte_encoder();  <span class="cm">// GPT-2's reversible byte<->unicode mapping</span>
+};</code></pre>
+<p><code>build_byte_encoder()</code> implements GPT-2's specific byte-to-printable-unicode remapping: bytes
+that are already "nice" printable characters map to themselves, while the remaining 68 byte values (control
+characters, whitespace beyond space, etc.) map to unicode codepoints starting at U+0100 — this is what lets
+byte-level BPE merges operate on arbitrary binary input while every intermediate token remains representable
+as a normal string.</p>
+<table>
+<tr><td><code>vocab_size()</code></td><td>Returns <code>encoder.size()</code></td></tr>
+<tr><td><code>encode_special(tok)</code></td><td>Looks up a special token (e.g. <code>&lt;|endoftext|&gt;</code>) directly by string, bypassing BPE merging</td></tr>
+</table>
+
+<h2 id="gpt2">GPT2Tokenizer</h2>
+<div class="method">
+  <div class="sig"><span class="name">void load_from_arrays</span>(vector&lt;string&gt; vocab, vector&lt;string&gt; merges)</div>
+  <div class="body"><p>Populates <code>encoder</code>/<code>decoder</code> from the vocab list (index = token id)
+  and builds the BPE merge-rank table from the merges list (earlier merges = higher priority, i.e. lower
+  rank). This is the path used when loading a tokenizer straight out of a GGUF file's embedded metadata (see
+  <a href="modelloader.html#gptloader">ModelLoader → GPTGGUFLoader::load_tokenizer</a>).</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">void load_from_json</span>(...)</div>
+  <div class="body"><p>Alternative loader that parses a standard Hugging Face <code>vocab.json</code> /
+  <code>merges.txt</code> pair directly (via nlohmann/json), for when you have tokenizer files but not a GGUF
+  checkpoint to pull metadata from.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">vector&lt;int&gt; encode</span>(string text) <span class="badge">override</span></div>
+  <div class="body">
+    <ol>
+      <li>Maps every raw byte of <code>text</code> through <code>byte_encoder</code>, re-encoding each mapped
+      codepoint back to UTF-8.</li>
+      <li>Runs the BPE merge algorithm (<code>bpe(encoded)</code>) on the resulting string to produce a list
+      of subword pieces.</li>
+      <li>Looks each piece up in <code>encoder</code> to get its final integer id.</li>
+    </ol>
+  </div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">string decode</span>(vector&lt;int&gt; ids) <span class="badge">override</span></div>
+  <div class="body"><p>Reverse of encode: looks up each id's token string, then maps every character back
+  through <code>byte_decoder</code> to reconstruct the original bytes.</p></div>
+</div>
+
+<h2 id="llama">LlamaTokenizer</h2>
+<div class="method">
+  <div class="sig"><span class="name">void load_from_gguf</span>(vector&lt;string&gt; vocab, vector&lt;pair&lt;string,string&gt;&gt; merge_pairs)</div>
+  <div class="body"><p>Same vocab-loading logic as <code>GPT2Tokenizer</code>, but merges arrive already split
+  into <code>(left, right)</code> pairs (GGUF's <code>tokenizer.ggml.merges</code> stores each rule as a
+  single space-separated string; <code>LlamaGGUFLoader::load_tokenizer</code> splits it before calling
+  this).</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">vector&lt;int&gt; encode</span>(string text) <span class="badge">override</span></div>
+  <div class="body"><p>Adds one behavior GPT2Tokenizer's encode doesn't need: scans for known
+  <strong>special tokens</strong> (e.g. chat-template markers like <code>&lt;|im_start|&gt;</code>) embedded
+  directly in the input string, encoding them via <code>encode_special</code> and falling back to normal
+  byte-level BPE (<code>encode_plain</code>) for everything in between. This is what lets SmolLM2-Instruct
+  chat-formatted prompts round-trip correctly.</p></div>
+</div>
+
+<h2 id="usage">Usage</h2>
+<pre><code>GPT2Tokenizer tok = loader.load_tokenizer();
+
+std::vector&lt;<span class="tp">int</span>&gt; ids = tok.encode(<span class="st">"Hello, world!"</span>);
+std::string   back = tok.decode(ids);   <span class="cm">// == "Hello, world!"</span>
+</code></pre>
+
+<div class="pagefoot">
+  <a href="modelloader.html">← ModelLoader</a>
+  <a href="profiler.html">Next: Profiler →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

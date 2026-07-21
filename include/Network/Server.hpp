@@ -28,11 +28,11 @@
 // ── Server<T> ─────────────────────────────────────────────────────────────────
 //
 // Base class for federated learning servers. Owns:
-//   • GPT<T> model          — global model (weights averaged each FedAvg round;
+//   • GPT<T, LinearT> model          — global model (weights averaged each FedAvg round;
 //                              also supplies the teacher signal in FedDistill if
 //                              needed, though in pure FedDistill the consensus is
 //                              the averaged client logits, not this model's output)
-//   • Trainer<GPT<T>,T> trainer — owns FedDistill's aggregation math
+//   • Trainer<GPT<T, LinearT>,T> trainer — owns FedDistill's aggregation math
 //                              (aggregate_logits()) plus checkpointing.
 //                              FedAvg weight aggregation is chunked and
 //                              lives directly in this class instead
@@ -54,13 +54,17 @@
 //   public    — interface used from main() and FederatedServer
 //   protected — called by FederatedServer subclass
 
-template<typename T>
+template <typename T, template<typename> class LinearT>
 class Server {
 
 protected:
     // ── Model loader + tokenizer ─────────────────────────────────────────────
     GPT2HyperParams   hp;
-    GPTGGUFLoader<T> loader;
+    // GGUF files always store dense pretrained weights (see GPTGGUFLoader's
+    // static_assert) — regardless of LinearT, we always load a dense
+    // GPT<T,Linear> from disk and copy it into `model` below (see
+    // constructor), so this loader is fixed at LinearT=Linear.
+    GPTGGUFLoader<T, Linear> loader;
     GPT2Tokenizer     tokenizer;
 
     // ── Networking ───────────────────────────────────────────────────────────
@@ -411,8 +415,8 @@ public:
     //
     // Declaration order matters: trainer holds a reference to model, so model
     // must be declared (and therefore initialised) first.
-    GPT<T>                  model;
-    Trainer<GPT<T>, T>      trainer;   // initialised after model in init-list
+    GPT<T, LinearT>                  model;
+    Trainer<GPT<T, LinearT>, T>      trainer;   // initialised after model in init-list
 
     // ── Constructor ──────────────────────────────────────────────────────────
 
@@ -421,18 +425,28 @@ public:
     /// chunk_mb sizes THIS process's outgoing broadcast chunks (see
     /// chunk_elems above) — 0 falls back to a 1-element minimum rather than
     /// "unchunked," since the wire protocol is chunked unconditionally now.
+    template <typename... ModelArgs>
     Server(const std::string& model_path,
            const GPT2HyperParams& hyper,
-           size_t min_clients_per_round = 2,
-           double chunk_mb = 8.0)
+           size_t min_clients_per_round,
+           double chunk_mb,
+           ModelArgs&&... model_args)
         : hp(hyper),
-          min_clients(min_clients_per_round),  
-          model(loader.load_model(model_path, hp)),
+          min_clients(min_clients_per_round),
+          model(hp.vocab_size, hp.d_model, hp.block_size, hp.n_head, hp.n_layer,
+                std::forward<ModelArgs>(model_args)...),
           // trainer takes a reference to model (already constructed above since
           // model is declared before trainer in the class body). lr = T(0):
           // server never runs backward, so the optimizer is a no-op.
           trainer(model, T(0), FEDAVG)
     {
+        // Load the dense GGUF checkpoint and copy it into `model`. For
+        // LinearT=Linear this is a dense-to-dense copy; for LoRALinear the
+        // backbone is copied verbatim and the LoRA {A,B} adapters (already
+        // randomly initialised above) are left untouched.
+        GPT<T, Linear> pretrained = loader.load_model(model_path, hp);
+        model.load_backbone_from(pretrained);
+        model.load_head_from(pretrained);
         // Sized here (not as a default member initializer) because it needs
         // min_clients, which only exists once the init-list above has run.
         // +4 is just headroom for a stray extra/retrying connection — not a

@@ -6,28 +6,28 @@
 #include <algorithm>
 
 #include "../../Module.hpp"
-#include "../../Linear.hpp"
 
-template <typename T>
+template <typename T, template<typename> class LinearT>
 class Head : public Module<T>{
     private:
 
         size_t input_dim;
         size_t seq_length;
         size_t head_size;
-    
-        Linear<T> K;
-        Linear<T> Q;
-        Linear<T> V;
+
+        LinearT<T> K;
+        LinearT<T> Q;
+        LinearT<T> V;
 
         Matrix<T> mask;
 
     public:
 
-    Head(size_t head_size, size_t input_dim, size_t sequence_length, bool bias=true): 
-      K(head_size, input_dim, bias),
-      Q(head_size, input_dim, bias),
-      V(head_size, input_dim, bias)
+    template <typename... Args>
+    Head(size_t head_size, size_t input_dim, size_t sequence_length, Args&&... args):
+      K(head_size, input_dim, args...),
+      Q(head_size, input_dim, args...),
+      V(head_size, input_dim, args...)
     {
         this->input_dim = input_dim;
         this->seq_length = sequence_length;
@@ -80,14 +80,24 @@ class Head : public Module<T>{
         return {attention->matmul(v), attention};
     }
 
+    LinearT<T>& get_Q() { return Q; }
+    LinearT<T>& get_K() { return K; }
+    LinearT<T>& get_V() { return V; }
+
+    void load_pretrained(Head<T, Linear>& src) {
+        Q.load_pretrained(src.get_Q());
+        K.load_pretrained(src.get_K());
+        V.load_pretrained(src.get_V());
+    }
+
     Tensor_t<T> forward(Tensor_t<T> x, bool apply_mask=true){
         // """Forward pass through attention head"""
-    
+
         // std::cerr << " head input x val : "<< x->val<< "\n";
 
         // Compute Q, K, V projections
         Tensor_t<T> q = this->Q.forward(x);  // (B, T, head_size)
-        Tensor_t<T> k = this->K.forward(x);  // (B, T, head_size) 
+        Tensor_t<T> k = this->K.forward(x);  // (B, T, head_size)
         Tensor_t<T> v = this->V.forward(x);  // (B, T, head_size)
 
         // std::cerr << " q val : "<< q->val<< "\n";
@@ -105,8 +115,7 @@ class Head : public Module<T>{
     }
     
     friend class GGUFLoader<T>;
-    friend class GPTGGUFLoader<T>; 
-
+    template <typename, template<typename> class> friend class GPTGGUFLoader;
 };
 
 #endif // !HEAD__HPP

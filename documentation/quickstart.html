@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quickstart — TensorF Docs</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="index.html">Overview</a>
+<a href="install.html">Install</a>
+<a href="quickstart.html">Quickstart</a>
+<a href="architecture.html">Architecture</a>
+<a href="federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="index.html" class="link">Overview</a>
+<a href="install.html" class="link">Install &amp; Build</a>
+<a href="quickstart.html" class="link current">Quickstart</a>
+<a href="examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="architecture.html" class="link">Autograd Architecture</a>
+<a href="api/types.html" class="link">Types.hpp</a>
+<a href="api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="api/operations.html" class="link">Operations (19)</a>
+<a href="api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="api/modules.html" class="link">Modules / nn</a>
+<a href="api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="api/dataloader.html" class="link">DataLoader</a>
+<a href="api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="federated.html" class="link">Federated Learning</a>
+<a href="api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">Getting started</span>
+<h1>Quickstart</h1>
+<p class="lede">Five short programs: raw tensor algebra, an autograd graph with a manual backward pass,
+a trainable <code>Linear</code> layer, a training loop with <code>Optimizer</code>, and loading a real
+GPT-2 checkpoint for text generation.</p>
+
+<h2 id="matrix">1. Matrix&lt;T&gt; — plain algebra, no gradients</h2>
+<p><code>Matrix&lt;T&gt;</code> is the array type underneath everything. It supports NumPy-style construction,
+broadcasting, and BLAS-backed products but has no notion of a computation graph.</p>
+<div class="code-title">matrix_basics.cpp</div>
+<pre><code><span class="kw">#include</span> <span class="st">"DataStructures/Matrix.hpp"</span>
+<span class="kw">#include</span> &lt;iostream&gt;
+
+<span class="tp">int</span> main() {
+    <span class="cm">// 2D literal construction</span>
+    Matrix&lt;<span class="tp">float</span>&gt; a({{1,2},{3,4}});
+    Matrix&lt;<span class="tp">float</span>&gt; b({{1,2},{3,4}});
+
+    <span class="cm">// matmul dispatches to cblas_sgemm for float/double</span>
+    Matrix&lt;<span class="tp">float</span>&gt; c = a.matmul(b);   <span class="cm">// [[7,10],[15,22]]</span>
+
+    <span class="cm">// broadcasting: {2,2} + {2} -> {2,2}, NumPy rules</span>
+    Matrix&lt;<span class="tp">float</span>&gt; row({10, 20});
+    Matrix&lt;<span class="tp">float</span>&gt; d = c + row;
+
+    std::cout &lt;&lt; d.sum() &lt;&lt; <span class="st">"\n"</span>;   <span class="cm">// sum() with no axis -> scalar T</span>
+}
+</code></pre>
+
+<h2 id="tensor">2. Tensor&lt;T&gt; — building and running an autograd graph</h2>
+<p>Every graph node is a <code>Tensor_t&lt;T&gt;</code> (<code>std::shared_ptr&lt;Tensor&lt;T&gt;&gt;</code>), created
+via <code>make_tensor&lt;T&gt;</code>. Arithmetic operators on <code>Tensor_t</code> build the graph implicitly;
+calling <code>-&gt;backward(...)</code> walks it in reverse.</p>
+<div class="code-title">autograd_basics.cpp</div>
+<pre><code><span class="kw">#include</span> <span class="st">"DataStructures/Tensor.hpp"</span>
+<span class="kw">#include</span> &lt;iostream&gt;
+
+<span class="tp">int</span> main() {
+    Tensor_t&lt;<span class="tp">float</span>&gt; x = make_tensor&lt;<span class="tp">float</span>&gt;(Matrix&lt;<span class="tp">float</span>&gt;({2.0f, 3.0f}));
+    Tensor_t&lt;<span class="tp">float</span>&gt; w = make_tensor&lt;<span class="tp">float</span>&gt;(Matrix&lt;<span class="tp">float</span>&gt;({4.0f, 5.0f}));
+
+    <span class="cm">// y = sum(x * w)  — operator* on Tensor_t builds a MultiplyOperation node</span>
+    Tensor_t&lt;<span class="tp">float</span>&gt; y = (x * w)-&gt;sum();
+
+    y-&gt;backward(make_tensor&lt;<span class="tp">float</span>&gt;((<span class="tp">float</span>)1.0));  <span class="cm">// seed gradient = 1</span>
+
+    std::cout &lt;&lt; <span class="st">"dy/dx = "</span> &lt;&lt; x-&gt;grad &lt;&lt; <span class="st">"\n"</span>;  <span class="cm">// == w's values, {4,5}</span>
+    std::cout &lt;&lt; <span class="st">"dy/dw = "</span> &lt;&lt; w-&gt;grad &lt;&lt; <span class="st">"\n"</span>;  <span class="cm">// == x's values, {2,3}</span>
+
+    y-&gt;reset_graph();  <span class="cm">// break the Tensor<->Operation shared_ptr cycle</span>
+}
+</code></pre>
+<div class="callout warn">
+  <span class="lbl">Always call reset_graph()</span>
+  <code>Tensor</code> and <code>Operation</code> hold <code>shared_ptr</code>s to each other. Without calling
+  <code>reset_graph()</code> after you're done with a graph (or its loss tensor), that memory leaks — the
+  reference count never reaches zero. Training loops in this codebase call it every iteration; see
+  <a href="architecture.html#memory">Architecture → memory management</a>.
+</div>
+
+<h2 id="linear">3. A trainable layer with Module&lt;T&gt;</h2>
+<p>Layers subclass <code>Module&lt;T&gt;</code> and call <code>register_parameter</code>/<code>register_module</code>
+in their constructor. <code>parameters()</code> then recursively collects every learnable tensor for the optimizer.</p>
+<div class="code-title">linear_layer.cpp</div>
+<pre><code><span class="kw">#include</span> <span class="st">"Modules/Linear.hpp"</span>
+<span class="kw">#include</span> <span class="st">"Modules/Optimizer.hpp"</span>
+
+<span class="tp">int</span> main() {
+    Linear&lt;<span class="tp">float</span>&gt; layer(<span class="cm">/*out_features=*/</span>4, <span class="cm">/*in_features=*/</span>8);
+
+    Tensor_t&lt;<span class="tp">float</span>&gt; x = make_tensor&lt;<span class="tp">float</span>&gt;(Matrix&lt;<span class="tp">float</span>&gt;::randn({1, 8}));
+    Tensor_t&lt;<span class="tp">float</span>&gt; out = layer.forward(x);   <span class="cm">// {1, 4} = x @ weight.T + bias</span>
+
+    Optimizer&lt;<span class="tp">float</span>&gt; opt(layer.parameters(), <span class="cm">/*lr=*/</span>1e-3f, ADAM);
+    opt.zero_grad();
+    out-&gt;sum()-&gt;backward(make_tensor&lt;<span class="tp">float</span>&gt;((<span class="tp">float</span>)1.0));
+    opt.step();   <span class="cm">// clips grad norm to 1.0, then applies Adam update</span>
+}
+</code></pre>
+
+<h2 id="training">4. A minimal training loop</h2>
+<p>This is the shape every model's <code>train()</code> method in TensorF follows (see <code>GPT::train</code>,
+<code>Llama::train</code>, <code>Trainer::finetune</code>): zero grad → forward → backward → step → reset the graph.</p>
+<div class="code-title">training_loop.cpp</div>
+<pre><code>Optimizer&lt;<span class="tp">float</span>&gt; opt(model.parameters(), 1e-4f, ADAMw);
+
+<span class="kw">for</span> (<span class="tp">size_t</span> iter = 0; iter &lt; n_iters; iter++) {
+    <span class="kw">auto</span> [inputs, targets] = get_batch(<span class="st">"train"</span>);
+
+    opt.zero_grad();
+    Tensor_t&lt;<span class="tp">float</span>&gt; loss = model.forward(inputs, targets, <span class="cm">/*apply_mask=*/</span><span class="kw">true</span>);
+    loss-&gt;backward(make_tensor&lt;<span class="tp">float</span>&gt;((<span class="tp">float</span>)1.0));
+    opt.step();
+
+    <span class="kw">if</span> (iter % eval_interval == 0)
+        std::cout &lt;&lt; <span class="st">"iter "</span> &lt;&lt; iter &lt;&lt; <span class="st">" loss "</span> &lt;&lt; loss-&gt;val &lt;&lt; <span class="st">"\n"</span>;
+
+    loss-&gt;reset_graph();   <span class="cm">// critical — see the warning above</span>
+}
+</code></pre>
+
+<h2 id="gguf">5. Loading a real GPT-2 checkpoint and generating text</h2>
+<p>This is the actual pattern from <code>GPT2.cpp</code> in the repo: load weights and tokenizer straight from
+a GGUF file, encode a prompt, and sample new tokens with top-k filtering.</p>
+<div class="code-title">GPT2.cpp (excerpt)</div>
+<pre><code>GPT2HyperParams hp {
+    .vocab_size = 50257, .d_model = 768, .block_size = 1024,
+    .n_layer = 12, .n_head = 12
+};
+
+GPTGGUFLoader&lt;<span class="tp">float</span>&gt; loader;
+GPT&lt;<span class="tp">float</span>&gt; model = loader.load_model(<span class="st">"SLM/gpt2-small-f32.gguf"</span>, hp);
+
+GPT2Tokenizer tokenizer = loader.load_tokenizer();
+
+std::vector&lt;<span class="tp">int</span>&gt; token_ids = tokenizer.encode(<span class="st">"The data type is int"</span>);
+std::vector&lt;<span class="tp">float</span>&gt; ctx_data(token_ids.begin(), token_ids.end());
+
+Tensor_t&lt;<span class="tp">float</span>&gt; context = make_tensor&lt;<span class="tp">float</span>&gt;(
+    Matrix&lt;<span class="tp">float</span>&gt;(ctx_data, {1, ctx_data.size()}));
+
+<span class="cm">// generate 30 new tokens, temperature 0.8, top-k = 30</span>
+<span class="kw">auto</span> out = model.generate(context, 30, 0.8f, 30);
+
+std::cout &lt;&lt; tokenizer.decode(<span class="cm">/* tokens after the prompt */</span> ...);
+</code></pre>
+<p>Build and run this exact example with <code>make gpt2 &amp;&amp; ./bin/gpt2</code> (after
+<a href="install.html#models">downloading a GGUF checkpoint</a>). See
+<a href="api/modelloader.html">ModelLoader → GGUF weight-shape contract</a> for how PyTorch's <code>[out,in]</code>
+layout maps onto GGUF's on-disk ordering.</p>
+
+<div class="pagefoot">
+  <a href="install.html">← Install &amp; Build</a>
+  <a href="architecture.html">Next: Architecture →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

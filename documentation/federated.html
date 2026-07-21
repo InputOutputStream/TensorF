@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Federated Learning — TensorF Docs</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="index.html">Overview</a>
+<a href="install.html">Install</a>
+<a href="quickstart.html">Quickstart</a>
+<a href="architecture.html">Architecture</a>
+<a href="federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="index.html" class="link">Overview</a>
+<a href="install.html" class="link">Install &amp; Build</a>
+<a href="quickstart.html" class="link">Quickstart</a>
+<a href="examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="architecture.html" class="link">Autograd Architecture</a>
+<a href="api/types.html" class="link">Types.hpp</a>
+<a href="api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="api/operations.html" class="link">Operations (19)</a>
+<a href="api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="api/modules.html" class="link">Modules / nn</a>
+<a href="api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="api/dataloader.html" class="link">DataLoader</a>
+<a href="api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="federated.html" class="link current">Federated Learning</a>
+<a href="api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">Distributed training</span>
+<h1>Federated learning</h1>
+<p class="lede">TensorF trains a shared model across machines that never exchange raw data — only weight
+deltas or soft-label logits cross the network. Two modes are implemented: <strong>FedAvg</strong> (classic
+weight averaging) and <strong>FedDistill</strong> (logit-consensus distillation), built on top of a chunked
+TCP protocol designed to keep peak memory bounded regardless of model size.</p>
+
+<div class="stat-row">
+  <div class="stat"><div class="num">2</div><div class="lbl">aggregation modes — FedAvg / FedDistill</div></div>
+  <div class="stat"><div class="num">3</div><div class="lbl">wire protocols — flat, chunked, logits</div></div>
+  <div class="stat"><div class="num">CRC32 / xxHash</div><div class="lbl">integrity checking, LAN vs. WAN</div></div>
+</div>
+
+<h2 id="modes">FedAvg vs. FedDistill</h2>
+<table>
+<tr><th></th><th>FedAvg</th><th>FedDistill</th></tr>
+<tr><td>What crosses the wire</td><td>Full model weight deltas (or the full flat weight vector)</td><td>Soft-label logit vectors over a shared probe batch</td></tr>
+<tr><td>Aggregation math</td><td>Elementwise mean of client deltas, applied to the global model</td><td>Elementwise mean of client logits → a consensus target tensor</td></tr>
+<tr><td>Where aggregation runs</td><td><code>Server::round_accum</code> directly (chunked, streamed)</td><td><code>Trainer::aggregate_logits()</code></td></tr>
+<tr><td>Client update</td><td>Receives the new global weights, overwrites local model</td><td>Receives the consensus logits, trains locally against them (<code>Trainer::distill_logits()</code>)</td></tr>
+<tr><td>Bandwidth per round</td><td>O(model size) — every parameter, every round</td><td>O(probe_batch × vocab_size) — usually far smaller than full weights, and independent of model depth</td></tr>
+<tr><td>Natural fit for</td><td>Homogeneous model architecture across all clients</td><td>Heterogeneous clients — e.g. a <a href="api/transformers.html#gptlora">GPTLoRA</a> student per client, since only the logits need to match, not the architecture</td></tr>
+</table>
+
+<h2 id="architecture">Component responsibilities</h2>
+<div class="diagram">
+  <div class="flow">
+    <div class="box">Client<br><span class="dim" style="font-size:10.5px">sockets + wire protocols</span></div>
+    <div class="arrow">⇄</div>
+    <div class="box hi">Server<br><span style="font-size:10.5px">round lifecycle + FedAvg accum</span></div>
+    <div class="arrow">→</div>
+    <div class="box">Trainer&lt;Model,T&gt;<br><span class="dim" style="font-size:10.5px">FedDistill math + checkpointing</span></div>
+  </div>
+</div>
+<p>The split, as documented directly in <code>Server.hpp</code>'s header comment:</p>
+<ul>
+  <li><strong><code>Server</code></strong> — pure networking: socket/round lifecycle plus chunked FedAvg
+  aggregation (<code>round_accum</code>, a running-sum accumulator updated per client, streamed rather than
+  buffering every client's full weight vector simultaneously).</li>
+  <li><strong><code>Trainer&lt;Model,T&gt;</code></strong> — FedDistill consensus math
+  (<code>aggregate_logits()</code>) plus checkpointing/serialization. Still exposes
+  <code>aggregate()</code>/<code>get_flat_weights()</code>/<code>set_flat_weights()</code> for round-trip
+  tests, but the live FedAvg path in <code>Server</code> doesn't call them directly.</li>
+</ul>
+
+<h2 id="trainer">Trainer&lt;Model, T&gt; — ownership contract</h2>
+<p>A single class owns the optimizer and every training/aggregation operation, for any <code>Model</code>
+type exposing <code>forward(inputs, targets, apply_mask)</code>, <code>parameters()</code>, and
+<code>get_vocab_size()</code>.</p>
+<pre><code><span class="kw">enum</span> TrainMode { FINETUNE, DISTILL, FEDAVG, FEDMETA, FEDDISTILL };</code></pre>
+
+<h3>Client side (mode = FEDAVG | FEDDISTILL)</h3>
+<p>Owns the <strong>student model only</strong> — no teacher model ever loaded client-side.</p>
+<table>
+<tr><td><code>finetune()</code></td><td>Local training steps for a FedAvg local round</td></tr>
+<tr><td><code>compute_logits()</code></td><td>Forward-only pass — FedDistill phase 1 (produce this client's logits for the probe batch)</td></tr>
+<tr><td><code>distill_logits()</code></td><td>Trains against the server-supplied consensus tensor. The
+"teacher" here is a <code>Tensor_t&lt;T&gt;</code> received over the wire, not a live model — the client
+never loads an actual teacher network.</td></tr>
+</table>
+
+<h3>Server side (mode = FEDAVG | FEDDISTILL, lr = 0)</h3>
+<p>Owns the <strong>global model</strong> (also the teacher signal source, when relevant).</p>
+<table>
+<tr><td><code>aggregate()</code></td><td>FedAvg: averages client deltas, overwrites the global model</td></tr>
+<tr><td><code>aggregate_logits()</code></td><td>FedDistill: averages client logit vectors into a consensus tensor</td></tr>
+<tr><td><code>get_flat_weights()</code></td><td>Serializes the global model for broadcast</td></tr>
+<tr><td><code>set_flat_weights()</code></td><td>Deserializes a received flat buffer back into the global model</td></tr>
+</table>
+<p class="dim">Server never calls <code>finetune()</code>/<code>distill()</code> — the optimizer object is
+present but effectively inert (lr = 0 guarantees zero effect if <code>step()</code> is ever called by
+accident).</p>
+
+<h3 id="lora-detection">Selective training via SFINAE</h3>
+<p>If <code>Model</code> exposes <code>lora_parameters()</code> (as <a href="api/transformers.html#gptlora">GPTLoRA&lt;T&gt;</a>
+does), <code>Trainer</code>'s optimizer is built from <em>that</em> instead of the full <code>parameters()</code>:</p>
+<pre><code><span class="kw">namespace</span> trainer_detail {
+    <span class="kw">template</span>&lt;<span class="kw">typename</span> M, <span class="kw">typename</span> = <span class="tp">void</span>&gt;
+    <span class="kw">struct</span> has_lora_parameters : std::false_type {};
+    <span class="kw">template</span>&lt;<span class="kw">typename</span> M&gt;
+    <span class="kw">struct</span> has_lora_parameters&lt;M, std::void_t&lt;<span class="kw">decltype</span>(std::declval&lt;M&amp;&gt;().lora_parameters())&gt;&gt;
+        : std::true_type {};
+}</code></pre>
+<p>This is what makes "client owns a small LoRA adapter on a frozen backbone" actually train as a small
+adapter rather than a full model — nothing changes for model types that don't define
+<code>lora_parameters()</code> (plain <code>GPT&lt;T&gt;</code>), which fall through to ordinary
+<code>parameters()</code>-based behavior untouched.</p>
+
+<h2 id="wire">Wire protocols</h2>
+<p><code>Client&lt;T&gt;</code> implements three, layered on <code>io_utils.hpp</code>'s
+<code>read_exact</code>/<code>write_exact</code>:</p>
+
+<h3>1. Flat-tensor protocol</h3>
+<pre><code>send    → [uint64 total_bytes][T × N]
+receive ← [uint64 total_bytes][T × N]</code></pre>
+<p>Kept for reference and round-trip tests. The actual FedAvg weight exchange does <strong>not</strong> use
+this — it uses the chunked protocol below instead.</p>
+
+<h3>2. Chunked flat-tensor protocol</h3>
+<p>Same logical payload as above, but streamed in caller-chosen pieces:</p>
+<pre><code>sendChunked    → [uint64 total_elems] then [uint64 chunk_len][T × chunk_len] …
+receiveChunked ← same</code></pre>
+<p>Peak extra memory is <code>~chunk_elems × sizeof(T)</code> instead of the entire model's size at once —
+this is the concrete mechanism that lets a memory-constrained client (see
+<a href="api/profiler.html">Profiler</a>) participate without ever materializing a full second copy of the
+model in RAM during transfer.</p>
+
+<h3>3. Logits protocol</h3>
+<pre><code>sendLogits    → probe-batch logits, FedDistill phase 1
+receiveLogits ← server's aggregated consensus tensor, FedDistill phase 2</code></pre>
+
+<h3>Batch protocol (server → client)</h3>
+<p>Used when the server streams training data to a client rather than the client sourcing its own local
+corpus:</p>
+<pre><code>receive ← [uint64 batch_size][uint64 block_size]
+           [T × batch*block  inputs]
+           [T × batch*block  targets]</code></pre>
+
+<h2 id="server-class">Server&lt;T&gt;</h2>
+<p>Owns: the global <code>GPT&lt;T&gt;</code> model, a <code>Trainer&lt;GPT&lt;T&gt;,T&gt;</code>, the TCP
+listener socket, a <code>ThreadPool</code>, and FedAvg round state (<code>round_accum</code>,
+<code>client_sockets[]</code>, parameter layout).</p>
+<div class="callout warn">
+  <span class="lbl">Thread pool sizing is not a fixed constant</span>
+  <code>handleClient()</code>/<code>handleClientLogits()</code> loop for the <strong>entire lifetime</strong>
+  of each client connection (see the round-completion condition variable), so every connected client
+  permanently occupies one pool thread for its whole session. The pool is sized to
+  <code>min_clients</code> (plus headroom) in the constructor body, computed once <code>min_clients</code> is
+  known — a flat default would either starve a larger cluster or sit mostly idle for a small one.
+</div>
+<p><code>ThreadPool</code> has no default constructor and isn't movable/copyable (it owns
+<code>std::thread</code>/mutex/condition-variable members directly), so it's held as
+<code>std::unique_ptr&lt;ThreadPool&gt;</code> rather than a plain member — it literally can't be constructed
+before <code>min_clients</code> is available.</p>
+
+<h2 id="protocol-dir">Protocol/ — the profiling wire format</h2>
+<p>A separate binary <code>MessageProtocol</code> used specifically for a client's initial hardware-profile
+handshake with the server (the <code>Profiler::to_json()</code> payload described on the
+<a href="api/profiler.html">Profiler page</a>), with integrity checking selectable per deployment:</p>
+<table>
+<tr><td>CRC32</td><td>Fast, adequate for trusted LAN clusters</td></tr>
+<tr><td>xxHash</td><td>Stronger, used when clients connect over an untrusted WAN</td></tr>
+</table>
+
+<h2 id="running">Running a small cluster</h2>
+<div class="code-title">terminal 1 — server</div>
+<pre><code>make server
+./bin/server --port 9000 --min_clients 2 --mode fedavg \
+              --model SLM/gpt2-small-f32.gguf</code></pre>
+<div class="code-title">terminal 2+ — each client</div>
+<pre><code>make client
+./bin/client --server 127.0.0.1 --port 9000 --data Dataset/</code></pre>
+<p class="dim">Flags shown are illustrative of the parameters <code>Server</code>/<code>Client</code> expose
+(host/port, minimum clients to start a round, training mode, model/data paths); check
+<code>include/Network/Server.cpp</code>/<code>Client.cpp</code>'s <code>main()</code> for the exact CLI
+surface in your checked-out revision, since <code>Server.hpp</code>/<code>Client.hpp</code> define the
+reusable class and the <code>.cpp</code> files define the actual executable entry points.</p>
+
+<h2 id="round-lifecycle">One FedAvg round, end to end</h2>
+<ol>
+  <li>Client connects, sends its <a href="api/profiler.html">hardware profile</a> (Protocol/ handshake).</li>
+  <li>Server waits until <code>min_clients</code> are connected, then broadcasts current global weights
+  (chunked protocol) to each client.</li>
+  <li>Each client runs local training steps via <code>Trainer::finetune()</code> for a configured number of
+  local epochs/steps.</li>
+  <li>Each client computes its weight delta and streams it back (<code>sendChunked</code>).</li>
+  <li>Server accumulates every client's delta into <code>round_accum</code> as it streams in — no need to
+  hold all clients' full deltas in memory simultaneously.</li>
+  <li>Once every expected client has reported, the server averages <code>round_accum</code> and applies it to
+  the global model.</li>
+  <li>Repeat from step 2 for the next round.</li>
+</ol>
+
+<div class="pagefoot">
+  <a href="api/profiler.html">← Profiler</a>
+  <a href="examples.html">Next: Examples →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

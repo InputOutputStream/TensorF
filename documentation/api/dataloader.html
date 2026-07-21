@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DataLoader — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link">Types.hpp</a>
+<a href="../api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link">Operations (19)</a>
+<a href="../api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link">Modules / nn</a>
+<a href="../api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link current">DataLoader</a>
+<a href="../api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; DataLoader/*.hpp</span>
+<h1>DataLoader</h1>
+<p class="lede">Everything that turns files on disk into <code>Matrix&lt;T&gt;</code>/<code>Tensor_t&lt;T&gt;</code>
+batches: text corpora, tabular CSV/TSV, images, NumPy arrays, GGUF checkpoints, plus TensorF's own binary
+serialization and block-wise quantization formats.</p>
+
+<h2 id="dataset">Dataset&lt;T&gt;</h2>
+<p>Wraps a feature matrix <code>X {n_samples, n_features}</code> and label matrix <code>Y {n_samples, n_outputs}</code>,
+validating matching row counts at construction. <code>size()</code> and <code>get(idx)</code> give indexed
+sample access — the generic base for tabular/classical ML workflows.</p>
+
+<h2 id="textdataset">TextDataset&lt;T&gt;</h2>
+<div class="method">
+  <div class="sig"><span class="name">TextDataset</span>(std::string folder, size_t block_size, size_t batch_size, uint32_t seed=42)</div>
+  <div class="body">
+    <p>Character-level language modeling dataset. <code>load()</code> reads text files from <code>folder</code>,
+    splits 90/10 into train/val by character count, builds a character-level vocabulary
+    (<code>stoi</code>/<code>itos</code>), and encodes both splits to integer token ids.</p>
+    <div class="code-title">usage</div>
+    <pre style="margin:0"><code>TextDataset&lt;<span class="tp">float</span>&gt; ds(<span class="st">"Dataset"</span>, <span class="cm">/*block_size=*/</span>16, <span class="cm">/*batch_size=*/</span>8);
+ds.load();
+<span class="kw">auto</span> [x, y] = ds.get_batch(<span class="st">"train"</span>);   <span class="cm">// random contiguous window sampling</span></code></pre>
+  </div>
+</div>
+
+<h2 id="lazyloader">LazyDataLoader&lt;T&gt;</h2>
+<p>A thin wrapper around <code>TextDataset&lt;T&gt;</code> that loads eagerly at construction and exposes a
+single <code>getNextBatch(split="train")</code> call — the shape federated clients use when pulling local
+training batches (see <a href="../federated.html">Federated Learning</a>).</p>
+
+<h2 id="tabular">Tabular&lt;T&gt;</h2>
+<p>CSV/TSV reader via plain <code>std::ifstream</code> (native support, no dependency). An enum
+<code>TYPE{CSV,TSV,XLS,XLSX}</code> exists, but <code>XLS</code>/<code>XLSX</code> require linking against
+<code>libxls</code>/<code>OpenXLSX</code> separately &mdash; not bundled.</p>
+
+<h2 id="npy">NPYLoader</h2>
+<p>Loads NumPy <code>.npy</code> single-array files directly into <code>Matrix&lt;T&gt;</code>, implementing
+the <a href="https://numpy.org/doc/stable/reference/generated/numpy.lib.format.html" target="_blank">official
+.npy format spec</a>. Useful for bringing preprocessed datasets in from a Python/NumPy pipeline.</p>
+
+<h2 id="imageloader">ImageLoader</h2>
+<p>Loads images via a bundled <code>stb_image.h</code> into <code>Matrix&lt;T&gt;</code> /
+<code>Tensor_t&lt;T&gt;</code>.</p>
+<table>
+<tr><th>Concept</th><th>Detail</th></tr>
+<tr><td>Single image</td><td>Shape <code>{H, W, C}</code> (HWC layout)</td></tr>
+<tr><td>Batch</td><td>Shape <code>{N, H, W, C}</code> (NHWC layout)</td></tr>
+<tr><td>Normalization modes</td><td><code>ZERO_ONE</code> (÷255 → [0,1]), <code>MEAN_STD</code> (ImageNet-style
+per-channel standardization), <code>NONE</code> (raw uint8 cast to T)</td></tr>
+<tr><td>Resize</td><td>Optional bilinear resize to a fixed <code>target_h</code>/<code>target_w</code> —
+required when batching mixed-resolution images</td></tr>
+</table>
+
+<h2 id="gguf">GGUF — low-level GGUF file reader</h2>
+<p>Parses the raw GGUF binary container: tensor metadata (<code>TensorInfo</code>: name, dimensions,
+<code>ggml_type</code>, byte offset), key-value metadata (scalar and array), and supports the common GGML
+quantization type tags (<code>F32</code>, <code>F16</code>, <code>Q4_0</code>, <code>Q4_1</code>,
+<code>Q8_0</code>, <code>Q4_K</code>, <code>Q5_K</code>, <code>Q6_K</code>). This is the file
+<a href="modelloader.html">ModelLoader</a>'s <code>GGUFLoader&lt;T&gt;</code> builds on top of to actually
+populate a <code>GPT&lt;T&gt;</code> or <code>Llama&lt;T&gt;</code>.</p>
+
+<h2 id="serializer">Serializer&lt;T&gt;</h2>
+<p>TensorF's own binary checkpoint format &mdash; what <code>Module::save()</code>/<code>load()</code> use.</p>
+<div class="code-title">on-disk layout (little-endian)</div>
+<pre><code>┌────────────────────────────────────────────┐
+│  Magic bytes: "TNSF"          (4 bytes)     │
+│  Version:                     (uint32_t)    │
+│  Number of tensors:           (uint64_t)    │
+├────────────────────────────────────────────┤
+│  For each tensor:                           │
+│    Rank (number of dims):     (uint32_t)    │
+│    Each dim size:             (int64_t × rank) │
+│    Number of elements:        (uint64_t)    │
+│    Raw data:                  (T × n_elements) │
+└────────────────────────────────────────────┘</code></pre>
+
+<h2 id="quantizer">Quantizer — quant:: namespace</h2>
+<p>Block-wise quantization between a full-precision compute type (<code>float</code>/<code>double</code> —
+whatever <code>T</code> the model actually trains in) and a narrow software float storage type
+(<a href="types.html#fp8"><code>FP8&lt;E,M&gt;</code></a> / <a href="types.html#fp4"><code>FP4&lt;E,M&gt;</code></a>).</p>
+<p>Every contiguous run of <code>group</code> elements (default 32, matching GGUF's own convention) shares one
+float absmax scale &mdash; the same symmetric-absmax scheme used by GPTQ, AWQ, GGUF, and the MX formats:</p>
+<pre><code>encode:  code  = QT(value / scale)
+decode:  value = float(code) * scale</code></pre>
+<div class="callout note">
+  <span class="lbl">Why not just cast Matrix&lt;float&gt; → Matrix&lt;FP4&gt;?</span>
+  A plain <code>std::vector&lt;FP4&lt;E,M&gt;&gt;</code> is not 4-bit-per-element &mdash; each <code>FP4</code>
+  struct is still one byte in memory. Real savings come from two things this module actually does: (1) the
+  per-block float scale, which is what gives a 4-bit float usable dynamic range at all, and (2) genuine
+  bit-packing on save (two 4-bit codes per byte), applied only at <code>save_quantized</code>/<code>load_quantized</code>
+  time — the in-memory <code>QuantTensor</code> stays one struct per element for easy arithmetic.
+</div>
+<table>
+<tr><th>Function</th><th>Purpose</th></tr>
+<tr><td><code>save_quantized&lt;QT,SrcT&gt;(params, path, group=32)</code></td><td>Quantize + bit-pack a parameter list to disk</td></tr>
+<tr><td><code>load_quantized&lt;QT,DstT&gt;(path)</code></td><td>Dequantize straight back to <code>Matrix&lt;DstT&gt;</code></td></tr>
+<tr><td><code>save_module&lt;QT&gt;(module, path, group=32)</code></td><td>Convenience wrapper: <code>save_quantized</code> over <code>module.parameters()</code></td></tr>
+<tr><td><code>load_module_into&lt;QT&gt;(module, path)</code></td><td>Dequantizes and copies straight into an existing module's parameters (tensor count must match)</td></tr>
+</table>
+<p>Used by <a href="../federated.html#trainer"><code>Trainer::save_quantized_checkpoint</code></a> for
+~4× (FP8) or ~8× (FP4) smaller checkpoints on disk — training still happens in full-precision <code>T</code>,
+only the bytes at rest shrink.</p>
+
+<div class="pagefoot">
+  <a href="transformers.html">← Transformers</a>
+  <a href="modelloader.html">Next: ModelLoader →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

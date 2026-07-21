@@ -1,4 +1,11 @@
 
+KV cache, 
+fused attention, 
+memory-efficient backward 
+
+
+
+
 ## Layer 3 — GPU with SYCL
 
 ### The architecture decision

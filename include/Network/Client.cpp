@@ -56,6 +56,7 @@
 #include <optional>
 #include <filesystem>
 #include <algorithm>
+#include <type_traits>
 
 // ─── POSIX networking ────────────────────────────────────────────────────────
 #include <unistd.h>
@@ -178,6 +179,14 @@ struct ClientOptions {
     // --chunk-mb separately controls how big the BROADCAST chunks back to
     // this client are, so lower that too if THIS client is the weak one.
     double      chunk_mb     = 8.0;
+
+    // ── LoRA ────────────────────────────────────────────────────────────
+    // Must match the server's --lora setting for a round to be meaningful:
+    // the backbone is still loaded dense from --model either way, but only
+    // the LoRA {A,B} adapters get trained/exchanged when this is set.
+    bool        lora         = false;
+    size_t      lora_rank    = 8;
+    float       lora_alpha   = 16.0f;
 };
 
 GPT2HyperParams GPTp {
@@ -218,6 +227,10 @@ static void print_usage(const char* prog) {
         "                      this on a low-RAM machine; also lower the SERVER's own\n"
         "                      --chunk-mb if this client is the one that's weak (that\n"
         "                      controls the broadcast chunk size coming back to it).\n"
+        "  --lora              Train/exchange LoRA adapters instead of full weights\n"
+        "                      (must match the server's --lora setting)\n"
+        "  --lora-rank <n>     LoRA rank, only used with --lora (default: 8)\n"
+        "  --lora-alpha <f>    LoRA alpha, only used with --lora (default: 16.0)\n"
         "  --quiet             Suppress verbose output\n"
         "  --help              Show this help\n",
         prog);
@@ -232,6 +245,7 @@ static ClientOptions parse_args(int argc, char* argv[]) {
         else if (a == "--json-log")     o.json_log     = true;
         else if (a == "--no-federated") o.no_federated = true;
         else if (a == "--feddistill")   o.feddistill   = true;
+        else if (a == "--lora")         o.lora         = true;
         else if (a == "--quiet")        o.verbose      = false;
         else if (a == "--server"  && i+1 < argc) o.server_ip   = argv[++i];
         else if (a == "--port"    && i+1 < argc) o.port        = (uint16_t)atoi(argv[++i]);
@@ -251,6 +265,8 @@ static ClientOptions parse_args(int argc, char* argv[]) {
         else if (a == "--rounds"     && i+1 < argc) o.max_rounds  = atoi(argv[++i]);
         else if (a == "--quantize"   && i+1 < argc) o.quantize    = argv[++i];
         else if (a == "--chunk-mb"   && i+1 < argc) o.chunk_mb    = atof(argv[++i]);
+        else if (a == "--lora-rank"  && i+1 < argc) o.lora_rank   = atoi(argv[++i]);
+        else if (a == "--lora-alpha" && i+1 < argc) o.lora_alpha  = (float)atof(argv[++i]);
         else { fprintf(stderr, "[client] Unknown option: %s\n", a.c_str()); o.help = true; }
     }
     // Default checkpoint path, namespaced by client-id so concurrent clients
@@ -331,19 +347,22 @@ static void print_round_stats(const RoundStats& s) {
 //  as a std::vector<float> over the wire and is passed directly to
 //  trainer.distill_logits() — there is no teacher model on the client.
 
+template <typename T, template<typename> class LinearT>
 class FederatedClient {
     // ── Student model ─────────────────────────────────────────────────────────
     // The ONLY model the client owns. No teacher.
     GPT2HyperParams        hp;
-    GPTGGUFLoader<float>  loader;
-    GPT<float>             student;
+    // GGUF always stores dense weights (see GPTGGUFLoader's static_assert);
+    // loader is fixed at LinearT=Linear regardless of what `student` uses.
+    GPTGGUFLoader<T, Linear> loader;
+    GPT<T, LinearT>          student;
     GPT2Tokenizer          tokenizer;
 
     // ── Trainer ───────────────────────────────────────────────────────────────
     // Mode = FEDAVG (default) or FEDDISTILL (set below based on opts).
     // No teacher pointer — federated clients never hold a local teacher model.
     // distill_logits() accepts the teacher signal as an external tensor.
-    Trainer<GPT<float>, float> trainer;
+    Trainer<GPT<T, LinearT>, T> trainer;
 
     // ── Dataset ──────────────────────────────────────────────────────────────
     TextDataset<float>     dataset;
@@ -364,6 +383,31 @@ class FederatedClient {
         if (ok)
             printf("[client] Connected to %s:%u\n", opts.server_ip.c_str(), opts.port);
         return ok;
+    }
+
+    /// Sends this client's LoRA config and blocks for the server's
+    /// accept/reject. `student`'s type (LinearT) is what actually decides
+    /// lora_enabled here — opts.lora is what selected LinearT back in
+    /// main()'s run_client<LinearT>() dispatch, so the two always agree by
+    /// construction; using the compile-time check keeps this correct even
+    /// if that invariant is ever broken elsewhere.
+    bool negotiate_lora() {
+        constexpr bool lora_enabled = std::is_same_v<LinearT<T>, LoRALinear<T>>;
+        if (!net.sendLoraConfig(lora_enabled, (uint32_t)opts.lora_rank, opts.lora_alpha)) {
+            std::cerr << "[client] Failed to send LoRA handshake to server\n";
+            return false;
+        }
+        bool accepted = false;
+        std::string reason;
+        if (!net.receiveLoraAck(accepted, reason)) {
+            std::cerr << "[client] Failed to read LoRA handshake reply from server\n";
+            return false;
+        }
+        if (!accepted) {
+            std::cerr << "[client] Server rejected this client's config: " << reason << "\n";
+            return false;
+        }
+        return true;
     }
 
     // ── Flat-offset ↔ tensor mapping for chunked I/O ──────────────────────────
@@ -570,9 +614,9 @@ class FederatedClient {
         std::string qpath = opts.save_path + "." + opts.quantize;
         ensure_parent_dir(qpath);
         if (opts.quantize == "fp8")
-            trainer.save_quantized_checkpoint<fp8_e4m3>(qpath);
+            trainer.template save_quantized_checkpoint<fp8_e4m3>(qpath);
         else if (opts.quantize == "fp4")
-            trainer.save_quantized_checkpoint<fp4_e2m1>(qpath);
+            trainer.template save_quantized_checkpoint<fp4_e2m1>(qpath);
         else
             printf("[client] Unknown --quantize format '%s' (expected fp8|fp4) — skipping.\n",
                    opts.quantize.c_str());
@@ -705,18 +749,54 @@ class FederatedClient {
     }
 
 public:
+    // LinearT is fixed at compile time once FederatedClient<T,LinearT> is
+    // instantiated (main() below picks the instantiation from --lora at
+    // runtime) — so which Args (bias vs rank/alpha) to forward to `student`'s
+    // constructor is decided here via the same tag-dispatch-to-delegating-
+    // constructor trick used in FederatedServer (Server.cpp), since a
+    // member-initializer-list can't hold an `if constexpr` directly.
     FederatedClient(const ClientOptions& o)
+        : FederatedClient(o, std::bool_constant<
+              std::is_same_v<LinearT<T>, LoRALinear<T>>>{})
+    {}
+
+private:
+    // LoRA path: student is a fresh GPT<T,LoRALinear>(rank, alpha); the
+    // dense GGUF checkpoint is loaded separately as `pretrained` and copied
+    // into student's backbone + head in init_common() below.
+    FederatedClient(const ClientOptions& o, std::true_type /* is_lora */)
         : hp(GPTp),
-          student(loader.load_model(o.model_path, hp)),
+          student(hp.vocab_size, hp.d_model, hp.block_size, hp.n_head,
+                   hp.n_layer, o.lora_rank, o.lora_alpha),
+          trainer(student, o.lr, o.feddistill ? FEDDISTILL : FEDAVG),
+          dataset(o.dataset_path, o.block_size, o.batch_size),
+          opts(o)
+    { init_common(o); }
+
+    // Dense path: student is a fresh GPT<T,Linear>() (default bias=true);
+    // same backbone/head copy happens in init_common().
+    FederatedClient(const ClientOptions& o, std::false_type /* is_lora */)
+        : hp(GPTp),
+          student(hp.vocab_size, hp.d_model, hp.block_size, hp.n_head, hp.n_layer),
           // Trainer: student only. No teacher pointer.
           // FEDAVG mode by default; distill_logits() handles FedDistill
           // server-consensus path without needing a local teacher.
           trainer(student, o.lr, o.feddistill ? FEDDISTILL : FEDAVG),
           dataset(o.dataset_path, o.block_size, o.batch_size),
           opts(o)
-    {
+    { init_common(o); }
+
+    void init_common(const ClientOptions& o) {
+        // Load the dense GGUF checkpoint and copy it into `student`. For
+        // LinearT=Linear this is a dense-to-dense copy; for LoRALinear the
+        // backbone is copied verbatim and the freshly-initialised LoRA
+        // {A,B} adapters are left untouched (see GPT.hpp's documented
+        // pretrained→LoRA-student pattern).
+        GPT<T, Linear> pretrained = loader.load_model(o.model_path, hp);
+        student.load_backbone_from(pretrained);
+        student.load_head_from(pretrained);
+
         // load_tokenizer() reads metadata populated by load_model() above.
-        // Assigning in the body guarantees load_model() has already run.
         tokenizer = loader.load_tokenizer();
         if (tokenizer.encoder.empty())
             throw std::runtime_error(
@@ -741,6 +821,7 @@ public:
         }
     }
 
+public:
     // ── Hardware profiling ────────────────────────────────────────────────────
 
     void run_profiler() {
@@ -770,6 +851,14 @@ public:
         if (!opts.no_federated) {
             if (!connect_to_server()) {
                 printf("[client] Could not connect — running in local mode.\n");
+                opts.no_federated = true;
+            } else if (!negotiate_lora()) {
+                // negotiate_lora() already printed why (I/O failure or a
+                // logical config mismatch); either way this client can't
+                // meaningfully participate in this server's rounds, so drop
+                // to local-only training rather than sending weight deltas
+                // that won't line up with the server's parameter layout.
+                net.disconnect();
                 opts.no_federated = true;
             }
         }
@@ -830,17 +919,14 @@ public:
 //  main
 // ════════════════════════════════════════════════════════════════════════════
 
-int main(int argc, char* argv[]) {
-    ClientOptions opts = parse_args(argc, argv);
-    if (opts.help) { print_usage(argv[0]); return 0; }
-
-    printf("═══════════════════════════════════════════════════════\n");
-    printf("  TensorF Federated Client\n");
-    printf("═══════════════════════════════════════════════════════\n");
-
+// FederatedClient<T,LinearT> is a compile-time instantiation, but --lora is
+// a runtime CLI flag — so main() picks between the two already-compiled
+// instantiations at startup, same pattern as run_server() in server.cpp.
+template <template<typename> class LinearT>
+static int run_client(const ClientOptions& opts) {
     Timer startup;
     printf("[client] Loading model: %s\n", opts.model_path.c_str());
-    FederatedClient client(opts);
+    FederatedClient<float, LinearT> client(opts);
     printf("[client] Model ready in %s\n", startup.str().c_str());
 
     if (!opts.no_profile)
@@ -848,4 +934,16 @@ int main(int argc, char* argv[]) {
 
     client.run();
     return 0;
+}
+
+int main(int argc, char* argv[]) {
+    ClientOptions opts = parse_args(argc, argv);
+    if (opts.help) { print_usage(argv[0]); return 0; }
+
+    printf("═══════════════════════════════════════════════════════\n");
+    printf("  TensorF Federated Client%s\n", opts.lora ? "  (LoRA)" : "");
+    printf("═══════════════════════════════════════════════════════\n");
+
+    return opts.lora ? run_client<LoRALinear>(opts)
+                      : run_client<Linear>(opts);
 }

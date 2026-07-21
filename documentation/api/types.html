@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Types — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link current">Types.hpp</a>
+<a href="../api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link">Operations (19)</a>
+<a href="../api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link">Modules / nn</a>
+<a href="../api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link">DataLoader</a>
+<a href="../api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; Types/types.hpp, fp8.hpp, fp4.hpp</span>
+<h1>Types</h1>
+<p class="lede">Core aliases used across every header, plus TensorF's two software floating-point types
+used for quantized checkpoints.</p>
+
+<h2 id="aliases">Core aliases</h2>
+<pre><code><span class="kw">using</span> shape_t = std::vector&lt;<span class="tp">size_t</span>&gt;;
+
+<span class="kw">template</span> &lt;<span class="kw">typename</span> T&gt;
+<span class="kw">using</span> Operation_t = std::shared_ptr&lt;Operation&lt;T&gt;&gt;;
+
+<span class="kw">template</span> &lt;<span class="kw">typename</span> T&gt;
+<span class="kw">using</span> Tensor_t = std::shared_ptr&lt;Tensor&lt;T&gt;&gt;;
+</code></pre>
+<p>Every shape in the codebase (tensor shapes, layer <code>normalized_shape</code>, etc.) is a
+<code>shape_t</code>. Every graph node is passed around as a <code>Tensor_t&lt;T&gt;</code> — raw
+<code>Tensor&lt;T&gt;</code> values are never handled directly by user code.</p>
+
+<h2 id="fixed">Fixed-width integer aliases</h2>
+<table>
+<tr><td><code>int8</code></td><td><code>unsigned char</code></td></tr>
+<tr><td><code>int16</code></td><td><code>unsigned short int</code></td></tr>
+<tr><td><code>int32</code></td><td><code>unsigned int</code></td></tr>
+<tr><td><code>int64</code></td><td><code>unsigned long long int</code></td></tr>
+</table>
+
+<h2 id="float">Float aliases</h2>
+<p><code>float16</code>, <code>float32</code>, <code>float64</code> map to compiler
+<code>_FloatXX</code> extended types where available, falling back to <code>uint16_t</code> (storage-only,
+for <code>float16</code>), <code>float</code>, and <code>double</code> respectively.</p>
+
+<h2 id="fp8">FP8&lt;E,M&gt; — 8-bit software float</h2>
+<p>A single-byte struct storing sign + <code>E</code> exponent bits + <code>M</code> mantissa bits
+(<code>E + M + 1 == 8</code>, enforced with <code>static_assert</code>). Arithmetic operators decode both
+operands to <code>float</code>, compute, and re-encode — this is a storage format, not an accelerated compute
+type.</p>
+<table>
+<tr><th>Alias</th><th>Layout</th><th>Use case</th></tr>
+<tr><td><code>fp8_e3m4</code></td><td>3 exponent, 4 mantissa bits</td><td>More precision, less range</td></tr>
+<tr><td><code>fp8_e4m3</code></td><td>4 exponent, 3 mantissa bits</td><td>The common ML default (matches NVIDIA's E4M3)</td></tr>
+<tr><td><code>fp8_e5m2</code></td><td>5 exponent, 2 mantissa bits</td><td>More range, less precision</td></tr>
+</table>
+
+<h2 id="fp4">FP4&lt;E,M&gt; — 4-bit software float</h2>
+<table>
+<tr><th>Alias</th><th>Layout</th></tr>
+<tr><td><code>fp4_e2m1</code></td><td>2 exponent, 1 mantissa bit</td></tr>
+<tr><td><code>fp4_e1m2</code></td><td>1 exponent, 2 mantissa bits</td></tr>
+</table>
+<p>Note: an <code>FP4</code> value is still a full byte-aligned struct in memory — real 4-bit packing (two
+codes per byte) only happens on disk, in <code>Quantizer.hpp</code>'s save/load path. See
+<a href="dataloader.html#quantizer">DataLoader → Quantizer</a>.</p>
+
+<h2 id="traits">Type traits</h2>
+<pre><code><span class="kw">template</span>&lt;<span class="kw">typename</span> T&gt; <span class="kw">struct</span> is_fp8 : std::false_type {};
+<span class="kw">template</span>&lt;<span class="tp">int</span> E, <span class="tp">int</span> M&gt; <span class="kw">struct</span> is_fp8&lt;FP8&lt;E,M&gt;&gt; : std::true_type {};
+
+<span class="kw">template</span>&lt;<span class="kw">typename</span> T&gt; <span class="kw">struct</span> is_fp4 : std::false_type {};
+<span class="kw">template</span>&lt;<span class="tp">unsigned</span> <span class="tp">short</span> E, <span class="tp">unsigned</span> <span class="tp">short</span> M&gt; <span class="kw">struct</span> is_fp4&lt;FP4&lt;E,M&gt;&gt; : std::true_type {};
+</code></pre>
+<p>Used throughout the codebase's <code>if constexpr</code> branches (e.g. <code>Optimizer&lt;T&gt;::sgd()</code>,
+<code>Matrix&lt;T&gt;::dot()</code>) to select the OpenBLAS-backed path for <code>float</code>/<code>double</code>
+versus a naive fallback loop for everything else, including <code>fp8</code>/<code>fp4</code>.</p>
+
+<h2 id="forward-decls">Forward declarations</h2>
+<p><code>types.hpp</code> forward-declares <code>Tensor&lt;T&gt;</code>, <code>Operation&lt;T&gt;</code>,
+<code>Module&lt;T&gt;</code>, <code>GGUFLoader&lt;T&gt;</code>, <code>GPTGGUFLoader&lt;T&gt;</code>, and
+<code>LlamaGGUFLoader&lt;T&gt;</code> — this is what lets nearly every header in the project include
+<code>types.hpp</code> without a circular-include problem, since the aliases above only need the forward
+declaration, not the full class body.</p>
+
+<div class="pagefoot">
+  <span></span>
+  <a href="matrix.html">Next: Matrix&lt;T&gt; →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

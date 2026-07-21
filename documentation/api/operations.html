@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operations — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link">Types.hpp</a>
+<a href="../api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link current">Operations (19)</a>
+<a href="../api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link">Modules / nn</a>
+<a href="../api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link">DataLoader</a>
+<a href="../api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; Operations/*.hpp</span>
+<h1>Operations catalogue</h1>
+<p class="lede">Every differentiable primitive in TensorF inherits from the abstract <code>Operation&lt;T&gt;</code>
+base and implements <code>forward()</code> plus <code>backward(Matrix&lt;T&gt; grad)</code>. 19 concrete
+operations exist. All arithmetic below uses <code>⊙</code> for elementwise product.</p>
+
+<div class="callout note">
+  <span class="lbl">Operation&lt;T&gt; base class</span>
+  Holds the input tensor(s) (<code>t1</code>, sometimes <code>t2</code>) and provides
+  <code>reset_graph()</code>, which every subclass implements identically: call <code>reset_graph()</code> on
+  inputs, then null its own reference (see <a href="../architecture.html#memory">memory management</a>).
+  Note: concrete subclasses shadow the base's <code>t1</code>/<code>t2</code> members with their own —
+  redundant but functionally harmless. See <a href="../known-issues.html">Known Issues #12</a>.
+</div>
+
+<h2 id="arith">Arithmetic</h2>
+
+<div class="method">
+  <div class="sig"><span class="name">AddOperation</span> — t1 + t2</div>
+  <div class="body"><p><strong>Backward:</strong> the incoming gradient is redistributed identically to both
+  inputs, reduced through <code>sumGradForBroadcast</code>.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">SubtractOperation</span> — t1 − t2</div>
+  <div class="body"><p><strong>Backward:</strong> ∂L/∂t1 = grad, ∂L/∂t2 = −grad, both reduced via
+  <code>sumGradForBroadcast</code>.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">MultiplyOperation</span> — t1 ⊙ t2</div>
+  <div class="body"><p><strong>Backward (product rule):</strong> ∂L/∂t1 = grad ⊙ t2, ∂L/∂t2 = grad ⊙ t1.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">DivisionOperation</span> — t1 / t2</div>
+  <div class="body"><p><strong>Backward:</strong> ∂L/∂t1 = grad / t2, ∂L/∂t2 = −grad · t1 / t2².</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">PowerOperation</span> — t1<sup>t2</sup> <span class="badge warn">incomplete grad</span></div>
+  <div class="body"><p><strong>Backward:</strong> ∂L/∂t1 = grad · t2 · t1<sup>t2−1</sup>.</p>
+  <p class="dim">The gradient with respect to the exponent <code>t2</code> is never computed. Harmless while
+  the exponent is a constant (the common case); breaks silently if you ever need <code>t2</code> to be
+  learnable. See <a href="../known-issues.html">Known Issues #5</a>.</p></div>
+</div>
+
+<h2 id="elementwise">Elementwise functions</h2>
+<div class="method">
+  <div class="sig"><span class="name">ExponentOperation</span> — e<sup>t1</sup></div>
+  <div class="body"><p>Saves the forward output; <strong>backward:</strong> ∂L/∂t1 = grad ⊙ e<sup>t1</sup>.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">LogOperation</span> — ln(t1) <span class="badge warn">no clamp</span></div>
+  <div class="body"><p><strong>Backward:</strong> ∂L/∂t1 = grad / t1. No protection against <code>t1 ≤ 0</code>
+  at the operation level — inconsistent with <code>Matrix::ln()</code>'s silent 1e-9 clamp on forward. See
+  <a href="../known-issues.html">Known Issues #4</a>.</p></div>
+</div>
+
+<h2 id="activations">Activations</h2>
+<div class="method">
+  <div class="sig"><span class="name">ReluOperation</span></div>
+  <div class="body"><p><strong>Backward:</strong> grad ⊙ (t1 &gt; 0).</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">SigmoidOperation</span></div>
+  <div class="body"><p><strong>Backward:</strong> grad ⊙ σ(x) ⊙ (1 − σ(x)), reusing the saved forward output.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">SoftmaxOperation</span> <span class="badge o1">stabilized</span></div>
+  <div class="body"><p>Numerically stabilized forward (subtracts the per-row max before exponentiating).
+  Applied along the last dimension, generalized to ND tensors.</p>
+  <p><strong>Backward:</strong> the analytic Jacobian-vector product
+  S<sub>ij</sub>(G<sub>ij</sub> − Σ<sub>k</sub> G<sub>ik</sub>S<sub>ik</sub>), avoiding materializing the full
+  N×C×C Jacobian.</p></div>
+</div>
+
+<h2 id="linalg">Linear algebra</h2>
+<div class="method">
+  <div class="sig"><span class="name">DotOperation</span></div>
+  <div class="body"><p><strong>Backward:</strong> ∂L/∂t1 = grad · t2<sup>⊤</sup>, ∂L/∂t2 = t1<sup>⊤</sup> · grad —
+  <strong>without</strong> <code>sumGradForBroadcast</code> (exact shapes are assumed).</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">MatmulOperation</span> <span class="badge o1">batched</span></div>
+  <div class="body"><p><strong>Backward:</strong> transposes only the last two dimensions when 3D
+  (<code>{0,2,1}</code>), then reduces via <code>sumGradForBroadcast</code>. Consistent with the batched
+  <code>Matrix::matmul</code> forward — see <a href="../architecture.html#matmul">Architecture → matmul</a>.</p></div>
+</div>
+
+<h2 id="shape">Shape manipulation</h2>
+<div class="method">
+  <div class="sig"><span class="name">ReshapeOperation</span></div>
+  <div class="body"><p>Forward saves <code>orig_shape</code>. <strong>Backward:</strong> reshapes the
+  gradient back to that original shape.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">TransposeOperation</span></div>
+  <div class="body"><p>Three <code>forward()</code> overloads: no-argument, <code>initializer_list&lt;size_t&gt;</code>,
+  or <code>shape_t</code> permutation, memorized in <code>inperm</code>. <strong>Backward:</strong> applies the
+  inverse permutation to the gradient.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">ConcatOperation</span> <span class="badge">variable arity</span></div>
+  <div class="body"><p>The only operation taking a <code>std::vector&lt;Tensor_t&lt;T&gt;&gt;</code>.
+  <strong>Backward:</strong> splits the gradient (<code>slice_axis</code>) according to memorized
+  <code>split_sizes</code>.</p></div>
+</div>
+
+<h2 id="lookup">Lookup &amp; indexing</h2>
+<div class="method">
+  <div class="sig"><span class="name">EmbeddingOperation</span> <span class="badge o1">scatter-add</span></div>
+  <div class="body"><p><strong>Backward:</strong> scatter-add accumulation — repeated indices sum their
+  gradients correctly.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">IndexOperation</span> <span class="badge crit">bug</span></div>
+  <div class="body"><p>Forward calls <code>t1-&gt;val.at(mask)</code> — directly inherits the missing-return
+  bug in <code>Matrix::at(Matrix&lt;bool&gt;)</code>. See <a href="../known-issues.html">Known Issues #1</a>.</p></div>
+</div>
+
+<h2 id="reduce">Reductions</h2>
+<div class="method">
+  <div class="sig"><span class="name">SumOperation</span> — full reduction to scalar</div>
+  <div class="body"><p><strong>Backward:</strong> <code>grad.data[0] * ones(shape)</code> — the scalar gradient
+  is broadcast uniformly back over the original shape.</p></div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">SumAxisOperation</span> <span class="badge warn">duplicated logic</span></div>
+  <div class="body"><p>Forward reduces <code>axis</code> but keeps it at size 1 (<code>{N,1}</code>) to allow
+  natural downstream broadcasting. <strong>Backward:</strong> reconstructs the full gradient via
+  tiling/repetition — logic equivalent to an inverse broadcast, but manually reimplemented separately from
+  <code>sumGradForBroadcast</code>/<code>Broadcast&lt;T&gt;::broadcastTo</code>. Risk of divergence if one is
+  fixed without the other. See <a href="../known-issues.html">Known Issues #6</a>.</p></div>
+</div>
+
+<div class="pagefoot">
+  <a href="tensor.html">← Tensor&lt;T&gt;</a>
+  <a href="overloads.html">Next: Overloads →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

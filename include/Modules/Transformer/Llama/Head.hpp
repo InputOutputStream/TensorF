@@ -6,10 +6,9 @@
 #include <algorithm>
 
 #include "../../Module.hpp"
-#include "../../Linear.hpp"
 #include "../../RotationalPositionalEncoding.hpp"
 
-template <typename T>
+template <typename T, template<typename> class LinearT>
 class Head : public Module<T>{
     private:
 
@@ -18,22 +17,23 @@ class Head : public Module<T>{
         size_t head_size;
         RotationalPositionalEncoding<T> rope;
 
-        Linear<T> K;
-        Linear<T> Q;
-        Linear<T> V;
+        LinearT<T> K;
+        LinearT<T> Q;
+        LinearT<T> V;
 
         Matrix<T> mask;
 
     public:
 
-    Head(size_t head_size, size_t input_dim, size_t sequence_length, bool bias=true):
+    template <typename... Args>
+    Head(size_t head_size, size_t input_dim, size_t sequence_length, Args&&... args):
         input_dim(input_dim),
         seq_length(sequence_length),
         head_size(head_size),
         rope(head_size, sequence_length),
-        K(head_size, input_dim, bias),
-        Q(head_size, input_dim, bias),
-        V(head_size, input_dim, bias)
+        K(head_size, input_dim, args...),
+        Q(head_size, input_dim, args...),
+        V(head_size, input_dim, args...)
     {
         this->register_module(&Q);
         this->register_module(&K);
@@ -64,6 +64,17 @@ class Head : public Module<T>{
         Matrix<T> tmp = Matrix<T>::tril(Matrix<T>::ones({seq, seq}));
         Matrix<bool> tmp2(tmp == 0);
         this->mask = Matrix<T>::where(tmp2, -Matrix<T>::inf(), (T)0.0);
+    }
+
+    LinearT<T>& get_Q() { return Q; }
+    LinearT<T>& get_K() { return K; }
+    LinearT<T>& get_V() { return V; }
+
+    // Pretrained source is always dense (Linear<T>) — see LlamaGGUFLoader
+    void load_pretrained(Head<T, Linear>& src) {
+        Q.load_pretrained(src.get_Q());
+        K.load_pretrained(src.get_K());
+        V.load_pretrained(src.get_V());
     }
 
     std::pair<Tensor_t<T>, Tensor_t<T>> scaled_dot_product_attention(
@@ -106,7 +117,7 @@ class Head : public Module<T>{
     }
     
     friend class GGUFLoader<T>;
-    friend class LlamaGGUFLoader<T>; 
+    template <typename, template<typename> class> friend class LlamaGGUFLoader;
 
 };
 

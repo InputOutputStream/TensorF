@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Known Issues — TensorF Docs</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="index.html">Overview</a>
+<a href="install.html">Install</a>
+<a href="quickstart.html">Quickstart</a>
+<a href="architecture.html">Architecture</a>
+<a href="federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="index.html" class="link">Overview</a>
+<a href="install.html" class="link">Install &amp; Build</a>
+<a href="quickstart.html" class="link">Quickstart</a>
+<a href="examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="architecture.html" class="link">Autograd Architecture</a>
+<a href="api/types.html" class="link">Types.hpp</a>
+<a href="api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="api/operations.html" class="link">Operations (19)</a>
+<a href="api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="api/modules.html" class="link">Modules / nn</a>
+<a href="api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="api/dataloader.html" class="link">DataLoader</a>
+<a href="api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="federated.html" class="link">Federated Learning</a>
+<a href="api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="known-issues.html" class="link current">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">Reference</span>
+<h1>Known issues</h1>
+<p class="lede">Bugs and design inconsistencies found during a full review of the autograd subsystem
+(<code>Matrix.hpp</code>, <code>Tensor.hpp</code>, <code>Operation.hpp</code>, the overload files, and the 19
+operations), current as of July 20, 2026. Check this page before relying on the affected APIs.</p>
+
+<table>
+<tr><th>#</th><th>File</th><th>Severity</th><th>Description</th></tr>
+<tr>
+  <td>1</td>
+  <td><code>Matrix.hpp</code> — <code>at(Matrix&lt;bool&gt;)</code></td>
+  <td><span class="sev critical">critical</span></td>
+  <td>The branch that constructs <code>res</code> in the nominal case never returns a value — undefined
+  behavior. Called directly by <code>IndexOperation::forward()</code>, so <code>Tensor::bool_index()</code>
+  is concretely affected. Fix before relying on boolean indexing.
+  <a href="api/matrix.html#indexing">→ Matrix reference</a></td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Matrix.hpp</code> — <code>mean()</code> (no axis)</td>
+  <td><span class="sev bug">latent bug</span></td>
+  <td><code>this-&gt;sum() / (T)this-&gt;data.size</code> — missing parentheses on <code>size</code> (a method,
+  not a member). Shouldn't compile if instantiated; <code>Tensor::mean(axis)</code> always uses the correct
+  axis-based overload instead. <a href="api/matrix.html#reductions">→ Matrix reference</a></td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>Matrix.hpp</code> — <code>pow(Matrix&lt;T&gt;, T)</code></td>
+  <td><span class="sev deadcode">dead code</span></td>
+  <td>Malformed call (single-argument <code>std::pow</code>, stray comma inside <code>push_back</code>).
+  Shouldn't compile if instantiated — likely dead code.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>Matrix::ln()</code> vs. <code>LogOperation::backward</code></td>
+  <td><span class="sev bug">inconsistency</span></td>
+  <td><code>ln()</code> silently clamps input to ≥1e-9 on forward, but backward divides by raw <code>t1</code>
+  with no matching clamp — gradient potentially explosive near zero.
+  <a href="api/operations.html#elementwise">→ Operations reference</a></td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>PowerOperation.hpp</code></td>
+  <td><span class="sev bug">missing gradient</span></td>
+  <td>Gradient with respect to the exponent <code>t2</code> is never computed, though
+  <code>zero_grad()</code> treats it as a normal participant. Harmless while the exponent stays a constant.
+  <a href="api/operations.html#arith">→ Operations reference</a></td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>SumAxisOperation.hpp</code></td>
+  <td><span class="sev bug">duplication</span></td>
+  <td>Inverse-broadcast gradient logic is reimplemented independently of
+  <code>sumGradForBroadcast</code>/<code>Broadcast&lt;T&gt;::broadcastTo</code> — risk of divergence if one is
+  fixed without the other. <a href="api/operations.html#reduce">→ Operations reference</a></td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>tensor_overloads.hpp</code></td>
+  <td><span class="sev trap">API trap</span></td>
+  <td><code>+=</code>, <code>-=</code>, <code>*=</code>, <code>/=</code> on <code>Tensor_t&lt;T&gt;</code> do
+  not mutate in place — different behavior than the same operators on <code>std::vector&lt;T&gt;</code> or
+  <code>Matrix&lt;T&gt;</code>. <a href="api/overloads.html#piege">→ Overloads reference</a></td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>Overload.hpp</code></td>
+  <td><span class="sev info">consistency</span></td>
+  <td>Inconsistent error strategy: recoverable exceptions (<code>Tensor::backward</code>) vs.
+  <code>std::abort()</code> (<code>check_nan</code>).</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>Overload.hpp</code></td>
+  <td><span class="sev info">consistency</span></td>
+  <td>Inconsistent return types between order comparisons (<code>std::vector&lt;T&gt;</code>) and equality
+  comparisons (<code>std::vector&lt;uint8_t&gt;</code>).</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>Overload.hpp</code></td>
+  <td><span class="sev info">silent</span></td>
+  <td>Vector⊕vector operators silently truncate to <code>min(|a|,|b|)</code> on mismatched sizes — no error,
+  no broadcasting. <a href="api/overloads.html#overload">→ Overloads reference</a></td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>Matrix::stack</code></td>
+  <td><span class="sev info">limitation</span></td>
+  <td>Does not generalize beyond 2D input matrices.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>Operation.hpp</code></td>
+  <td><span class="sev deadcode">minor</span></td>
+  <td>Base class members <code>t1</code>, <code>t2</code> are shadowed by derived classes — redundant, no
+  functional effect.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td>General</td>
+  <td><span class="sev info">info</span></td>
+  <td><code>avx2_pad</code> is applied to <code>matmul</code>/<code>dot</code>'s output buffer, but not to
+  general constructor storage (that code path is commented out) — partial SIMD alignment.
+  <a href="api/matrix.html#ctors">→ Matrix reference</a></td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>LlamaHyperParams::n_kv_heads</code></td>
+  <td><span class="sev info">verify</span></td>
+  <td>Parsed from GGUF metadata but the current <code>Llama&lt;T&gt;</code> attention implementation does not
+  perform grouped-query attention with a distinct KV head count — verify actual K/V weight shapes for your
+  specific checkpoint before assuming full GQA compatibility.
+  <a href="api/modelloader.html#llamaloader">→ ModelLoader reference</a></td>
+</tr>
+</table>
+
+<div class="callout note">
+  <span class="lbl">Where this list comes from</span>
+  Items 1–13 are drawn from an existing internal LaTeX code review of the autograd subsystem (dated July 20,
+  2026). Item 14 was observed independently while documenting <code>ModelLoader</code>. This is not an
+  exhaustive audit of the full 92-file codebase — the Network/Profiler/DataLoader layers outside the autograd
+  core have not had the same close review pass.
+</div>
+
+<div class="pagefoot">
+  <a href="examples.html">← Examples</a>
+  <span></span>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

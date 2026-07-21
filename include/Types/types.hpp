@@ -17,10 +17,10 @@
     template <typename T>
     class GGUFLoader;
 
-    template <typename T>
+    template <typename T, template<typename> class LinearT>
     class GPTGGUFLoader;
     
-    template <typename T>
+    template <typename T, template<typename> class LinearT>
     class LlamaGGUFLoader;
 
     template <typename T>

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transformers — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link">Types.hpp</a>
+<a href="../api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link">Operations (19)</a>
+<a href="../api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link">Modules / nn</a>
+<a href="../api/transformers.html" class="link current">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link">DataLoader</a>
+<a href="../api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; Modules/Transformer/*</span>
+<h1>Transformers — GPT, GPT-LoRA, Llama</h1>
+<p class="lede">Three decoder-only transformer stacks share the same <code>Module&lt;T&gt;</code> composition
+pattern but differ in normalization, feed-forward, and position-encoding strategy. All three implement
+<code>forward(index, targets, apply_mask)</code>, <code>generate(...)</code>, and <code>train(...)</code>
+with an identical shape.</p>
+
+<div class="grid cols-3">
+  <div class="card"><h4>GPT&lt;T&gt;</h4><p>GPT-2 architecture. Learned absolute positional embeddings,
+  LayerNorm, GeLU feed-forward, standard multi-head attention.</p></div>
+  <div class="card"><h4>Llama&lt;T&gt;</h4><p>Llama/SmolLM2 architecture. RoPE (rotary position embeddings)
+  applied inside each head, RMSNorm, SwiGLU feed-forward.</p></div>
+  <div class="card"><h4>GPTLoRA&lt;T&gt;</h4><p>A GPT variant whose LM head is a
+  <a href="modules.html#lora-linear">LoRALinear</a>, for federated distillation with a frozen backbone.</p></div>
+</div>
+
+<h2 id="gpt">GPT&lt;T&gt;</h2>
+<div class="method">
+  <div class="sig"><span class="name">GPT</span>(size_t vocab_size, size_t input_dim, size_t block_size, size_t n_heads, size_t n_layer)</div>
+  <div class="body">
+    <p>Composes: <code>PositionalEncoding</code>, <code>Embedding</code>, a stack of <code>n_layer</code>
+    <code>Block&lt;T&gt;</code>s, a final <code>LayerNorm</code> (<code>ln_f</code>), and an LM head
+    (<code>Linear&lt;T&gt;</code> projecting to <code>vocab_size</code>).</p>
+  </div>
+</div>
+<h3>GPT::forward(index, targets, apply_mask=true)</h3>
+<pre><code>tok_embed = embedding_table(index)                       <span class="cm">// {B,T,D}</span>
+pos_embed = position_embedding_table(arange(T))           <span class="cm">// {1,T,D}, broadcasts vs. batch</span>
+x = tok_embed + pos_embed
+
+<span class="kw">for</span> block <span class="kw">in</span> decoder_blocks: x = block(x, apply_mask)
+
+x = ln_f(x)
+logits = lm_head(x)                                       <span class="cm">// {B,T,vocab_size}</span>
+
+<span class="kw">if</span> targets != <span class="kw">nullptr</span>:
+    <span class="kw">return</span> cross_entropy(one_hot(targets), softmax(logits.reshape({B*T, V})))
+<span class="kw">return</span> logits</code></pre>
+
+<h3 id="gpt-block">GPT::Block&lt;T&gt;</h3>
+<p>Pre-norm residual block, the standard GPT-2 layout:</p>
+<pre><code>y = x + mha(ln1(x), apply_mask)
+z = y + ffwd(ln2(y))
+<span class="kw">return</span> z</code></pre>
+<p>Constructor validates <code>input_dim % n_heads == 0</code> and throws otherwise
+(<code>checked_head_size</code>); <code>head_size = input_dim / n_heads</code>.</p>
+
+<h3 id="gpt-head">GPT::Head&lt;T&gt; — scaled dot-product attention</h3>
+<pre><code>q, k, v = Q(x), K(x), V(x)                                 <span class="cm">// each {B,T,head_size}</span>
+scores  = q.matmul(k.transpose({0,2,1})) / sqrt(head_size)
+<span class="kw">if</span> apply_mask:
+    scores += causal_mask                                   <span class="cm">// -inf above the diagonal, tril-based</span>
+attn = softmax(scores)
+<span class="kw">return</span> attn.matmul(v)</code></pre>
+<p>The causal mask is lazily rebuilt only when the sequence length changes (<code>set_mask</code> checks
+<code>mask.shape[1] == seq</code> before recomputing) — an important performance detail since
+<code>tril</code>/<code>where</code> are not free.</p>
+
+<h3 id="gpt-mha">GPT::MultiHeadAttention&lt;T&gt;</h3>
+<p>Runs <code>n_heads</code> independent <code>Head</code>s, concatenates their outputs on the last axis
+(<code>{B,T,head_size}</code> × n_heads → <code>{B,T,n_heads·head_size}</code>), then projects back to
+<code>input_dim</code> through a final <code>Linear</code> (<code>proJ</code>).</p>
+
+<h3 id="gpt-ffwd">GPT::FeedForward&lt;T&gt;</h3>
+<p>Two-layer MLP with a <code>GeLU</code> nonlinearity and a 4× hidden expansion (standard GPT-2 ratio):
+<code>down(GeLU(up(x)))</code> where <code>up</code> projects to <code>4 × input_dim</code>.</p>
+
+<h3 id="generate">GPT::generate(index, max_new_tokens=50, temperature=0.7, k=40)</h3>
+<p>Autoregressive sampling loop. Each step: crop context to <code>max_sequence_length</code>, run a forward
+pass, take the last timestep's logits, apply <strong>temperature scaling then top-k filtered softmax</strong>
+(<code>topk_softmax</code>: partial-sorts to the top <code>k</code> logits, zeroes the rest, softmaxes only
+the survivors), sample via <code>Matrix::choice</code>, append the token, repeat.</p>
+
+<h3 id="train">GPT::train(get_batch_fn, iters, eval_interval)</h3>
+<p>Owns its own <code>Optimizer&lt;T&gt;</code> (AdamW, lr=1e-4). Standard loop: fetch a batch, call
+<code>train_step</code> (zero_grad → forward → <code>backward(1.0)</code> → step), periodically evaluate on the
+<code>"val"</code> split, and call <code>loss-&gt;reset_graph()</code> every iteration.</p>
+
+<hr>
+
+<h2 id="llama">Llama&lt;T&gt;</h2>
+<div class="method">
+  <div class="sig"><span class="name">Llama</span>(size_t vocab_size, size_t input_dim, size_t block_size, size_t n_heads, size_t n_layer, size_t ffn_hidden)</div>
+  <div class="body">
+    <p>Same overall shape as <code>GPT&lt;T&gt;</code> with three architectural swaps: <strong>no separate
+    positional-embedding table</strong> (RoPE is applied inside each attention head instead), <strong>RMSNorm</strong>
+    instead of LayerNorm, and a SwiGLU feed-forward. An extra <code>eos_token_id</code> check (hardcoded to
+    <code>2</code>, i.e. <code>&lt;|im_end|&gt;</code>) lets <code>generate()</code> stop early for
+    instruction-tuned checkpoints like SmolLM2-Instruct.</p>
+  </div>
+</div>
+
+<h3 id="rope">Llama::Head&lt;T&gt; — RoPE attention</h3>
+<p>Each head owns its own <code>RotationalPositionalEncoding&lt;T&gt;</code> instance (constructed with
+<code>(head_size, sequence_length)</code>). Q and K projections are rotated by RoPE before the scaled
+dot-product step; V is not.</p>
+
+<h3 id="swiglu">Llama::FeedForward&lt;T&gt; — SwiGLU</h3>
+<pre><code>gate   = SiLU(gate_proj(x))
+up     = up_proj(x)
+hidden = gate * up            <span class="cm">// elementwise gating</span>
+<span class="kw">return</span> down_proj(hidden)</code></pre>
+<p>All three projections (<code>gate_proj</code>, <code>up_proj</code>, <code>down_proj</code>) are
+bias-free <code>Linear</code> layers — matching the Llama/SmolLM2 reference architecture, where SwiGLU
+replaces GPT-2's single-hidden-layer GeLU MLP.</p>
+
+<hr>
+
+<h2 id="gptlora">GPTLoRA&lt;T&gt; — federated LoRA distillation student</h2>
+<p>Identical backbone to <code>GPT&lt;T&gt;</code> (position/token embedding, decoder blocks, final
+LayerNorm), but the LM head is a <a href="modules.html#lora-linear">LoRALinear&lt;T&gt;</a> instead of a plain
+<code>Linear&lt;T&gt;</code>. Full forward/generate logic is duplicated from <code>GPT&lt;T&gt;</code> rather
+than inherited, specifically so no plain-<code>Linear</code> head is ever allocated and wasted.</p>
+
+<h3>Why the LM head specifically</h3>
+<p>In a GPT-2-small-shaped model the LM head (<code>vocab_size × d_model</code>, e.g. 50257×768 ≈ 38.6M
+params) is the single largest weight matrix outside the token embedding, and the one tensor
+<code>GPT.hpp</code> already exposes cleanly enough to swap. The attention/MLP projections inside each
+<code>Block</code> are not currently LoRA-adapted &mdash; the pattern for extending that is noted directly in
+the source (templatize <code>Block</code> on its projection type).</p>
+
+<h3>Bridging from a pretrained GPT&lt;T&gt;</h3>
+<p><code>GPTGGUFLoader&lt;T&gt;</code> only knows how to populate a <code>GPT&lt;T&gt;</code>, so weights are
+loaded into a normal <code>GPT&lt;T&gt;</code> first, then copied tensor-for-tensor:</p>
+<pre><code>GPTGGUFLoader&lt;<span class="tp">float</span>&gt; loader;
+GPT&lt;<span class="tp">float</span>&gt; pretrained = loader.load_model(model_path, hp);
+
+GPTLoRA&lt;<span class="tp">float</span>&gt; student(hp.vocab_size, hp.d_model, hp.block_size,
+                       hp.n_head, hp.n_layer, <span class="cm">/*rank=*/</span>8, <span class="cm">/*alpha=*/</span>16.0f);
+student.load_backbone_from(pretrained);   <span class="cm">// position embed, token embed, ln_f, all blocks</span>
+student.load_head_from(pretrained);       <span class="cm">// seeds lm_head.weight (frozen)</span>
+<span class="cm">// `pretrained` can now be destroyed — weights were copied, not referenced.</span></code></pre>
+
+<h3 id="lora-parameters">lora_parameters() — the selective-training hook</h3>
+<p><code>GPTLoRA&lt;T&gt;::lora_parameters()</code> returns only <code>{A, B}</code> from the LM head (the
+frozen <code>weight</code> was never registered as a parameter, by <code>LoRALinear</code>'s own constructor).
+<a href="../federated.html#trainer"><code>Trainer&lt;Model,T&gt;</code></a> detects this method via SFINAE and
+builds its optimizer from it instead of the full <code>parameters()</code> list &mdash; so only the tiny
+adapter actually trains, while backward still walks the entire frozen backbone (this engine has no
+engine-level <code>requires_grad</code> cutoff, so backward cost is unchanged; what shrinks is optimizer state
+and, if you choose to send <code>lora_parameters()</code> over the wire instead of the full model, the
+federated payload).</p>
+<p><code>backbone_parameters()</code> returns everything <em>except</em> the adapter &mdash; for a split
+checkpoint pattern: quantize and save the (large, shared) backbone once, keep the (tiny, per-client) adapter in
+plain float.</p>
+
+<div class="pagefoot">
+  <a href="modules.html">← Modules</a>
+  <a href="dataloader.html">Next: DataLoader →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

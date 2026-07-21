@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matrix<T> — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link">Types.hpp</a>
+<a href="../api/matrix.html" class="link current">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link">Operations (19)</a>
+<a href="../api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link">Modules / nn</a>
+<a href="../api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link">DataLoader</a>
+<a href="../api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; DataStructures/Matrix.hpp</span>
+<h1>Matrix&lt;T&gt;</h1>
+<p class="lede">The N-dimensional array underneath everything in TensorF: flat <code>std::vector&lt;T&gt;</code>
+storage, row-major strides, NumPy-style broadcasting, and BLAS-backed products. No gradient tracking &mdash;
+that's <a href="tensor.html">Tensor&lt;T&gt;</a>'s job.</p>
+
+<h2 id="repr">Internal representation</h2>
+<div class="code-title">Matrix.hpp — private members</div>
+<pre><code>std::vector&lt;T&gt; data;    <span class="cm">// flat storage, row-major order</span>
+shape_t shape;           <span class="cm">// e.g. {batch, seq_len, dim}</span>
+shape_t numElementsSeen; <span class="cm">// precomputed strides (computeShapes)</span>
+<span class="kw">mutable</span> <span class="tp">size_t</span> size, ndims; <span class="cm">// caches, resynced by get_size()/get_ndims()</span>
+</code></pre>
+<p><code>shape_t</code> is an alias for <code>std::vector&lt;size_t&gt;</code> (declared in
+<a href="types.html"><code>Types/types.hpp</code></a>). Strides are computed from the last dimension
+(stride = 1) working backward &mdash; standard row-major layout.</p>
+
+<h2 id="ctors">Constructors</h2>
+<p>About fifteen overloads cover: scalar (<code>Matrix(const T&amp;)</code>), copy/pointer, flat
+<code>std::vector&lt;T&gt;</code> (with or without an explicit shape), <code>std::vector&lt;std::vector&lt;T&gt;&gt;</code>
+(2D), and nested <code>initializer_list</code>s up to 3 levels deep (1D/2D/3D literals like
+<code>{{1,2},{3,4}}</code>).</p>
+<div class="callout note">
+  <span class="lbl">AVX2 padding</span>
+  Every constructor that takes an explicit shape calls <code>verifyShape()</code>, which accepts either a size
+  exactly matching the product of dimensions, or one padded for AVX2
+  (<code>avx2_pad(n) = ((n+7)/8)*8</code>) — a hint that storage is meant to align on 8-element blocks for
+  vectorized (SIMD) work. However, the actual padding-on-construction code is commented out, so this is
+  currently <strong>inactive</strong> for general storage — only the output buffer of <code>matmul</code>/<code>dot</code>
+  is really padded. See <a href="../known-issues.html">Known Issues #13</a>.
+</div>
+
+<h2 id="broadcast">Broadcasting — Broadcast&lt;T&gt;</h2>
+<p>A separate utility class, declared <code>friend class Broadcast&lt;T&gt;</code> of <code>Matrix&lt;T&gt;</code>,
+implementing NumPy-style broadcasting. Full description on the
+<a href="../architecture.html#broadcast">Architecture page</a>. The operators <code>+</code>, <code>-</code>,
+<code>*</code>, <code>/</code> call it automatically whenever shapes differ.</p>
+
+<h2 id="products">Matrix products</h2>
+<div class="method">
+  <div class="sig"><span class="name">dot</span>(Matrix&lt;T&gt; rhs) <span class="badge">BLAS-backed</span></div>
+  <div class="body">
+    <p>Dispatches on dimensionality: <strong>1D·1D</strong> → scalar product via a simple loop
+    (<code>dotProduct1D</code>). <strong>2D·2D</strong> → <code>dotProduct2D</code>, which calls
+    <code>cblas_sdot</code>/<code>cblas_ddot</code> for <code>float</code>/<code>double</code>, else a naive
+    loop (needed for <code>fp8</code>/<code>fp4</code>). <strong>Other shapes</strong> → checks
+    <code>dotShapesAssert</code> then delegates to a generic path over <code>matProduct2D</code>.</p>
+  </div>
+</div>
+<div class="method">
+  <div class="sig"><span class="name">matmul</span>(Matrix&lt;T&gt; rhs) <span class="badge">BLAS-backed</span></div>
+  <div class="body">
+    <p>Rejects 1D·1D explicitly ("use <code>dot()</code> instead"). Computes the output shape
+    (<code>shape[:-1] + rhs.shape[-1]</code>), allocates an AVX2-padded output buffer, then recurses over batch
+    dimensions (<code>indexStack</code>) down to the last two, calling <code>matProduct2D</code> — backed by
+    <code>cblas_sgemm</code>/<code>cblas_dgemm</code> for <code>float</code>/<code>double</code>. Natively
+    supports a 2D weight matrix shared across a 3D batch (<code>rhsStart</code> stays 0 until batch dims of
+    <code>rhs</code> are exhausted) — this is what lets a <code>Linear</code> layer's 2D weight multiply a
+    <code>{B,T,D}</code> activation tensor.</p>
+  </div>
+</div>
+
+<h2 id="transpose">Transposition</h2>
+<table>
+<tr><th>Method</th><th>Behavior</th></tr>
+<tr><td>transpose_1D()</td><td>Turns a 1D vector into a 2D row/column (<code>{n,1}</code> or <code>{1,n}</code>)</td></tr>
+<tr><td>transpose_2D()</td><td>Classic double-loop 2D transpose</td></tr>
+<tr><td>transpose(perm)</td><td>General ND transpose by arbitrary axis permutation, via flat-index → multi-index
+→ stride-permuted indexing. Used by <code>MatmulOperation::backward</code> with <code>perm={0,2,1}</code> for
+batched tensors.</td></tr>
+</table>
+
+<h2 id="reductions">Reductions</h2>
+<table>
+<tr><th>Method</th><th>Returns</th><th>Notes</th></tr>
+<tr><td>sum()</td><td><strong>scalar T</strong></td><td>Not a Matrix — wrapped by <code>SumOperation::forward()</code></td></tr>
+<tr><td>sum(axis)</td><td>Matrix&lt;T&gt;</td><td>Direct for 1D/2D (<code>sum_2D</code>); recursive index-stack for ND</td></tr>
+<tr><td>mean(axis)</td><td>Matrix&lt;T&gt;</td><td>ND-correct</td></tr>
+<tr><td>var(axis, ddof0=true)</td><td>Matrix&lt;T&gt;</td><td><code>ddof0=false</code> divides by n−1 (Bessel's correction)</td></tr>
+<tr><td>std(axis)</td><td>Matrix&lt;T&gt;</td><td>sqrt of var</td></tr>
+</table>
+<div class="callout bug">
+  <span class="lbl">Bug — mean() with no axis</span>
+  <code>this-&gt;sum() / (T)this-&gt;data.size</code> is missing parentheses on <code>size</code> (it's a method,
+  not a member). This shouldn't compile if instantiated; <code>Tensor::mean(axis)</code> always uses the
+  axis-based overload, which is correct. See <a href="../known-issues.html">Known Issues #2</a>.
+</div>
+
+<h2 id="elementwise">Elementwise functions</h2>
+<p><code>exponent()</code>, <code>ln()</code>, <code>sqrt()</code>, <code>cbrt()</code>, <code>pow(T)</code>,
+<code>pow(Matrix&lt;T&gt;)</code> apply the scalar function elementwise and rebuild a same-shaped
+<code>Matrix&lt;T&gt;</code>.</p>
+<div class="callout warn">
+  <span class="lbl">ln() silently clamps</span>
+  <code>ln()</code> clamps input to a minimum of <code>1e-9f</code> before taking the logarithm (protecting
+  against <code>log(0)</code>/<code>log(negative)</code>) — but silently, with no warning or exception, and
+  the clamp is <strong>not</strong> mirrored in <code>LogOperation::backward</code>, which divides by the raw
+  <code>t1</code>. Near zero this makes the gradient potentially explosive. See
+  <a href="../known-issues.html">Known Issues #4</a>.
+</div>
+
+<h2 id="indexing">Indexing, slicing &amp; shape manipulation</h2>
+<table>
+<tr><th>Method</th><th>Behavior</th></tr>
+<tr><td>row(idx), col(idx)</td><td>Single row/column extraction</td></tr>
+<tr><td>at(shape_t / initializer_list)</td><td>Recursive multi-level indexing</td></tr>
+<tr><td>at(Matrix&lt;bool&gt; index)</td><td>Boolean-mask indexing — <strong>see critical bug below</strong>. Called directly by <code>IndexOperation::forward()</code>.</td></tr>
+<tr><td>slice_row, slice_cols</td><td>Simple 2D slicing</td></tr>
+<tr><td>slice_axis(start,end,axis)</td><td>Generic ND slicing (used by <code>ConcatOperation::backward</code>)</td></tr>
+<tr><td>reshape(new_shape)</td><td>Verifies total element count is preserved</td></tr>
+<tr><td>flatten()</td><td>Flattens to 1D</td></tr>
+<tr><td>expand_dims(m, axis)</td><td>Inserts a size-1 dimension</td></tr>
+</table>
+<div class="callout bug">
+  <span class="lbl">Critical — at(Matrix&lt;bool&gt;) missing return</span>
+  The branch that constructs <code>res</code> in the nominal case never returns a value — undefined behavior.
+  This is called directly by <code>IndexOperation::forward()</code>, so <code>Tensor::bool_index()</code> is
+  concretely affected. Fix this before relying on boolean indexing. See
+  <a href="../known-issues.html">Known Issues #1</a>.
+</div>
+
+<h2 id="concat">Concatenation &amp; stacking</h2>
+<table>
+<tr><th>Method</th><th>Behavior</th></tr>
+<tr><td>concat(mats, axis)</td><td>Verifies non-concatenated axes match, then rebuilds elementwise. Backs
+<code>ConcatOperation::forward()</code>.</td></tr>
+<tr><td>stack(list, axis)</td><td>Stacks a list of <strong>strictly 2D</strong> matrices along a new axis (0, 1,
+or 2) — does not generalize to rank &gt;2 inputs. See <a href="../known-issues.html">Known Issues #11</a>.</td></tr>
+</table>
+
+<h2 id="random">Random generation &amp; initialization</h2>
+<p>A full family of static generators on a shared Mersenne Twister (<code>get_gen</code>, reseedable via
+<code>manual_seed</code>):</p>
+<table>
+<tr><td><code>random</code> / <code>randu</code></td><td>Uniform</td></tr>
+<tr><td><code>randn</code> / <code>randomn</code></td><td>Standard normal</td></tr>
+<tr><td><code>he</code></td><td>He initialization, σ = √(2/fan_in)</td></tr>
+<tr><td><code>eye</code>, <code>zeros</code>, <code>ones</code></td><td>Standard fills</td></tr>
+<tr><td><code>arrange</code></td><td>Range/arange</td></tr>
+<tr><td><code>tril</code> / <code>triup</code></td><td>Triangular masks (used for causal attention masks)</td></tr>
+<tr><td><code>one_hot</code></td><td>One-hot encoding (used for cross-entropy targets)</td></tr>
+<tr><td><code>choice</code></td><td>Weighted random sampling (used by <code>generate()</code>'s top-k sampler)</td></tr>
+<tr><td><code>where</code></td><td>Elementwise conditional select</td></tr>
+<tr><td><code>sin</code> / <code>cos</code> / <code>tan</code></td><td>Elementwise trig (used by RoPE)</td></tr>
+</table>
+
+<h2 id="utils">Utilities</h2>
+<table>
+<tr><td><code>hasNaN(m)</code></td><td>Validity check — what <code>Tensor::backward()</code> calls before propagating</td></tr>
+<tr><td><code>any(m)</code> / <code>any(m, pred)</code></td><td>General validity/predicate check</td></tr>
+<tr><td><code>elemsAt(indices)</code></td><td>Row extraction by (rounded) indices — core of <code>EmbeddingOperation::forward()</code></td></tr>
+<tr><td><code>copy_from(...)</code></td><td>Deep copy of all internal fields (3 overloads), used heavily by <code>Tensor&lt;T&gt;</code> constructors</td></tr>
+</table>
+
+<h2 id="blas">OpenBLAS dependency</h2>
+<p><code>Matrix.hpp</code> includes <code>&lt;cblas.h&gt;</code> directly and calls
+<code>cblas_sdot</code>/<code>cblas_ddot</code>/<code>cblas_sgemm</code>/<code>cblas_dgemm</code> for
+<code>float</code>/<code>double</code>. OpenBLAS must be linked at build time (see
+<a href="../install.html#deps">Install</a>); custom types like <code>fp8</code>/<code>fp4</code> always take the
+non-BLAS naive-loop fallback.</p>
+
+<div class="pagefoot">
+  <a href="../architecture.html">← Architecture</a>
+  <a href="tensor.html">Next: Tensor&lt;T&gt; →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

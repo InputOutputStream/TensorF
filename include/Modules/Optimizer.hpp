@@ -14,7 +14,7 @@
     enum Optimizer_t{
         SGD,
         ADAM,
-        ADAMw
+        ADAMw,
         ADAFACTOR
     };
 

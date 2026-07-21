@@ -12,11 +12,11 @@
 #include "Head.hpp"
 #include "FeedForward.hpp"
 
-template <typename T>
+template <typename T, template<typename> class LinearT>
 class Block : public Module<T>{
     private:
-        MultiHeadAttention<T> mha;
-        FeedForward<T> ffwd;
+        MultiHeadAttention<T, LinearT> mha;
+        FeedForward<T, LinearT> ffwd;
         RMSNorm<T> rms1;
         RMSNorm<T> rms2;
         
@@ -28,9 +28,10 @@ class Block : public Module<T>{
 
     public:
 
-    Block(size_t input_dim, size_t sequence_length, size_t n_heads, size_t ffn_hidden)
-    : mha(checked_head_size(input_dim, n_heads), input_dim, sequence_length, n_heads),
-      ffwd(input_dim, ffn_hidden, input_dim),  
+    template <typename... Args>
+    Block(size_t input_dim, size_t sequence_length, size_t n_heads, size_t ffn_hidden, Args&&... args)
+    : mha(checked_head_size(input_dim, n_heads), input_dim, sequence_length, n_heads, args...),
+      ffwd(input_dim, ffn_hidden, input_dim, args...),  
       rms1({input_dim}),
       rms2({input_dim})
    {
@@ -55,6 +56,14 @@ class Block : public Module<T>{
 
     Block(const Block&) = delete;
 
+    MultiHeadAttention<T, LinearT>& get_mha()  { return mha; }
+    FeedForward<T, LinearT>&        get_ffwd() { return ffwd; }
+
+    void load_pretrained(Block<T, Linear>& src) {
+        mha.load_pretrained(src.get_mha());
+        ffwd.load_pretrained(src.get_ffwd());
+    }
+
     Tensor_t<T> forward(Tensor_t<T> x, bool apply_mask){
 
         Tensor_t<T> rms_a = this->rms1.forward(x);
@@ -69,7 +78,7 @@ class Block : public Module<T>{
     }
 
     friend class GGUFLoader<T>;
-    friend class LlamaGGUFLoader<T>; 
+    template <typename, template<typename> class> friend class LlamaGGUFLoader;
 
 };
 

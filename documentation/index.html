@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview — TensorF Docs</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="index.html">Overview</a>
+<a href="install.html">Install</a>
+<a href="quickstart.html">Quickstart</a>
+<a href="architecture.html">Architecture</a>
+<a href="federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="index.html" class="link current">Overview</a>
+<a href="install.html" class="link">Install &amp; Build</a>
+<a href="quickstart.html" class="link">Quickstart</a>
+<a href="examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="architecture.html" class="link">Autograd Architecture</a>
+<a href="api/types.html" class="link">Types.hpp</a>
+<a href="api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="api/operations.html" class="link">Operations (19)</a>
+<a href="api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="api/modules.html" class="link">Modules / nn</a>
+<a href="api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="api/dataloader.html" class="link">DataLoader</a>
+<a href="api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="federated.html" class="link">Federated Learning</a>
+<a href="api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<div class="hero">
+  <span class="kicker">C++20 &middot; header-only core &middot; OpenBLAS</span>
+  <h1>A tensor &amp; autograd engine built to train language models across a federation of ordinary machines.</h1>
+  <p class="lede">TensorF is a from-scratch C++ deep learning framework: a NumPy-like <code>Matrix&lt;T&gt;</code>,
+  a define-by-run autograd graph, GPT/Llama transformer implementations, GGUF model loading, and a federated
+  learning stack (FedAvg + FedDistill) for training across clients that never share raw data.</p>
+  <div class="cta-row">
+    <a class="btn primary" href="quickstart.html">Get started →</a>
+    <a class="btn ghost" href="architecture.html">Read the architecture</a>
+  </div>
+</div>
+
+<div class="stat-row">
+  <div class="stat"><div class="num">92</div><div class="lbl">headers &amp; sources</div></div>
+  <div class="stat"><div class="num">19</div><div class="lbl">differentiable operations</div></div>
+  <div class="stat"><div class="num">3</div><div class="lbl">model families — GPT / GPT-LoRA / Llama</div></div>
+  <div class="stat"><div class="num">2</div><div class="lbl">federated modes — FedAvg &amp; FedDistill</div></div>
+</div>
+
+<h2>What TensorF is</h2>
+<p>TensorF is a self-contained tensor library and neural network toolkit written in modern C++ (C++20), designed
+around the same mental model as PyTorch's autograd &mdash; a dynamic, define-by-run computation graph &mdash; but
+implemented from first principles on top of <code>std::vector</code> storage and OpenBLAS for the heavy linear algebra.
+On top of that engine sits a full GPT-2 and Llama/SmolLM2-compatible transformer stack that can load real GGUF
+checkpoints, run inference, fine-tune, and participate in a federated training round with other machines over
+a plain TCP socket.</p>
+
+<div class="grid cols-3">
+  <div class="card">
+    <h4>Tensor engine</h4>
+    <p>Row-major <code>Matrix&lt;T&gt;</code> with NumPy-style broadcasting, batched matmul via OpenBLAS,
+    and a <code>Tensor&lt;T&gt;</code> graph node wired through 19 <code>Operation&lt;T&gt;</code> subclasses.</p>
+  </div>
+  <div class="card">
+    <h4>Transformers</h4>
+    <p>GPT-2-style and Llama/SmolLM2-style decoder stacks, plus a LoRA-adapted GPT variant built for
+    federated distillation with a frozen backbone.</p>
+  </div>
+  <div class="card">
+    <h4>Federated learning</h4>
+    <p>A TCP client/server pair implementing FedAvg (weight averaging) and FedDistill (soft-logit
+    consensus) with chunked, low-RAM-friendly wire protocols.</p>
+  </div>
+  <div class="card">
+    <h4>GGUF model loading</h4>
+    <p>Reads real GGUF checkpoints (GPT-2, SmolLM2/Llama) including quantized tensor formats,
+    with a byte-level BPE tokenizer compatible with the Hugging Face vocab/merges format.</p>
+  </div>
+  <div class="card">
+    <h4>Hardware-aware training</h4>
+    <p>A <code>Profiler</code> subsystem fingerprints CPU/ISA/RAM/cache/storage and derives batch size,
+    block size, and quantization policy per client &mdash; so federated rounds adapt to weak devices.</p>
+  </div>
+  <div class="card">
+    <h4>Quantization</h4>
+    <p>Custom software <code>FP8</code> / <code>FP4</code> types with block-wise absmax scaling for
+    ~4&times;&ndash;8&times; smaller checkpoints on disk and over the wire.</p>
+  </div>
+</div>
+
+<h2>Architecture at a glance</h2>
+<div class="diagram">
+  <div class="flow">
+    <div class="box">Matrix&lt;T&gt;<br><span class="dim" style="font-size:10.5px">row-major algebra</span></div>
+    <div class="arrow">→</div>
+    <div class="box hi">Tensor&lt;T&gt;<br><span style="font-size:10.5px">graph node + grad</span></div>
+    <div class="arrow">→</div>
+    <div class="box">Operation&lt;T&gt;<br><span class="dim" style="font-size:10.5px">19 subclasses</span></div>
+    <div class="arrow">→</div>
+    <div class="box">Module&lt;T&gt;<br><span class="dim" style="font-size:10.5px">Linear, LayerNorm…</span></div>
+    <div class="arrow">→</div>
+    <div class="box">GPT / Llama</div>
+    <div class="arrow">→</div>
+    <div class="box hi">Trainer</div>
+    <div class="arrow">→</div>
+    <div class="box">Client ⇄ Server<br><span class="dim" style="font-size:10.5px">FedAvg / FedDistill</span></div>
+  </div>
+</div>
+<p>Three layers do the heavy lifting: <code>Matrix&lt;T&gt;</code> is pure algebra with no notion of gradients;
+<code>Operation&lt;T&gt;</code> subclasses know how to run forward and backpropagate through themselves;
+<code>Tensor&lt;T&gt;</code> is the graph node the user actually touches, always via a
+<code>Tensor_t&lt;T&gt; = std::shared_ptr&lt;Tensor&lt;T&gt;&gt;</code>. See the
+<a href="architecture.html">full architecture walkthrough</a> for the broadcasting rules, memory-cycle handling,
+and OpenBLAS dispatch paths.</p>
+
+<h2>Explore the docs</h2>
+<div class="grid cols-2">
+  <div class="card link"><h4>Install &amp; Build →</h4><p>Dependencies, Makefile targets, DEBUG/ASan builds.</p><a class="hit" href="install.html"></a></div>
+  <div class="card link"><h4>Quickstart →</h4><p>Your first Matrix, Tensor, backward pass, and Linear layer.</p><a class="hit" href="quickstart.html"></a></div>
+  <div class="card link"><h4>Architecture →</h4><p>How the graph is built, broadcast, and torn down.</p><a class="hit" href="architecture.html"></a></div>
+  <div class="card link"><h4>Federated Learning →</h4><p>FedAvg vs. FedDistill, wire protocols, running a cluster.</p><a class="hit" href="federated.html"></a></div>
+  <div class="card link"><h4>API — Matrix&lt;T&gt; →</h4><p>Every constructor, reduction, and BLAS-backed operation.</p><a class="hit" href="api/matrix.html"></a></div>
+  <div class="card link"><h4>Known Issues →</h4><p>13 tracked bugs and design inconsistencies from code review.</p><a class="hit" href="known-issues.html"></a></div>
+</div>
+
+<div class="callout note">
+  <span class="lbl">About this documentation</span>
+  This site was generated from a full read of the TensorF source tree (92 files) plus an existing internal
+  LaTeX review of the autograd subsystem. It documents the code as written, including a "Known Issues" page
+  covering bugs and design inconsistencies found during review &mdash; check that page before relying on
+  <code>Matrix::at(Matrix&lt;bool&gt;)</code>, <code>PowerOperation</code>'s exponent gradient, or
+  <code>Tensor_t</code>'s compound assignment operators.
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

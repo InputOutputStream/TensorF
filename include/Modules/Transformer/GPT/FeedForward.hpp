@@ -3,22 +3,22 @@
 
 
 #include "../../../Types/types.hpp"
-#include "../../Linear.hpp"
 #include "../../Optimizer.hpp"
 #include "../../Module.hpp"
 
-template <typename T>
+template <typename T, template<typename> class LinearT>
 class FeedForward: public Module<T>{
             
     private:
-        Linear<T> up;
-        Linear<T> down;
+        LinearT<T> up;
+        LinearT<T> down;
 
     public:
 
-    FeedForward(size_t in_features, size_t hidden, size_t out_features)
-    : up(hidden, in_features, true),
-      down(out_features, hidden, true)
+    template <typename... Args>
+    FeedForward(size_t in_features, size_t hidden, size_t out_features, Args&&... args)
+    : up(hidden, in_features, args...),
+      down(out_features, hidden, args...)
         {
             this->register_module(&up);
             this->register_module(&down);
@@ -44,9 +44,16 @@ class FeedForward: public Module<T>{
         return k;
     }
 
-    friend class GGUFLoader<T>;
-    friend class GPTGGUFLoader<T>; 
+    LinearT<T>& get_up()   { return up; }
+    LinearT<T>& get_down() { return down; }
 
+    void load_pretrained(FeedForward<T, Linear>& src) {
+        up.load_pretrained(src.get_up());
+        down.load_pretrained(src.get_down());
+    }
+
+    friend class GGUFLoader<T>;
+    template <typename, template<typename> class> friend class GPTGGUFLoader;
 };
 
 

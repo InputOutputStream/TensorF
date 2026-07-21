@@ -19,7 +19,7 @@ enum TrainMode { FINETUNE, DISTILL, FEDAVG, FEDMETA, FEDDISTILL };
 // `parameters()`. This is what makes "client owns a small LoRA adapter on a
 // frozen backbone" actually train as a small adapter rather than a full
 // model: nothing here changes for Model types that don't define
-// lora_parameters() (e.g. plain GPT<T>) — they fall through to the original
+// lora_parameters() (e.g. plain GPT<T, LinearT>) — they fall through to the original
 // `parameters()`-based behaviour untouched.
 namespace trainer_detail {
     template<typename M, typename = void>
@@ -100,7 +100,7 @@ public:
     // Full constructor — local distillation capable (teacher != nullptr).
     //
     // The optimizer trains select_optimizer_params(student): the full model
-    // for a plain GPT<T> student, or just {A,B} for a GPTLoRA<T> student.
+    // for a plain GPT<T, LinearT> student, or just {A,B} for a GPTLoRA<T> student.
     // Either way, get_flat_weights()/set_flat_weights()/aggregate() below
     // still operate over student.parameters() (the COMPLETE model) — so
     // checkpoints and FedAvg weight averaging stay correct regardless of
@@ -113,7 +113,7 @@ public:
             T alpha         = T(0.5))
         : student(student),
           teacher(teacher),
-          op(select_optimizer_params(student), lr, ADAMw),
+          op(select_optimizer_params(student), lr, ADAMw, /*requires_grad=*/true),
           temperature(temperature),
           alpha(alpha),
           mode(mode)

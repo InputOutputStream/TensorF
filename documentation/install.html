@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install & Build — TensorF Docs</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="index.html">Overview</a>
+<a href="install.html">Install</a>
+<a href="quickstart.html">Quickstart</a>
+<a href="architecture.html">Architecture</a>
+<a href="federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="index.html" class="link">Overview</a>
+<a href="install.html" class="link current">Install &amp; Build</a>
+<a href="quickstart.html" class="link">Quickstart</a>
+<a href="examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="architecture.html" class="link">Autograd Architecture</a>
+<a href="api/types.html" class="link">Types.hpp</a>
+<a href="api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="api/operations.html" class="link">Operations (19)</a>
+<a href="api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="api/modules.html" class="link">Modules / nn</a>
+<a href="api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="api/dataloader.html" class="link">DataLoader</a>
+<a href="api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="federated.html" class="link">Federated Learning</a>
+<a href="api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">Setup</span>
+<h1>Install &amp; build</h1>
+<p class="lede">TensorF is header-only C++20 with three system dependencies. There is no package manager
+step &mdash; you compile the example or your own <code>.cpp</code> directly against <code>include/</code>.</p>
+
+<h2 id="deps">Dependencies</h2>
+<table>
+<tr><th>Library</th><th>Why</th><th>Ubuntu/Debian package</th></tr>
+<tr><td>g++ (C++20)</td><td>Compiler. Needs <code>&lt;ranges&gt;</code> and structured bindings support.</td><td><code>build-essential g++</code></td></tr>
+<tr><td>OpenBLAS</td><td><code>Matrix::dot</code> / <code>matmul</code> dispatch to <code>cblas_sgemm</code> / <code>cblas_sdot</code> for <code>float</code>/<code>double</code>. Optimizer uses <code>cblas_saxpy</code>/<code>cblas_sscal</code>.</td><td><code>libopenblas-dev</code></td></tr>
+<tr><td>nlohmann/json</td><td>Header-only JSON, used by the GPT-2 tokenizer's <code>vocab.json</code> loader and the Profiler's JSON payload.</td><td><code>nlohmann-json3-dev</code></td></tr>
+<tr><td>libxxhash</td><td>Optional integrity hashing for the Profiler wire protocol (WAN-safe checksum, vs. CRC32 for LAN).</td><td><code>libxxhash-dev</code></td></tr>
+<tr><td>pthreads</td><td>The federated <code>Server</code>'s <code>ThreadPool</code> and socket handling.</td><td>usually preinstalled</td></tr>
+</table>
+
+<div class="code-title">install everything on Ubuntu/Debian</div>
+<pre><code><span class="kw">make</span> install-deps</code></pre>
+<p class="dim">This runs <code>apt-get install build-essential g++ cmake pkg-config libopenblas-dev nlohmann-json3-dev libxxhash-dev wget curl</code>.</p>
+
+<div class="code-title">verify what's actually detected on your machine</div>
+<pre><code><span class="kw">make</span> check-deps</code></pre>
+<p>Prints the compiler version and whether OpenBLAS / nlohmann-json / pthreads were found via <code>pkg-config</code>
+or header presence, without installing anything.</p>
+
+<h2 id="clone">Clone</h2>
+<pre><code>git clone https://github.com/InputOutputStream/TensorF.git
+<span class="kw">cd</span> TensorF</code></pre>
+
+<h2 id="layout">Expected directory layout</h2>
+<p>The Makefile assumes this structure &mdash; it's already what the repo ships:</p>
+<div class="diagram"><pre style="border:none;background:none;margin:0;padding:0"><code>./                  ← .cpp entry points (GPT2.cpp, SmollLLM.cpp, basic_tests.cpp) + Makefile
+./include/          ← every header, organised by subsystem
+    DataStructures/  Matrix.hpp, Tensor.hpp
+    Operations/      19 Operation<T> subclasses + base
+    Overloads/       operator overloads (raw vector + Tensor_t)
+    Modules/         nn layers: Linear, LayerNorm, RMSNorm, Embedding…
+    Modules/Transformer/GPT, GPT-LORA, Llama
+    Network/         Client, Server, Trainer, ThreadPool (federated learning)
+    Protocol/        binary wire protocol for the Profiler
+    ModelLoader/      GGUF → GPT<T> / Llama<T> weight loading
+    DataLoader/       GGUF reader, image/tabular/text/NPY loaders, quantizer, serializer
+    Tokenizer/        byte-level BPE (GPT-2 + Llama family)
+    Profiler/         hardware fingerprint, benchmarks, hyperparameter advisor
+    Types/            shape_t, Tensor_t, fp8/fp4 software float types
+./bin/              ← build output (created automatically)
+</code></pre></div>
+
+<h2 id="build">Build targets</h2>
+<table>
+<tr><th>Target</th><th>Builds</th><th>Notes</th></tr>
+<tr><td><code>make gpt2</code></td><td><code>bin/gpt2</code> from <code>GPT2.cpp</code></td><td>GPT-2 GGUF inference demo</td></tr>
+<tr><td><code>make smollm</code></td><td><code>bin/smollm</code> from <code>SmollLLM.cpp</code></td><td>SmolLM2 (Llama-family) GGUF inference demo</td></tr>
+<tr><td><code>make server</code></td><td><code>bin/server</code></td><td>Builds <code>include/Network/Server.cpp</code>; override with <code>SERVER_SRC=path</code></td></tr>
+<tr><td><code>make client</code></td><td><code>bin/client</code></td><td>Builds <code>include/Network/Client.cpp</code>; override with <code>CLIENT_SRC=path</code></td></tr>
+<tr><td><code>make tests</code></td><td><code>bin/basic_tests</code></td><td>Builds <em>and runs</em> the unit test suite immediately</td></tr>
+<tr><td><code>make all</code></td><td>gpt2 + llama + smollm + transformer + benchmark</td><td>Some sub-targets are commented out pending source files (see Makefile)</td></tr>
+<tr><td><code>make clean</code></td><td>&mdash;</td><td>Removes <code>bin/</code></td></tr>
+</table>
+
+<div class="callout note">
+  <span class="lbl">Debug builds</span>
+  <code>DEBUG=1 make tests</code> compiles with <code>-O0 -g3 -fsanitize=address,undefined</code> instead of
+  <code>-O2</code>. Use this when chasing the memory-safety issues noted on the
+  <a href="known-issues.html">Known Issues</a> page &mdash; several are exactly the class of bug ASan/UBSan catch.
+</div>
+
+<h2 id="models">Downloading GGUF checkpoints</h2>
+<p>The GPT-2 and Llama example programs expect real GGUF files under <code>SLM/</code>. A helper script fetches
+them from Hugging Face:</p>
+<pre><code><span class="kw">chmod</span> +x download.sh
+<span class="kw">mkdir</span> -p SLM
+<span class="kw">./download.sh</span></code></pre>
+<p>By default this pulls GPT-2 small in three precisions (F32 full-precision, Q8_0, and Q4_K_S quantized) into
+<code>SLM/gpt2-small-*.gguf</code>. Larger GPT-2 variants (medium/large/XL) and SmolLM2 are commented out in the
+script &mdash; uncomment the lines you need, or point <code>GPT2.cpp</code>/<code>SmollLLM.cpp</code> at your own
+GGUF path.</p>
+
+<h2 id="verify">Sanity check</h2>
+<pre><code><span class="kw">make</span> tests</code></pre>
+<p>Compiles and runs <code>basic_tests.cpp</code>, which cross-checks <code>Matrix&lt;T&gt;</code> arithmetic,
+<code>matmul</code>, <code>transpose</code>, and reductions against known NumPy outputs (each test prints
+<code>[PASS]</code>/<code>[FAIL]</code>). If this passes, OpenBLAS linking and the core tensor engine are working.</p>
+
+<div class="pagefoot">
+  <span></span>
+  <a href="quickstart.html">Next: Quickstart →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

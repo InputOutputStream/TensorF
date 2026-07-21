@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture — TensorF Docs</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="index.html">Overview</a>
+<a href="install.html">Install</a>
+<a href="quickstart.html">Quickstart</a>
+<a href="architecture.html">Architecture</a>
+<a href="federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="index.html" class="link">Overview</a>
+<a href="install.html" class="link">Install &amp; Build</a>
+<a href="quickstart.html" class="link">Quickstart</a>
+<a href="examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="architecture.html" class="link current">Autograd Architecture</a>
+<a href="api/types.html" class="link">Types.hpp</a>
+<a href="api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="api/operations.html" class="link">Operations (19)</a>
+<a href="api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="api/modules.html" class="link">Modules / nn</a>
+<a href="api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="api/dataloader.html" class="link">DataLoader</a>
+<a href="api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="federated.html" class="link">Federated Learning</a>
+<a href="api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">Core engine</span>
+<h1>Autograd architecture</h1>
+<p class="lede">TensorF implements a dynamic, define-by-run computation graph &mdash; the same mental model as
+PyTorch/autograd &mdash; across three layers: pure algebra (<code>Matrix&lt;T&gt;</code>), graph nodes
+(<code>Tensor&lt;T&gt;</code>), and differentiable operations (<code>Operation&lt;T&gt;</code> subclasses).</p>
+
+<h2 id="layers">Three layers</h2>
+<div class="grid cols-3">
+  <div class="card">
+    <h4>1 &middot; Matrix&lt;T&gt;</h4>
+    <p>Flat <code>std::vector&lt;T&gt; data</code> with a <code>shape_t shape</code> and precomputed strides
+    (<code>numElementsSeen</code>). Row-major. A <code>Broadcast&lt;T&gt;</code> friend class handles
+    NumPy-style shape diffusion. No notion of gradient — this is algebra only.</p>
+  </div>
+  <div class="card">
+    <h4>2 &middot; Operation&lt;T&gt;</h4>
+    <p>Abstract base for 19 concrete operations. Each knows its inputs (<code>t1</code>, sometimes
+    <code>t2</code>), computes a forward output, and back-propagates a gradient into its inputs via
+    <code>backward(Matrix&lt;T&gt; grad)</code>.</p>
+  </div>
+  <div class="card">
+    <h4>3 &middot; Tensor&lt;T&gt;</h4>
+    <p>Wraps a value <code>Matrix&lt;T&gt; val</code>, a gradient <code>Matrix&lt;T&gt; grad</code>, and a
+    <code>backOp</code> pointer to the <code>Operation</code> that produced it. The node the user actually
+    manipulates, always through <code>Tensor_t&lt;T&gt; = std::shared_ptr&lt;Tensor&lt;T&gt;&gt;</code>.</p>
+  </div>
+</div>
+
+<p>The graph is built <strong>implicitly</strong>. Writing <code>a-&gt;matmul(b)</code> (or <code>a + b</code>
+via the operator overloads) constructs an <code>Operation</code> with <code>std::make_shared</code>, executes
+its <code>forward()</code>, and returns a <code>Tensor_t&lt;T&gt;</code> whose <code>backOp</code> points at
+that operation. This chaining materializes the DAG for the backward pass.</p>
+
+<h2 id="backward">Backpropagation — Tensor::backward</h2>
+<ol>
+  <li>Accumulates the incoming gradient (adds to any existing gradient — necessary when a tensor is reused
+  multiple times in the graph, e.g. residual connections).</li>
+  <li>Checks for <code>NaN</code> via <code>Matrix&lt;T&gt;::hasNaN</code>; throws if found.</li>
+  <li>Delegates to <code>backOp-&gt;backward(ingrad)</code>, which computes local gradients and recursively
+  calls <code>backward()</code> on its own inputs.</li>
+</ol>
+
+<h2 id="memory">Memory management &amp; the shared_ptr cycle</h2>
+<p><code>Tensor</code> and <code>Operation</code> reference each other via <code>shared_ptr</code>
+(<code>Tensor::backOp → Operation</code>, and each <code>Operation</code> holds its input <code>Tensor_t</code>s).
+This is a reference-counting cycle that never frees itself without manual intervention.</p>
+<table>
+<tr><th>Method</th><th>Role</th><th>Effect on the graph</th></tr>
+<tr><td>zero_grad()</td><td>Resets gradients to zero</td><td>Graph remains usable</td></tr>
+<tr><td>reset_graph()</td><td>Breaks the Tensor→Operation→Tensor cycles</td><td><code>backOp = nullptr</code>, propagated recursively; memory is freed</td></tr>
+</table>
+<p>Every operation implements <code>reset_graph()</code> the same way: call <code>reset_graph()</code> on its
+inputs, then null its own reference. This is why every training loop in the codebase ends its iteration with
+<code>loss-&gt;reset_graph()</code> &mdash; skip it and the graph leaks.</p>
+
+<h2 id="broadcast">Broadcasting — Broadcast&lt;T&gt;</h2>
+<p>A utility class, declared <code>friend</code> of <code>Matrix&lt;T&gt;</code>, implementing NumPy-style
+broadcasting:</p>
+<ul>
+  <li><strong><code>assertBroadcast</code></strong> — compares shapes from the trailing dimension inward,
+  tolerating a size-1 dimension on either side; recurses symmetrically when the two tensors have different
+  ranks (right-aligned, as in NumPy).</li>
+  <li><strong><code>computeBroadcastResultShape</code></strong> — the max of compatible dimensions.</li>
+  <li><strong><code>broadcastTo(source, new_shape)</code></strong> — rebuilds an array at the target size,
+  "freezing" size-1 dimensions at index 0 during replication. Includes a defensive bounds check
+  (<code>source.data.size() &lt; expectedSourceSize</code> → throws) added after a prior silent-segfault bug.</li>
+</ul>
+<p><code>Matrix&lt;T&gt;</code>'s <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code> operators call
+this mechanism automatically whenever operand shapes differ.</p>
+
+<h2 id="matmul">Matrix products — dot() and matmul()</h2>
+<p><code>dot(rhs)</code> dispatches on dimensionality:</p>
+<ul>
+  <li><strong>1D·1D</strong> → classic scalar product (<code>dotProduct1D</code>, simple loop).</li>
+  <li><strong>2D·2D</strong> → <code>dotProduct2D</code>, which calls <code>cblas_sdot</code>/<code>cblas_ddot</code>
+  for <code>float</code>/<code>double</code>, or a naive loop otherwise (needed for custom types like
+  <code>fp8</code>/<code>fp4</code>).</li>
+  <li><strong>Other shapes</strong> → checks <code>dotShapesAssert</code> (rhs's second-to-last dim must match
+  this's last dim), then delegates to a generic path built on <code>matProduct2D</code>.</li>
+</ul>
+<p><code>matmul(rhs)</code> explicitly rejects the 1D·1D case ("use <code>dot()</code> instead"). It computes
+the output shape (<code>shape[:-1] + rhs.shape[-1]</code>), allocates an AVX2-padded output buffer
+(<code>avx2_pad(n) = ((n+7)/8)*8</code>), then recurses over batch dimensions until reaching the last two,
+where it calls <code>matProduct2D</code> &mdash; backed by <code>cblas_sgemm</code>/<code>cblas_dgemm</code> for
+<code>float</code>/<code>double</code>. The recursion natively handles a 2D weight matrix shared across a 3D
+batch (a Linear layer's weight against a <code>{B,T,D}</code> input).</p>
+<div class="callout note">
+  <span class="lbl">Batched matmul backward</span>
+  <code>MatmulOperation::backward</code> specifically transposes only the last two dimensions when the input
+  is 3D (permutation <code>{0,2,1}</code>) — consistent with this batched forward implementation.
+</div>
+
+<h2 id="reductions">Reductions</h2>
+<ul>
+  <li><code>sum()</code> with no axis returns a <strong>scalar <code>T</code></strong> (<code>sum_1D</code>), not
+  a <code>Matrix&lt;T&gt;</code> &mdash; <code>SumOperation::forward()</code> wraps it back into
+  <code>Matrix&lt;T&gt;(s)</code>.</li>
+  <li><code>sum(axis)</code> handles 1D/2D directly (<code>sum_2D</code>) and generalizes to ND tensors
+  recursively via an index stack — logic parallel to, but independently reimplemented from,
+  <code>SumAxisOperation::backward</code>'s inverse broadcast (see <a href="known-issues.html">Known Issues #6</a>).</li>
+  <li><code>mean(axis)</code>, <code>var(axis, ddof0)</code>, <code>std(axis)</code> are correct ND
+  implementations, with optional Bessel's correction (<code>ddof0=false</code> → divide by <code>n-1</code>).</li>
+</ul>
+
+<h2 id="chain-rule">The chain rule under broadcasting — sumGradForBroadcast</h2>
+<p>Defined in <code>Matrix.hpp</code> and used by nearly every binary operation to reduce a gradient back to an
+operand's original shape after forward-pass broadcasting:</p>
+<ol>
+  <li>Sums excess leading dimensions while the gradient's rank exceeds the original shape's rank.</li>
+  <li>For each remaining dimension where the original shape was 1 but the gradient has size &gt;1, sums that
+  dimension (reinserting a size-1 dimension if needed).</li>
+  <li>Applies a final shape correction if necessary.</li>
+</ol>
+<p>This is what concretely implements the chain rule in the presence of broadcasting &mdash; the equivalent of
+what PyTorch does internally for broadcasted operations.</p>
+
+<h2 id="openblas">OpenBLAS dependency</h2>
+<p><code>Matrix.hpp</code> includes <code>&lt;cblas.h&gt;</code> directly and calls
+<code>cblas_sdot</code>/<code>cblas_ddot</code>/<code>cblas_sgemm</code>/<code>cblas_dgemm</code> for
+<code>float</code>/<code>double</code>. This is why OpenBLAS must be linked at compile time (see
+<a href="install.html#deps">Install → Dependencies</a>), and why custom numeric types
+(<code>fp8</code>, <code>fp4</code>) always take the non-BLAS fallback path (naive loops).</p>
+
+<h2 id="dispatch">Operator dispatch — three layers of overloads</h2>
+<table>
+<tr><th>File</th><th>Operates on</th><th>Behavior</th></tr>
+<tr><td><code>Overload.hpp</code></td><td><code>std::vector&lt;T&gt;</code></td><td>Elementwise arithmetic with
+<strong>no broadcasting</strong> — vector⊕vector truncates silently to <code>min(|a|,|b|)</code> on mismatched
+sizes. Compound assignment (<code>+=</code> etc.) mutates in place here.</td></tr>
+<tr><td><code>Matrix&lt;T&gt;</code> operators</td><td><code>Matrix&lt;T&gt;</code></td><td>Calls
+<code>Broadcast&lt;T&gt;</code> automatically when shapes differ.</td></tr>
+<tr><td><code>tensor_overloads.hpp</code></td><td><code>Tensor_t&lt;T&gt;</code></td><td>Builds graph nodes.
+Compound assignment (<code>+=</code> etc.) does <strong>not</strong> mutate in place — see
+<a href="known-issues.html">Known Issues #7</a>.</td></tr>
+</table>
+<p>Full operator-by-operator reference: <a href="api/overloads.html">API → Overloads</a>.</p>
+
+<h2 id="catalogue">The 19 operations</h2>
+<p>Every differentiable primitive in TensorF is one of these. Full forward/backward math for each is on the
+<a href="api/operations.html">Operations reference page</a>; summary:</p>
+<table>
+<tr><th>Operation</th><th>Computes</th></tr>
+<tr><td>Add / Subtract / Multiply / Division</td><td>Elementwise arithmetic, broadcast-aware</td></tr>
+<tr><td>Power</td><td><code>t1^t2</code> — gradient w.r.t. exponent not implemented, see issues</td></tr>
+<tr><td>Exponent / Log</td><td>Elementwise <code>exp</code> / <code>ln</code></td></tr>
+<tr><td>Relu / Sigmoid / Softmax</td><td>Activations — softmax uses the analytic Jacobian-vector product</td></tr>
+<tr><td>Dot / Matmul</td><td>Vector/matrix products, matmul batched over leading dims</td></tr>
+<tr><td>Reshape / Transpose</td><td>Shape manipulation, gradient reshaped/transposed back on backward</td></tr>
+<tr><td>Concat</td><td>The only variable-arity op — takes a <code>std::vector&lt;Tensor_t&lt;T&gt;&gt;</code></td></tr>
+<tr><td>Embedding</td><td>Table lookup; backward is scatter-add over repeated indices</td></tr>
+<tr><td>Index</td><td>Boolean-mask indexing — inherits a missing-return bug from <code>Matrix::at</code></td></tr>
+<tr><td>Sum / SumAxis</td><td>Full reduction (→ scalar) and axis reduction (keeps dim as size 1)</td></tr>
+</table>
+
+<div class="pagefoot">
+  <a href="quickstart.html">← Quickstart</a>
+  <a href="api/matrix.html">Next: Matrix&lt;T&gt; API →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

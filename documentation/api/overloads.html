@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overloads — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link">Types.hpp</a>
+<a href="../api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link">Operations (19)</a>
+<a href="../api/overloads.html" class="link current">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link">Modules / nn</a>
+<a href="../api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link">DataLoader</a>
+<a href="../api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; Overloads/Overload.hpp &amp; tensor_overloads.hpp</span>
+<h1>Operator overloads</h1>
+<p class="lede">Two files, two very different contracts. <code>Overload.hpp</code> operates on raw
+<code>std::vector&lt;T&gt;</code> with no broadcasting; <code>tensor_overloads.hpp</code> operates on
+<code>Tensor_t&lt;T&gt;</code> and builds autograd graph nodes. Read both before assuming <code>+=</code>
+behaves the way you expect.</p>
+
+<h2 id="overload">Overload.hpp — std::vector&lt;T&gt; arithmetic</h2>
+<p>The socket that <code>Matrix&lt;T&gt;::operator+/-/*//</code> sits on top of.</p>
+<table>
+<tr><th>Operators</th><th>Behavior</th></tr>
+<tr><td><code>+</code> <code>-</code> <code>*</code> <code>/</code> (vector ⊕ vector)</td>
+<td>Iterates <code>min(|a|,|b|)</code> — <strong>no error and no broadcasting</strong> on mismatched sizes;
+truncates silently. See <a href="../known-issues.html">Known Issues #10</a>.</td></tr>
+<tr><td><code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>%</code> (vector ⊕ scalar, both orders)</td>
+<td>Exception thrown on division by zero.</td></tr>
+<tr><td><code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code></td>
+<td>Return <code>std::vector&lt;T&gt;</code> (0/1 convention).</td></tr>
+<tr><td><code>==</code> <code>!=</code></td>
+<td>Return <code>std::vector&lt;uint8_t&gt;</code> — a different result type than the ordering comparisons
+above, despite being conceptually boolean too. See <a href="../known-issues.html">Known Issues #9</a>.</td></tr>
+<tr><td><code>+=</code> <code>-=</code> <code>*=</code> <code>/=</code></td>
+<td>Real in-place mutation here (contrast with <code>Tensor_t</code> below).</td></tr>
+</table>
+
+<h3>Math helpers</h3>
+<table>
+<tr><td><code>exponent(v)</code></td><td>Elementwise exp</td></tr>
+<tr><td><code>pow(v, T n)</code></td><td>General power, with shortcuts for n=2,3,4</td></tr>
+<tr><td><code>pow(v1, v2)</code></td><td>Elementwise power of two vectors</td></tr>
+<tr><td><code>check_nan(v)</code></td><td>Detects NaN/Inf and calls <code>std::abort()</code> — a fundamentally
+different error strategy than <code>Tensor::backward()</code>'s recoverable exceptions. See
+<a href="../known-issues.html">Known Issues #8</a>.</td></tr>
+</table>
+
+<h2 id="tensor-overloads">tensor_overloads.hpp — Tensor factory &amp; graph operators</h2>
+
+<h3>make_tensor&lt;T&gt;(...)</h3>
+<p>Overloads constructing a <code>Tensor_t&lt;T&gt;</code> from: nothing, a constant, a
+<code>std::vector&lt;T&gt;</code>, nested 1D/2D/3D initializer lists, a pointer/reference to
+<code>Matrix&lt;T&gt;</code>, or another <code>Tensor_t&lt;T&gt;</code> — each with a with/without
+<code>Operation_t&lt;T&gt;</code> variant.</p>
+
+<h3>Tensor_t&lt;T&gt; ⊕ Tensor_t&lt;T&gt;</h3>
+<p><code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>pow(...)</code> construct the
+corresponding <code>Operation</code> and return <code>forward()</code> — a fresh graph node every call.
+<code>operator==</code> compares <strong>values</strong> only, unrelated to the graph (non-differentiable).</p>
+
+<h3>Comparisons — outside the graph</h3>
+<p><code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code>
+(tensor/scalar) create a new <code>Tensor_t</code> with <strong>no</strong> <code>Operation_t</code>
+attached (<code>backOp == nullptr</code>) — explicitly commented "Non graph related ops" in the source.</p>
+
+<div class="callout bug">
+  <span class="lbl">API trap — compound assignment does not mutate</span>
+  <code>+=</code>, <code>-=</code>, <code>*=</code>, <code>/=</code> on <code>Tensor_t&lt;T&gt;</code> build a
+  new <code>Operation</code> and return a <strong>new</strong> <code>Tensor_t&lt;T&gt;</code>. They do not
+  mutate the left-hand tensor in place. Writing <code>a += b;</code> without reassigning
+  (<code>a = a += b;</code>) changes nothing. This is a different contract than the same operators on
+  <code>std::vector&lt;T&gt;</code> or <code>Matrix&lt;T&gt;</code>, which do mutate in place. See
+  <a href="../known-issues.html">Known Issues #7</a>.
+</div>
+
+<h3>Tensor_t&lt;T&gt; ⊕ scalar</h3>
+<p><code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>pow</code>, unary <code>-</code>
+(implemented as multiplication by the constant tensor −1) — each combination wraps the scalar via
+<code>make_tensor&lt;T&gt;(a)</code> and stays <strong>inside</strong> the graph (differentiable).</p>
+
+<div class="pagefoot">
+  <a href="operations.html">← Operations</a>
+  <a href="modules.html">Next: Modules →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

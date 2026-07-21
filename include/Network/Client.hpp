@@ -75,6 +75,44 @@ public:
     /// Raw file descriptor — used by FederatedClient to guard send/receive.
     int fd() const { return sock_; }
 
+    // ── LoRA handshake ────────────────────────────────────────────────────────
+    //
+    // Sent once right after connect_to_server(), before any round traffic,
+    // so a client/server LoRA-config mismatch (dense vs LoRA, or mismatched
+    // rank/alpha) is caught with a clear error instead of surfacing later as
+    // a confusing element-count mismatch deep in recv_chunked(). Generic
+    // wire-level protocol (bool + uint32 + float) — Client<T> stays
+    // model-agnostic per the header comment above; FederatedClient/
+    // FederatedServer own deciding what config to send/expect.
+    //
+    //   send    → [uint8 lora_enabled][uint32 rank][float alpha]
+    //   receive ← [uint8 accepted][uint32 reason_len][char × reason_len]
+
+    bool sendLoraConfig(bool lora_enabled, uint32_t rank, float alpha) {
+        uint8_t enabled = lora_enabled ? 1 : 0;
+        return write_exact(sock_, &enabled, sizeof(uint8_t)) &&
+               write_exact(sock_, &rank,    sizeof(uint32_t)) &&
+               write_exact(sock_, &alpha,   sizeof(float));
+    }
+
+    /// Blocks for the server's accept/reject reply. Returns false on a
+    /// connection-level failure (caller should treat this like a dropped
+    /// connection); `accepted` distinguishes an actual config mismatch
+    /// (accepted=false, `reason` explains why) from success.
+    bool receiveLoraAck(bool& accepted, std::string& reason) {
+        uint8_t ok = 0;
+        uint32_t len = 0;
+        if (!read_exact(sock_, &ok, sizeof(uint8_t))) return false;
+        if (!read_exact(sock_, &len, sizeof(uint32_t))) return false;
+        reason.clear();
+        if (len > 0) {
+            reason.resize(len);
+            if (!read_exact(sock_, reason.data(), len)) return false;
+        }
+        accepted = (ok != 0);
+        return true;
+    }
+
     // ── Flat-tensor wire protocol ────────────────────────────────────────────
 
     /// Send:  [uint64 total_bytes][T × flat.size()]

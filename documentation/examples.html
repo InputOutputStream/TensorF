@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Examples — TensorF Docs</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="index.html">Overview</a>
+<a href="install.html">Install</a>
+<a href="quickstart.html">Quickstart</a>
+<a href="architecture.html">Architecture</a>
+<a href="federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="index.html" class="link">Overview</a>
+<a href="install.html" class="link">Install &amp; Build</a>
+<a href="quickstart.html" class="link">Quickstart</a>
+<a href="examples.html" class="link current">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="architecture.html" class="link">Autograd Architecture</a>
+<a href="api/types.html" class="link">Types.hpp</a>
+<a href="api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="api/operations.html" class="link">Operations (19)</a>
+<a href="api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="api/modules.html" class="link">Modules / nn</a>
+<a href="api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="api/dataloader.html" class="link">DataLoader</a>
+<a href="api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="federated.html" class="link">Federated Learning</a>
+<a href="api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">Worked examples</span>
+<h1>Examples</h1>
+<p class="lede">Complete, runnable programs pulled directly from the repository's top-level <code>.cpp</code>
+entry points, plus a few compact patterns assembled from the API reference.</p>
+
+<h2 id="gpt2-inference">GPT-2 text generation from a GGUF checkpoint</h2>
+<p>From <code>GPT2.cpp</code> — loads real GPT-2 small weights and generates a continuation for a prompt.
+Build with <code>make gpt2 &amp;&amp; ./bin/gpt2</code> (after <a href="install.html#models">downloading a
+checkpoint</a>).</p>
+<div class="code-title">GPT2.cpp (excerpt)</div>
+<pre><code><span class="kw">#include</span> <span class="st">"Modules/Transformer/GPT/GPT.hpp"</span>
+<span class="kw">#include</span> <span class="st">"ModelLoader/GPTLoader.hpp"</span>
+
+<span class="tp">int</span> main() {
+    GPT2HyperParams hp {
+        .vocab_size = 50257, .d_model = 768, .block_size = 1024,
+        .n_layer = 12, .n_head = 12
+    };
+
+    GPTGGUFLoader&lt;<span class="tp">float</span>&gt; loader;
+    GPT&lt;<span class="tp">float</span>&gt; model = loader.load_model(<span class="st">"SLM/gpt2-small-f32.gguf"</span>, hp);
+    GPT2Tokenizer tokenizer = loader.load_tokenizer();
+
+    std::vector&lt;<span class="tp">int</span>&gt; token_ids = tokenizer.encode(<span class="st">"The data type is int"</span>);
+    std::vector&lt;<span class="tp">float</span>&gt; ctx_data(token_ids.begin(), token_ids.end());
+
+    Tensor_t&lt;<span class="tp">float</span>&gt; context = make_tensor&lt;<span class="tp">float</span>&gt;(
+        Matrix&lt;<span class="tp">float</span>&gt;(ctx_data, {1, ctx_data.size()}));
+
+    <span class="kw">auto</span> out_tokens = model.generate(context, <span class="cm">/*max_new_tokens=</span>30, <span class="cm">/*temperature=</span>0.8f, <span class="cm">/*top_k=</span>30);
+
+    std::cout &lt;&lt; tokenizer.decode(out_tokens) &lt;&lt; <span class="st">"\n"</span>;
+}
+</code></pre>
+
+<h2 id="smollm">SmolLM2 / Llama inference</h2>
+<p>From <code>SmollLLM.cpp</code> — the same pattern against a Llama-family checkpoint, with RoPE and
+SwiGLU handled transparently inside <code>Llama&lt;T&gt;</code>. Build with
+<code>make smollm &amp;&amp; ./bin/smollm</code>.</p>
+<div class="code-title">SmollLLM.cpp (excerpt)</div>
+<pre><code><span class="kw">#include</span> <span class="st">"Modules/Transformer/Llama/Llama.hpp"</span>
+<span class="kw">#include</span> <span class="st">"ModelLoader/LlamaLoader.hpp"</span>
+
+<span class="tp">int</span> main() {
+    LlamaHyperParams hp {
+        .vocab_size = 49152, .input_dim = 576, .block_size = 8192,
+        .n_heads = 9, .n_kv_heads = 3, .n_layer = 30, .ffn_hidden = 1536
+    };
+
+    LlamaGGUFLoader&lt;<span class="tp">float</span>&gt; loader;
+    Llama&lt;<span class="tp">float</span>&gt; model = loader.load_model(<span class="st">"SLM/smollm2-135m.gguf"</span>, hp);
+    LlamaTokenizer tokenizer = loader.load_tokenizer();
+
+    std::vector&lt;<span class="tp">int</span>&gt; ids = tokenizer.encode(<span class="st">"&lt;|im_start|&gt;user\nExplain gradients&lt;|im_end|&gt;\n"</span>);
+    <span class="cm">// ... build context tensor, model.generate(...), tokenizer.decode(...)</span>
+}
+</code></pre>
+
+<h2 id="lora-federated">Federated LoRA distillation — a client program</h2>
+<p>Assembled from the <a href="api/transformers.html#gptlora">GPTLoRA</a> and
+<a href="federated.html">Federated Learning</a> reference pages: a client that loads a frozen backbone, wraps
+it in a trainable LoRA adapter, and participates in a FedDistill round.</p>
+<pre><code>GPTGGUFLoader&lt;<span class="tp">float</span>&gt; loader;
+GPT&lt;<span class="tp">float</span>&gt; pretrained = loader.load_model(<span class="st">"SLM/gpt2-small-f32.gguf"</span>, hp);
+
+GPTLoRA&lt;<span class="tp">float</span>&gt; student(hp.vocab_size, hp.d_model, hp.block_size,
+                       hp.n_head, hp.n_layer, <span class="cm">/*rank=</span>8, <span class="cm">/*alpha=</span>16.0f);
+student.load_backbone_from(pretrained);
+student.load_head_from(pretrained);
+
+Trainer&lt;GPTLoRA&lt;<span class="tp">float</span>&gt;, <span class="tp">float</span>&gt; trainer(student, <span class="kw">nullptr</span>, FEDDISTILL, <span class="cm">/*lr=</span>1e-4f);
+<span class="cm">// trainer's optimizer is built from student.lora_parameters() automatically —</span>
+<span class="cm">// see federated.html#lora-detection</span>
+
+Client&lt;<span class="tp">float</span>&gt; net;
+net.connect_to_server(<span class="st">"127.0.0.1"</span>, 9000);
+
+<span class="kw">for</span> (<span class="tp">int</span> round = 0; round &lt; n_rounds; round++) {
+    <span class="kw">auto</span> logits = trainer.compute_logits(probe_batch);
+    net.sendLogits(logits.flatten_to_vector(), probe_batch.size());
+
+    std::vector&lt;<span class="tp">float</span>&gt; consensus;
+    net.receiveLogits(consensus, probe_batch.size());
+
+    trainer.distill_logits(probe_batch, consensus);
+}
+</code></pre>
+
+<h2 id="training-from-scratch">Training a small model from scratch on local text</h2>
+<pre><code>TextDataset&lt;<span class="tp">float</span>&gt; ds(<span class="st">"Dataset"</span>, <span class="cm">/*block_size=</span>128, <span class="cm">/*batch_size=</span>32);
+ds.load();
+
+GPT&lt;<span class="tp">float</span>&gt; model(ds.vocab_size(), <span class="cm">/*d_model=</span>128, <span class="cm">/*block_size=</span>128,
+                 <span class="cm">/*n_head=</span>4, <span class="cm">/*n_layer=</span>4);
+
+model.train(
+    [&amp;ds](<span class="kw">const</span> std::string&amp; split){ <span class="kw">return</span> ds.get_batch(split); },
+    <span class="cm">/*iters=</span>5000, <span class="cm">/*eval_interval=</span>200
+);
+
+model.save(<span class="st">"checkpoints/tiny_gpt.tnsf"</span>);
+</code></pre>
+
+<h2 id="quantized-checkpoint">Saving a quantized checkpoint</h2>
+<pre><code><span class="kw">#include</span> <span class="st">"DataLoader/Quantizer.hpp"</span>
+
+<span class="cm">// ~4x smaller on disk than the raw float32 checkpoint</span>
+quant::save_module&lt;fp8_e4m3&gt;(model, <span class="st">"checkpoints/tiny_gpt.fp8"</span>, <span class="cm">/*group=</span>32);
+
+<span class="cm">// later, on any machine:</span>
+GPT&lt;<span class="tp">float</span>&gt; loaded(ds.vocab_size(), 128, 128, 4, 4);
+quant::load_module_into&lt;fp8_e4m3&gt;(loaded, <span class="st">"checkpoints/tiny_gpt.fp8"</span>);
+</code></pre>
+
+<h2 id="tests">Running the built-in test suite</h2>
+<pre><code>make tests</code></pre>
+<p><code>basic_tests.cpp</code> cross-checks <code>Matrix&lt;T&gt;</code> arithmetic, <code>matmul</code>,
+<code>transpose</code>, and reductions against known NumPy outputs, printing <code>[PASS]</code>/<code>[FAIL]</code>
+per case — the fastest way to confirm your OpenBLAS link and build flags are correct after making changes.</p>
+
+<div class="pagefoot">
+  <a href="federated.html">← Federated Learning</a>
+  <a href="known-issues.html">Next: Known Issues →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

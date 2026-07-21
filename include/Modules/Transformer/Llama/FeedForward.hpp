@@ -2,7 +2,6 @@
 #define __LLAMA_FEED_FORWARD_H
 
 #include "../../../Types/types.hpp"
-#include "../../Linear.hpp"
 #include "../../Optimizer.hpp"
 #include "../../Module.hpp"
 
@@ -10,21 +9,37 @@
 //   hidden = silu(gate_proj(x)) * up_proj(x)
 //   out    = down_proj(hidden)
 // where silu(x) = x * sigmoid(x)
+//
 
-template <typename T>
+template <typename T, template<typename> class LinearT>
 class FeedForward: public Module<T>{
             
     private:
-        Linear<T> gate_proj;   // W_gate : in  -> hidden
-        Linear<T> up_proj;     // W_up   : in  -> hidden
-        Linear<T> down_proj;   // W_down : hidden -> out
+        LinearT<T> gate_proj;   // W_gate : in  -> hidden
+        LinearT<T> up_proj;     // W_up   : in  -> hidden
+        LinearT<T> down_proj;   // W_down : hidden -> out
+
+        // Constructs a LinearT<T> with bias forced off, regardless of what
+        // Args the enclosing Block/Llama was instantiated with. Two overloads:
+        // one for LinearT's that take a bias bool (Linear), one for LinearT's
+        // that don't (LoRALinear takes rank/alpha only — no bias flag exists
+        // to force off, so it's a plain forward).
+        template <typename... Args>
+        static LinearT<T> make_linear(size_t out, size_t in, Args&&... args) {
+            if constexpr (std::is_constructible_v<LinearT<T>, size_t, size_t, bool>) {
+                return LinearT<T>(out, in, false);   // Linear: force bias=false
+            } else {
+                return LinearT<T>(out, in, args...); // LoRALinear etc: no bias concept, pass through
+            }
+        }
 
     public:
 
-    FeedForward(size_t in_features, size_t hidden, size_t out_features)
-    : gate_proj(hidden, in_features, false),   
-      up_proj  (hidden,  in_features, false),
-      down_proj(out_features,  hidden, false)
+    template <typename... Args>
+    FeedForward(size_t in_features, size_t hidden, size_t out_features, Args&&... args)
+    : gate_proj(make_linear(hidden, in_features, args...)),
+      up_proj  (make_linear(hidden, in_features, args...)),
+      down_proj(make_linear(out_features, hidden, args...))
     {
         this->register_module(&gate_proj);
         this->register_module(&up_proj);
@@ -44,6 +59,16 @@ class FeedForward: public Module<T>{
 
     FeedForward(const FeedForward&) = delete;
 
+    LinearT<T>& get_gate() { return gate_proj; }
+    LinearT<T>& get_up()   { return up_proj; }
+    LinearT<T>& get_down() { return down_proj; }
+
+    void load_pretrained(FeedForward<T, Linear>& src) {
+        gate_proj.load_pretrained(src.get_gate());
+        up_proj.load_pretrained(src.get_up());
+        down_proj.load_pretrained(src.get_down());
+    }
+
     Tensor_t<T> forward(Tensor_t<T> x) {
         Tensor_t<T> gate_raw = gate_proj.forward(x);
         Tensor_t<T> gate = Tensor<T>::SiLU(gate_raw);  // SiLU
@@ -55,8 +80,11 @@ class FeedForward: public Module<T>{
     }
 
     friend class GGUFLoader<T>;
-    friend class LlamaGGUFLoader<T>; 
+    template <typename, template<typename> class> friend class LlamaGGUFLoader;
 
 };
 
 #endif // !__LLAMA_FEED_FORWARD_H
+
+//  attention/lm_head get bias=true, FFN is always bias-free regardless
+// Llama<float, Linear> model(vocab_size, d_model, block_size, n_head, n_layer, ffn_hidden, /*bias=*/true);

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tensor<T> — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link">Types.hpp</a>
+<a href="../api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link current">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link">Operations (19)</a>
+<a href="../api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link">Modules / nn</a>
+<a href="../api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link">DataLoader</a>
+<a href="../api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; DataStructures/Tensor.hpp</span>
+<h1>Tensor&lt;T&gt;</h1>
+<p class="lede">The autograd graph node. Wraps a value, a gradient, and a pointer to the operation that
+produced it. Always used through <code>Tensor_t&lt;T&gt; = std::shared_ptr&lt;Tensor&lt;T&gt;&gt;</code>,
+never as a bare value.</p>
+
+<h2 id="members">Members</h2>
+<pre><code><span class="tp">class</span> Tensor : <span class="tp">public</span> std::enable_shared_from_this&lt;Tensor&lt;T&gt;&gt;
+{
+    Matrix&lt;T&gt; val;              <span class="cm">// tensor value</span>
+    Matrix&lt;T&gt; grad;             <span class="cm">// accumulated gradient</span>
+    shape_t shape;
+    <span class="tp">size_t</span> ndims;
+    Operation_t&lt;T&gt; backOp = <span class="kw">nullptr</span>;  <span class="cm">// producing operation, or null for a leaf</span>
+    <span class="tp">bool</span> requires_grad = <span class="kw">true</span>;
+};</code></pre>
+
+<h2 id="construction">Construction</h2>
+<p>Never construct a raw <code>Tensor&lt;T&gt;</code> — use the <code>make_tensor&lt;T&gt;(...)</code> family
+from <a href="overloads.html"><code>tensor_overloads.hpp</code></a>, which returns a properly-managed
+<code>Tensor_t&lt;T&gt;</code>. Overloads accept: nothing, a constant, a <code>std::vector&lt;T&gt;</code>,
+nested 1D/2D/3D initializer lists, a pointer/reference to <code>Matrix&lt;T&gt;</code>, or another
+<code>Tensor_t&lt;T&gt;</code> — each with a variant that also attaches an <code>Operation_t&lt;T&gt;</code>.</p>
+
+<h2 id="backward">backward()</h2>
+<div class="method">
+  <div class="sig"><span class="name">backward</span>(Matrix&lt;T&gt; ingrad)</div>
+  <div class="body">
+    <ol>
+      <li>Accumulates <code>ingrad</code> into <code>this-&gt;grad</code> (adds to any existing value —
+      required when a tensor feeds multiple downstream ops, e.g. residual connections in a transformer block).</li>
+      <li>Checks <code>Matrix&lt;T&gt;::hasNaN(grad)</code>; throws if found.</li>
+      <li>Calls <code>backOp-&gt;backward(ingrad)</code> if <code>backOp</code> is non-null, which computes
+      local gradients and recurses into its own inputs' <code>backward()</code>.</li>
+    </ol>
+    <p>An overload <code>backward(Tensor_t&lt;T&gt; ingrad)</code> unwraps the tensor's <code>val</code> and
+    forwards to the above.</p>
+  </div>
+</div>
+
+<h2 id="graph-methods">Graph lifecycle</h2>
+<table>
+<tr><th>Method</th><th>Effect</th></tr>
+<tr><td>zero_grad()</td><td>Resets <code>grad</code> to zero. Graph structure stays intact and reusable.</td></tr>
+<tr><td>reset_graph()</td><td>Breaks the <code>Tensor</code>↔<code>Operation</code> <code>shared_ptr</code> cycle
+by nulling <code>backOp</code>, propagated recursively into inputs. <strong>Call this after every training
+iteration</strong> or the graph leaks — see <a href="../architecture.html#memory">Architecture → memory management</a>.</td></tr>
+</table>
+
+<h2 id="ops">Instance operation methods</h2>
+<p>Every one of these builds an <a href="operations.html">Operation node</a>, runs its forward pass, and
+returns a new <code>Tensor_t&lt;T&gt;</code>:</p>
+<div class="grid cols-3">
+<div class="card"><h4>Arithmetic &amp; linalg</h4><p><code>matmul</code>, <code>dot</code>, <code>transpose()</code>,
+<code>transpose(shape)</code>, <code>reshape</code>, <code>embed</code>, <code>bool_index</code></p></div>
+<div class="card"><h4>Activations</h4><p><code>softmax</code>, <code>relu</code>, <code>sigmoid</code></p></div>
+<div class="card"><h4>Elementwise math</h4><p><code>sqrt</code>, <code>cbrt</code>, <code>ln</code>, <code>exp</code>,
+<code>power(int n)</code>, <code>maximum(int value)</code></p></div>
+<div class="card"><h4>Reductions</h4><p><code>sum()</code>, <code>sum(axis)</code>, <code>mean(axis)</code>,
+<code>var(axis)</code>, <code>std(axis)</code></p></div>
+<div class="card"><h4>Indexing</h4><p><code>at(initializer_list)</code>, <code>at(Tensor_t&lt;bool&gt;)</code></p></div>
+<div class="card"><h4>Grad control</h4><p><code>zero_grad()</code>, <code>reset_graph()</code>,
+<code>backward(...)</code></p></div>
+</div>
+
+<h2 id="static">Static helpers</h2>
+<table>
+<tr><td><code>concat(tensors, axis)</code></td><td>Wraps <code>ConcatOperation</code> for a <code>vector&lt;Tensor_t&lt;T&gt;&gt;</code></td></tr>
+<tr><td><code>cross_entropy(ytrue, ypred, eps=1e-8)</code></td><td>Standard categorical cross-entropy loss</td></tr>
+<tr><td><code>binary_cross_entropy(ytrue, ypred)</code></td><td>Binary cross-entropy</td></tr>
+<tr><td><code>mse(ytrue, ypred)</code></td><td>Mean squared error</td></tr>
+<tr><td><code>rms_norm(x, weight, eps=1e-5)</code></td><td>Functional RMSNorm (see also the <a href="modules.html#rmsnorm">RMSNorm module</a>)</td></tr>
+<tr><td><code>transpose(ten[, shape])</code></td><td>Static form of the instance transpose methods</td></tr>
+<tr><td><code>zeros(shape)</code> / <code>ones(shape)</code></td><td>Filled-tensor constructors</td></tr>
+<tr><td><code>GeLU(x)</code> / <code>SiLU(x)</code></td><td>Gaussian Error Linear Unit / Sigmoid Linear Unit activations — used by the Llama/GPT-LoRA feed-forward blocks</td></tr>
+<tr><td><code>randn(shape)</code> / <code>random(shape)</code></td><td>Random tensor constructors, graph-attached</td></tr>
+<tr><td><code>eye(shape)</code></td><td>Identity matrix tensor</td></tr>
+</table>
+
+<h2 id="usage">Typical usage</h2>
+<pre><code>Tensor_t&lt;<span class="tp">float</span>&gt; x = make_tensor&lt;<span class="tp">float</span>&gt;(Matrix&lt;<span class="tp">float</span>&gt;::randn({4, 8}));
+Tensor_t&lt;<span class="tp">float</span>&gt; w = make_tensor&lt;<span class="tp">float</span>&gt;(Matrix&lt;<span class="tp">float</span>&gt;::randn({8, 16}));
+
+Tensor_t&lt;<span class="tp">float</span>&gt; y = x-&gt;matmul(w)-&gt;relu()-&gt;sum();
+y-&gt;backward(make_tensor&lt;<span class="tp">float</span>&gt;((<span class="tp">float</span>)1.0));
+
+<span class="cm">// x->grad and w->grad now hold dL/dx, dL/dw</span>
+y-&gt;reset_graph();
+</code></pre>
+
+<div class="pagefoot">
+  <a href="matrix.html">← Matrix&lt;T&gt;</a>
+  <a href="operations.html">Next: Operations →</a>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>
