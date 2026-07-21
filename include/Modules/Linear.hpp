@@ -43,6 +43,15 @@
                 return res;
             }
 
+            // Weight/bias transfer used by GPT::load_backbone_from() when both the
+            // pretrained and target model are dense (LinearT == Linear on both
+            // sides). 
+            void load_pretrained(Linear<T>& src) {
+                weight->val.copy_from(src.weight->val);
+                if (sbias && src.sbias)
+                    bias->val.copy_from(src.bias->val);
+            }
+
     friend class GGUFLoader<T>;
     friend class GPTGGUFLoader<T>; 
     friend class LlamaGGUFLoader<T>; 

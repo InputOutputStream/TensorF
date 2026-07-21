@@ -15,7 +15,7 @@
         SGD,
         ADAM,
         ADAMw
-        // Adafactor
+        ADAFACTOR
     };
 
     template <typename T>
@@ -24,6 +24,7 @@
             Optimizer_t optimizer;
             T lr = 0.1;
             std::vector<Tensor_t<T>> parameters;
+            bool requires_grad;
 
             // Adam parameters
             size_t t = 0;
@@ -36,6 +37,16 @@
 
             // AdamW
             T lambda = 1e-4;
+
+            // Adafactor state
+            std::vector<std::vector<T>> af_row;  // per-param row accumulator R_t, only for 2D params
+            std::vector<std::vector<T>> af_col;  // per-param col accumulator C_t, only for 2D params
+            std::vector<Matrix<T>> af_v;          // full second moment, only for non-2D params (bias etc.)
+            T af_decay          = (T)0.8;   // decay exponent: rho_t = 1 - t^-af_decay
+            T af_eps1           = (T)1e-30; // floor added to grad^2 before accumulating
+            T af_eps2           = (T)1e-3;  // floor on parameter RMS for the relative step size
+            T af_clip_threshold = (T)1.0;   // RMS clipping threshold on the raw update
+
 
             void sgd() {
                 for(auto p : this->parameters) {
@@ -195,25 +206,130 @@
                         p->val.data = p->val.data - step;
                 }
             }
+
+            void adafactor() {
+                if (!initialized) {
+                    t = 0;
+                    af_row.resize(parameters.size());
+                    af_col.resize(parameters.size());
+                    af_v.resize(parameters.size());
+                    for (size_t i = 0; i < parameters.size(); i++) {
+                        auto& shape = parameters[i]->val.shape;
+                        if (shape.size() == 2) {
+                            af_row[i].assign(shape[0], (T)0);
+                            af_col[i].assign(shape[1], (T)0);
+                        } else {
+                            af_v[i] = Matrix<T>::zeros(shape);
+                        }
+                    }
+                    initialized = true;
+                }
+
+                t++;
+                // Adafactor's default schedule (no user-tunable beta2 — decays toward 1)
+                T rho_t = (T)1.0 - std::pow((T)t, -af_decay);
+
+                for (size_t i = 0; i < parameters.size(); i++) {
+                    auto p = parameters[i];
+                    if (p->grad.get_size() == 0) continue;
+
+                    auto& shape = p->val.shape;
+                    size_t n = p->val.get_size();
+
+                    // relative step size: scale lr by the parameter's own RMS
+                    // (this is Adafactor's default "relative step" behaviour —
+                    // if you want a plain fixed step instead, just set af_eps2
+                    // very large so max(af_eps2, param_rms) == af_eps2 == your lr scale)
+                    T param_rms = (T)0;
+                    for (auto x : p->val.data) param_rms += x * x;
+                    param_rms = std::sqrt(param_rms / (T)n);
+                    T step_size = this->lr * std::max(af_eps2, param_rms);
+
+                    std::vector<T> update(n);
+                    T update_rms_sq = 0;
+
+                    if (shape.size() == 2) {
+                        size_t rows = shape[0], cols = shape[1];
+
+                        std::vector<T> row_mean(rows, (T)0), col_mean(cols, (T)0);
+                        for (size_t r = 0; r < rows; r++) {
+                            for (size_t c = 0; c < cols; c++) {
+                                T g2 = p->grad.data[r * cols + c] * p->grad.data[r * cols + c] + af_eps1;
+                                row_mean[r] += g2;
+                                col_mean[c] += g2;
+                            }
+                        }
+                        for (size_t r = 0; r < rows; r++) row_mean[r] /= (T)cols;
+                        for (size_t c = 0; c < cols; c++) col_mean[c] /= (T)rows;
+
+                        T row_total = 0;
+                        for (size_t r = 0; r < rows; r++) {
+                            af_row[i][r] = rho_t * af_row[i][r] + ((T)1 - rho_t) * row_mean[r];
+                            row_total += af_row[i][r];
+                        }
+                        for (size_t c = 0; c < cols; c++)
+                            af_col[i][c] = rho_t * af_col[i][c] + ((T)1 - rho_t) * col_mean[c];
+
+                        T row_avg = row_total / (T)rows;
+
+                        // rank-1 reconstruction: V_hat[r][c] = R[r]*C[c] / mean(R)
+                        for (size_t r = 0; r < rows; r++) {
+                            for (size_t c = 0; c < cols; c++) {
+                                T v_hat = (af_row[i][r] * af_col[i][c]) / std::max(row_avg, af_eps1);
+                                T u = p->grad.data[r * cols + c] / std::sqrt(v_hat);
+                                update[r * cols + c] = u;
+                                update_rms_sq += u * u;
+                            }
+                        }
+                    } else {
+                        // 1D (bias/gamma/beta) or other-rank tensors: no factoring possible,
+                        // fall back to a plain per-element second moment.
+                        for (size_t k = 0; k < n; k++) {
+                            T g2 = p->grad.data[k] * p->grad.data[k] + af_eps1;
+                            af_v[i].data[k] = rho_t * af_v[i].data[k] + ((T)1 - rho_t) * g2;
+                        }
+                        for (size_t k = 0; k < n; k++) {
+                            T u = p->grad.data[k] / std::sqrt(af_v[i].data[k]);
+                            update[k] = u;
+                            update_rms_sq += u * u;
+                        }
+                    }
+
+                    // update clipping (paper's RMS clip, distinct from the optimizer's own
+                    // global clip_grad_norm )
+                    T update_rms = std::sqrt(update_rms_sq / (T)n);
+                    T clip = std::max((T)1.0, update_rms / af_clip_threshold);
+
+                    for (size_t k = 0; k < n; k++)
+                        p->val.data[k] -= step_size * (update[k] / clip);
+                }
+            }
+
+            void set_adafactor_params(T decay, T eps1, T eps2, T clip_threshold) {
+                af_decay = decay; af_eps1 = eps1; af_eps2 = eps2; af_clip_threshold = clip_threshold;
+            }
+
         public:
             
         
-            Optimizer(std::vector<Tensor_t<T>> params, T lr, Optimizer_t optim){ 
+            Optimizer(std::vector<Tensor_t<T>> params, T lr, Optimizer_t optim, bool requires_grad){ 
                 this->parameters = params;
                 this->lr = lr;
                 this->optimizer = optim;
+                this->requires_grad = requires_grad;
             }
 
-            Optimizer(std::vector<Tensor_t<T>> params, T lr, Optimizer_t optim, T beta1, T beta2, T eps){
+            Optimizer(std::vector<Tensor_t<T>> params, T lr, Optimizer_t optim, T beta1, T beta2, T eps, bool requires_grad){
                 this->b1 = beta1;
                 this->b2 = beta2;
                 this->eps = eps;
                 this->parameters = params;
                 this->lr = lr;
                 this->optimizer = optim;
+                this->requires_grad = requires_grad;
             }
 
-            Optimizer(std::vector<Tensor_t<T>> params, T lr, Optimizer_t optim, T beta1, T beta2, T eps, T lambda){
+            Optimizer(std::vector<Tensor_t<T>> params, T lr, Optimizer_t optim, T beta1, T beta2, T eps, T lambda, bool requires_grad){
                 this->b1 = beta1;
                 this->b2 = beta2;
                 this->eps = eps;
@@ -221,6 +337,7 @@
                 this->parameters = params;
                 this->lr = lr;
                 this->optimizer = optim;
+                this->requires_grad = requires_grad;
             }
 
             
@@ -266,8 +383,10 @@
             }
             
             void step(){
-                
-                clip_grad_norm(1.0);
+
+                if (this->optimizer != ADAFACTOR)
+                    clip_grad_norm(1.0);
+
                 switch(this->optimizer){
                     case SGD:
                         this->sgd();
@@ -277,6 +396,9 @@
                         break;
                     case ADAMw:
                         this->AdamW();
+                        break;
+                    case ADAFACTOR:
+                        this->adafactor();
                         break;
                 }
 

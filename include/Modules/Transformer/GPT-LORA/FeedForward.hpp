@@ -3,22 +3,22 @@
 
 
 #include "../../../Types/types.hpp"
-#include "../../LoRALinear.hpp"
 #include "../../Optimizer.hpp"
 #include "../../Module.hpp"
 
-template <typename T>
+template <typename T, template<typename> class LinearT>
 class FeedForward: public Module<T>{
             
     private:
-        LoRALinear<T> up;
-        LoRALinear<T> down;
+        LinearT<T> up;
+        LinearT<T> down;
 
     public:
 
-    FeedForward(size_t in_features, size_t hidden, size_t out_features, size_t rank, T alpha)
-    : up(hidden, in_features, rank, alpha),
-      down(out_features, hidden, rank, alpha)
+    template <typename... Args>
+    FeedForward(size_t in_features, size_t hidden, size_t out_features, Args&&... args)
+    : up(hidden, in_features, args...),
+      down(out_features, hidden, args...)
         {
             this->register_module(&up);
             this->register_module(&down);

@@ -6,27 +6,28 @@
 #include <algorithm>
 
 #include "../../Module.hpp"
-#include "../../LoRALinear.hpp"
+#include "../../types.hpp"
 
 #include "Head.hpp"
 
-template <typename T>
+template <typename T, template<typename> class LinearT>
 class MultiHeadAttention : public Module<T>{
     private:
         size_t n_heads;
-        LoRALinear<T> proJ;
-        std::vector<std::unique_ptr<Head<T>>> Heads;
+        LinearT<T> proJ;
+        std::vector<std::unique_ptr<Head<T, LinearT>>> Heads;
 
     public:
 
-    MultiHeadAttention(size_t head_size, size_t input_dim, size_t sequence_length, size_t n_heads, size_t rank, T alpha): 
-    proJ(input_dim, head_size * n_heads, rank, alpha)
+    template <typename... Args>
+    MultiHeadAttention(size_t head_size, size_t input_dim, size_t sequence_length, size_t n_heads, Args&&... args): 
+    proJ(input_dim, head_size * n_heads, args...)
     {
         this->n_heads = n_heads;
         
         Heads.reserve(n_heads);
         for(size_t i = 0; i < n_heads; i++) {
-            Heads.push_back(std::make_unique<Head<T>>(head_size, input_dim, sequence_length, rank, alpha));
+            Heads.push_back(std::make_unique<Head<T, LinearT>>(head_size, input_dim, sequence_length, args...));
             this->register_module(Heads.back().get());
         }
         this->register_module(&proJ);
@@ -45,6 +46,15 @@ class MultiHeadAttention : public Module<T>{
 
     MultiHeadAttention(const MultiHeadAttention&) = delete;
 
+    LinearT<T>& get_proj() { return proJ; }
+    std::vector<std::unique_ptr<Head<T, LinearT>>>& get_heads() { return Heads; }
+
+    void load_pretrained(MultiHeadAttention<T, Linear>& src) {
+        auto& src_heads = src.get_heads();
+        for (size_t i = 0; i < Heads.size(); i++)
+            Heads[i]->load_pretrained(*src_heads[i]);
+        proJ.load_pretrained(src.get_proj());
+    }
 
     Tensor_t<T> forward(Tensor_t<T> x, bool apply_mask){
 

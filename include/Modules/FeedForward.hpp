@@ -35,6 +35,14 @@ class FeedForward: public Module<T>{
 
     FeedForward(const FeedForward&) = delete; 
 
+    LinearT<T>& get_up()   { return up; }
+    LinearT<T>& get_down() { return down; }
+
+    void load_pretrained(FeedForward<T, Linear>& src) {
+        up.load_pretrained(src.get_up());
+        down.load_pretrained(src.get_down());
+    }
+    
     Tensor_t<T> forward(Tensor_t<T> x) {   
         Tensor_t<T> a = l1.forward(x);
         Tensor_t<T> b = a->relu();

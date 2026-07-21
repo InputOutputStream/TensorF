@@ -86,7 +86,7 @@ public:
 
     void skip_kv_value(std::ifstream& file, uint32_t val_type) {
         switch (val_type) {
-            case UINT8:  case BOOL:    read_binary<uint8_t>(file);   break;
+            case UINT8:  case BOOL:   read_binary<uint8_t>(file);   break;
             case INT8:                read_binary<int8_t>(file);    break;
             case UINT16:              read_binary<uint16_t>(file);  break;
             case INT16:               read_binary<int16_t>(file);   break;
