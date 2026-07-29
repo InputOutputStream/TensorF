@@ -73,6 +73,8 @@ SLM/transformer-gpt-numpy
 *.exe *.out *.app *.dwo
 
 # Data & models
+checkpoints/
+Datasets/
 Dataset/
 MNIST_CSV/
 Models/

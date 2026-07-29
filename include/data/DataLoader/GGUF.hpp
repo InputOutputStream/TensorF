@@ -1,0 +1,335 @@
+#ifndef __GGUF__H_
+#define __GGUF__H_
+
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <cstdint>
+#include <map>
+#include <cstring>
+#include <cmath>          // for std::ldexp, INFINITY, NAN
+#include <stdexcept>
+
+#include "Types/types.hpp"
+
+template<typename T>
+class Matrix;
+
+struct TensorInfo {
+    std::string name;
+    std::vector<uint64_t> dimensions;
+    uint32_t ggml_type;
+    uint64_t offset;
+};
+
+// GGUF value types
+enum GGUFValueType : uint32_t {
+    UINT8   = 0,  INT8    = 1,
+    UINT16  = 2,  INT16   = 3,
+    UINT32  = 4,  INT32   = 5,
+    FLOAT32 = 6,  BOOL    = 7,
+    STRING  = 8,  ARRAY   = 9,
+    UINT64  = 10, INT64   = 11,
+    FLOAT64 = 12
+};
+
+// GGML quantization types (common in GGUF)
+enum GGMLType : uint32_t {
+    F32  = 0,
+    F16  = 1,
+    Q4_0 = 2,
+    Q4_1 = 3,
+    Q8_0 = 8,
+    Q6_K = 14,
+    Q4_K = 12,
+    Q5_K = 13,
+};
+
+class GGUF {
+public:
+    std::ifstream file;
+    std::vector<TensorInfo> tensors;
+    uint64_t data_start_offset = 0;
+
+    // Metadata storage
+    std::map<std::string, std::vector<std::string>> array_metadata;   // e.g. "tokenizer.ggml.vocab"
+    std::map<std::string, std::string>              scalar_metadata;  // e.g. "tokenizer.ggml.model"
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    std::vector<std::string> get_array(const std::string& key) const {
+        auto it = array_metadata.find(key);
+        return (it != array_metadata.end()) ? it->second : std::vector<std::string>();
+    }
+
+    std::string get_string(const std::string& key) const {
+        auto it = scalar_metadata.find(key);
+        return (it != scalar_metadata.end()) ? it->second : std::string();
+    }
+
+    // ── Binary I/O ───────────────────────────────────────────────────────────
+
+    template<typename T>
+    T read_binary(std::ifstream& file) {
+        T value;
+        file.read(reinterpret_cast<char*>(&value), sizeof(T));
+        return value;
+    }
+
+    std::string read_string(std::ifstream& file) {
+        uint64_t length = read_binary<uint64_t>(file);
+        std::string str(length, '\0');
+        file.read(&str[0], length);
+        return str;
+    }
+
+    void skip_kv_value(std::ifstream& file, uint32_t val_type) {
+        switch (val_type) {
+            case UINT8:  case BOOL:   read_binary<uint8_t>(file);   break;
+            case INT8:                read_binary<int8_t>(file);    break;
+            case UINT16:              read_binary<uint16_t>(file);  break;
+            case INT16:               read_binary<int16_t>(file);   break;
+            case UINT32:              read_binary<uint32_t>(file);  break;
+            case INT32:               read_binary<int32_t>(file);   break;
+            case FLOAT32:             read_binary<float>(file);     break;
+            case STRING:              read_string(file);            break;
+            case UINT64:              read_binary<uint64_t>(file);  break;
+            case INT64:               read_binary<int64_t>(file);   break;
+            case FLOAT64:             read_binary<double>(file);    break;
+            case ARRAY: {
+                uint32_t elem_type = read_binary<uint32_t>(file);
+                uint64_t arr_len   = read_binary<uint64_t>(file);
+                for (uint64_t k = 0; k < arr_len; ++k)
+                    skip_kv_value(file, elem_type);
+                break;
+            }
+            default:
+                throw std::runtime_error("Unknown GGUF value type: " + std::to_string(val_type));
+        }
+    }
+
+    // ── FP16 conversion ──────────────────────────────────────────────────────
+
+    static inline float fp16_to_float(uint16_t h) {
+        uint32_t sign     = (h >> 15) & 0x1;
+        uint32_t exp      = (h >> 10) & 0x1F;
+        uint32_t mant     = h & 0x3FF;
+
+        if (exp == 0)    // subnormal
+            return (sign ? -1.f : 1.f) * std::ldexp((float)mant, -24);
+        if (exp == 31)   // inf / nan
+            return mant ? NAN : (sign ? -INFINITY : INFINITY);
+
+        uint32_t f = (sign << 31) | ((exp + 112) << 23) | (mant << 13);
+        float result;
+        std::memcpy(&result, &f, 4);
+        return result;
+    }
+
+    // ── Dequantisation helpers (for FP8/FP4 if needed) ─────────────────────
+
+    template<int E, int M>
+    std::vector<FP8<E,M>> dequant_q8_to_fp8(std::ifstream& file, size_t n_elem) {
+        std::vector<FP8<E,M>> out(n_elem);
+        size_t n_blocks = n_elem / 32;
+        for (size_t b = 0; b < n_blocks; ++b) {
+            float scale;
+            file.read((char*)&scale, sizeof(float));
+            for (int j = 0; j < 32; ++j) {
+                int8_t q;
+                file.read((char*)&q, 1);
+                out[b*32 + j] = FP8<E,M>(scale * (float)q);
+            }
+        }
+        return out;
+    }
+
+    template<unsigned E, unsigned M>
+    std::vector<FP4<E,M>> dequant_q4_to_fp4(std::ifstream& file, size_t n_elem) {
+        std::vector<FP4<E,M>> out(n_elem);
+        size_t n_blocks = n_elem / 32;
+        for (size_t b = 0; b < n_blocks; ++b) {
+            uint16_t scale_bits;
+            file.read((char*)&scale_bits, sizeof(uint16_t));
+            float scale = fp16_to_float(scale_bits);
+            for (int j = 0; j < 16; ++j) {
+                uint8_t byte;
+                file.read((char*)&byte, 1);
+                int8_t lo = (int8_t)((byte & 0x0F) - 8);
+                int8_t hi = (int8_t)((byte >> 4)   - 8);
+                out[b*32 + j*2    ] = FP4<E,M>(scale * (float)lo);
+                out[b*32 + j*2 + 1] = FP4<E,M>(scale * (float)hi);
+            }
+        }
+        return out;
+    }
+
+    // ── Main parsing ─────────────────────────────────────────────────────────
+
+    void parse_gguf(const std::string& filepath) {
+        file.open(filepath, std::ios::binary);
+        if (!file.is_open()) {
+            throw std::runtime_error("Failed to open GGUF file: " + filepath);
+        }
+
+        // 1. Header
+        char magic[4];
+        file.read(magic, 4);
+        if (!file || std::string(magic, 4) != "GGUF") {
+            throw std::runtime_error(
+                "Invalid magic number in '" + filepath + "' — not a GGUF file. "
+                "(If this file was produced by this project's own quant::save_quantized / "
+                "save_module, it starts with 'QNTF', not 'GGUF', and must be loaded with "
+                "quant::load_module_into<QT>(model, path) instead of GGUFLoader.)");
+        }
+
+        uint32_t version      = read_binary<uint32_t>(file);
+        uint64_t tensor_count = read_binary<uint64_t>(file);
+        uint64_t kv_count     = read_binary<uint64_t>(file);
+
+        std::cout << "GGUF Version: " << version << "\n";
+        std::cout << "Tensors: " << tensor_count << " | KV Pairs: " << kv_count << "\n\n";
+
+        // 2. Metadata KV pairs
+        uint32_t alignment = 32;   // default
+
+        for (uint64_t i = 0; i < kv_count; ++i) {
+            std::string key   = read_string(file);
+            uint32_t val_type = read_binary<uint32_t>(file);
+
+            // Special case: alignment
+            if (key == "general.alignment") {
+                // The value type must be UINT32
+                alignment = read_binary<uint32_t>(file);
+                continue;
+            }
+
+            // Store all other metadata
+            switch (val_type) {
+                case STRING: {
+                    std::string val = read_string(file);
+                    scalar_metadata[key] = val;
+                    break;
+                }
+                case ARRAY: {
+                    uint32_t elem_type = read_binary<uint32_t>(file);
+                    uint64_t len = read_binary<uint64_t>(file);
+                    if (elem_type == STRING) {
+                        std::vector<std::string> arr;
+                        arr.reserve(len);
+                        for (uint64_t j = 0; j < len; ++j)
+                            arr.push_back(read_string(file));
+                        array_metadata[key] = std::move(arr);
+                    } else {
+                        // skip arrays of other types (we only care about string arrays)
+                        for (uint64_t j = 0; j < len; ++j)
+                            skip_kv_value(file, elem_type);
+                    }
+                    break;
+                }
+                default:
+                    // skip all other scalar types
+                    skip_kv_value(file, val_type);
+                    break;
+            }
+        }
+
+        // 3. Tensor infos
+        tensors.clear();
+        tensors.reserve(tensor_count);
+
+        for (uint64_t i = 0; i < tensor_count; ++i) {
+            TensorInfo info;
+            info.name = read_string(file);
+
+            uint32_t n_dims = read_binary<uint32_t>(file);
+            info.dimensions.resize(n_dims);
+            for (uint32_t d = 0; d < n_dims; ++d)
+                info.dimensions[d] = read_binary<uint64_t>(file);
+
+            info.ggml_type = read_binary<uint32_t>(file);
+            info.offset    = read_binary<uint64_t>(file);
+
+            tensors.push_back(std::move(info));
+        }
+
+        // 4. Alignment padding
+        uint64_t current_pos = file.tellg();
+        uint64_t padding     = (alignment - (current_pos % alignment)) % alignment;
+        data_start_offset = current_pos + padding;
+
+        std::cout << "\nBinary tensor data starts at byte offset: " << data_start_offset << "\n";
+    }
+
+    // ── Tensor loading ──────────────────────────────────────────────────────
+
+    template<typename T>
+    Matrix<T> load_tensor(std::ifstream& file,
+                          const TensorInfo& info,
+                          uint64_t data_start) {
+        size_t n = 1;
+        shape_t shape;
+        // GGUF stores dimensions in reverse order; we reverse them
+        for (int d = info.dimensions.size() - 1; d >= 0; --d) {
+            shape.push_back(info.dimensions[d]);
+            n *= info.dimensions[d];
+        }
+
+        file.seekg(data_start + info.offset);
+        std::vector<T> data(n);
+
+        if (info.ggml_type == F32) {
+            std::vector<float> raw(n);
+            file.read((char*)raw.data(), n * sizeof(float));
+            for (size_t i = 0; i < n; ++i) data[i] = (T)raw[i];
+        }
+        else if (info.ggml_type == F16) {
+            std::vector<uint16_t> raw(n);
+            file.read((char*)raw.data(), n * sizeof(uint16_t));
+            for (size_t i = 0; i < n; ++i)
+                data[i] = (T)fp16_to_float(raw[i]);
+        }
+        else if (info.ggml_type == Q8_0) {
+            if constexpr (is_fp8<T>::value) {
+                auto dq = dequant_q8_to_fp8<T::exp_bits, T::mant_bits>(file, n);
+                for (size_t i = 0; i < n; ++i) data[i] = dq[i];
+            } else {
+                size_t n_blocks = n / 32;
+                for (size_t b = 0; b < n_blocks; ++b) {
+                    float scale;
+                    file.read((char*)&scale, sizeof(float));
+                    for (int j = 0; j < 32; ++j) {
+                        int8_t q; file.read((char*)&q, 1);
+                        data[b*32+j] = (T)(scale * (float)q);
+                    }
+                }
+            }
+        }
+        else if (info.ggml_type == Q4_0) {
+            if constexpr (is_fp4<T>::value) {
+                auto dq = dequant_q4_to_fp4<T::exp_bits, T::mant_bits>(file, n);
+                for (size_t i = 0; i < n; ++i) data[i] = dq[i];
+            } else {
+                size_t n_blocks = n / 32;
+                for (size_t b = 0; b < n_blocks; ++b) {
+                    uint16_t scale_bits;
+                    file.read((char*)&scale_bits, 2);
+                    float scale = fp16_to_float(scale_bits);
+                    for (int j = 0; j < 16; ++j) {
+                        uint8_t byte; file.read((char*)&byte, 1);
+                        data[b*32+j*2  ] = (T)(scale * (float)((int8_t)((byte & 0x0F) - 8)));
+                        data[b*32+j*2+1] = (T)(scale * (float)((int8_t)((byte >> 4) - 8)));
+                    }
+                }
+            }
+        }
+        else {
+            throw std::runtime_error("Unsupported GGML type: " + std::to_string(info.ggml_type));
+        }
+
+        return Matrix<T>(data, shape);
+    }
+};
+
+#endif // !__GGUF__H_
