@@ -80,36 +80,63 @@ or header presence, without installing anything.</p>
 <pre><code>git clone https://github.com/InputOutputStream/TensorF.git
 <span class="kw">cd</span> TensorF</code></pre>
 
-<h2 id="layout">Expected directory layout</h2>
+<h2 id="layout">Directory layout</h2>
 <p>The Makefile assumes this structure &mdash; it's already what the repo ships:</p>
-<div class="diagram"><pre style="border:none;background:none;margin:0;padding:0"><code>./                  ← .cpp entry points (GPT2.cpp, SmollLLM.cpp, basic_tests.cpp) + Makefile
-./include/          ← every header, organised by subsystem
-    DataStructures/  Matrix.hpp, Tensor.hpp
-    Operations/      19 Operation<T> subclasses + base
-    Overloads/       operator overloads (raw vector + Tensor_t)
-    Modules/         nn layers: Linear, LayerNorm, RMSNorm, Embedding…
-    Modules/Transformer/GPT, GPT-LORA, Llama
-    Network/         Client, Server, Trainer, ThreadPool (federated learning)
-    Protocol/        binary wire protocol for the Profiler
-    ModelLoader/      GGUF → GPT<T> / Llama<T> weight loading
-    DataLoader/       GGUF reader, image/tabular/text/NPY loaders, quantizer, serializer
-    Tokenizer/        byte-level BPE (GPT-2 + Llama family)
-    Profiler/         hardware fingerprint, benchmarks, hyperparameter advisor
-    Types/            shape_t, Tensor_t, fp8/fp4 software float types
+<div class="diagram"><pre style="border:none;background:none;margin:0;padding:0"><code>./                   ← Makefile, README
+./examples/          ← entry points: GPT2.cpp, SmollLLM.cpp
+./tests/             ← basic_tests.cpp, benchmark.cpp
+./scripts/           ← download.sh
+./docs/              ← this site
+./gateway/           ← web management API (REST + WebSocket) for the dashboard
+./include/
+    core/             ← tensor engine
+        DataStructures/  Matrix.hpp, Tensor.hpp
+        Operations/      19 Operation&lt;T&gt; subclasses + base
+        Overloads/       operator overloads (raw vector + Tensor_t)
+        Types/           shape_t, Tensor_t, fp8/fp4 software float types
+    nn/               ← models & layers
+        Modules/         Linear, LayerNorm, RMSNorm, Embedding…
+        Modules/Transformer/GPT, GPT-LORA, Llama
+        ModelLoader/     GGUF → GPT&lt;T&gt; / Llama&lt;T&gt; weight loading
+        Tokenizer/       byte-level BPE (GPT-2 + Llama family)
+    data/             ← datasets
+        DataLoader/      GGUF reader, image/tabular/text/NPY loaders, quantizer, serializer
+    net/              ← federated learning networking
+        Network/         Client, Server, Trainer, ThreadPool
+        Protocol/        binary wire protocol for the Profiler
+    tools/            ← profiling & benchmarking
+        Profiler/        hardware fingerprint, benchmarks, hyperparameter advisor
 ./bin/              ← build output (created automatically)
 </code></pre></div>
+<p>Headers resolve via <code>-Iinclude -Iinclude/core -Iinclude/nn -Iinclude/data -Iinclude/net -Iinclude/tools</code>
+in the Makefile, so any header can be included by its bare subsystem name (e.g. <code>#include "Types/types.hpp"</code>)
+regardless of which group folder it lives in.</p>
 
 <h2 id="build">Build targets</h2>
 <table>
 <tr><th>Target</th><th>Builds</th><th>Notes</th></tr>
-<tr><td><code>make gpt2</code></td><td><code>bin/gpt2</code> from <code>GPT2.cpp</code></td><td>GPT-2 GGUF inference demo</td></tr>
-<tr><td><code>make smollm</code></td><td><code>bin/smollm</code> from <code>SmollLLM.cpp</code></td><td>SmolLM2 (Llama-family) GGUF inference demo</td></tr>
-<tr><td><code>make server</code></td><td><code>bin/server</code></td><td>Builds <code>include/Network/Server.cpp</code>; override with <code>SERVER_SRC=path</code></td></tr>
-<tr><td><code>make client</code></td><td><code>bin/client</code></td><td>Builds <code>include/Network/Client.cpp</code>; override with <code>CLIENT_SRC=path</code></td></tr>
-<tr><td><code>make tests</code></td><td><code>bin/basic_tests</code></td><td>Builds <em>and runs</em> the unit test suite immediately</td></tr>
+<tr><td><code>make gpt2</code></td><td><code>bin/gpt2</code> from <code>examples/GPT2.cpp</code></td><td>GPT-2 GGUF inference demo</td></tr>
+<tr><td><code>make smollm</code></td><td><code>bin/smollm</code> from <code>examples/SmollLLM.cpp</code></td><td>SmolLM2 (Llama-family) GGUF inference demo</td></tr>
+<tr><td><code>make server</code></td><td><code>bin/server</code></td><td>Builds <code>include/net/Network/Server.cpp</code>; override with <code>SERVER_SRC=path</code></td></tr>
+<tr><td><code>make client</code></td><td><code>bin/client</code></td><td>Builds <code>include/net/Network/Client.cpp</code>; override with <code>CLIENT_SRC=path</code></td></tr>
+<tr><td><code>make tests</code></td><td><code>bin/basic_tests</code> from <code>tests/basic_tests.cpp</code></td><td>Builds <em>and runs</em> the unit test suite immediately</td></tr>
+<tr><td><code>make benchmark</code></td><td><code>bin/benchmark</code> from <code>tests/benchmark.cpp</code></td><td>Profiling/benchmark harness</td></tr>
+<tr><td><code>make gateway</code></td><td><code>bin/tensorf-gateway</code> from <code>gateway/src/main.cpp</code></td><td>Web dashboard's REST + WebSocket backend</td></tr>
+<tr><td><code>make run-gateway</code></td><td>&mdash;</td><td>Builds and runs the gateway; override with <code>PORT=</code>/<code>TENSORF_BIN_DIR=</code></td></tr>
 <tr><td><code>make all</code></td><td>gpt2 + llama + smollm + transformer + benchmark</td><td>Some sub-targets are commented out pending source files (see Makefile)</td></tr>
 <tr><td><code>make clean</code></td><td>&mdash;</td><td>Removes <code>bin/</code></td></tr>
 </table>
+
+<h2 id="gateway">Web management API</h2>
+<p><code>gateway/</code> is a standalone Boost.Beast HTTP + WebSocket server that manages the binaries above
+(<code>server</code>, <code>client</code>, <code>benchmark</code>, <code>gpt2</code>, <code>smollm</code>, <code>tests</code>)
+as jobs — launch, kill, and stream their logs live — without any changes to TensorF itself. It's the backend
+for the web dashboard.</p>
+<pre><code><span class="kw">make</span> gateway              <span class="cm"># builds bin/tensorf-gateway</span>
+<span class="kw">make</span> run-gateway          <span class="cm"># build + run, defaults to PORT=8080, TENSORF_BIN_DIR=./bin</span></code></pre>
+<p>REST endpoints live under <code>/api</code> (job listing, launch, kill, health); a WebSocket at
+<code>/ws</code> streams <code>job_started</code> / <code>log</code> / <code>job_exited</code> events in real time.
+See <a href="api/gateway.html">Gateway API reference</a> for the full route table.</p>
 
 <div class="callout note">
   <span class="lbl">Debug builds</span>
@@ -121,9 +148,9 @@ or header presence, without installing anything.</p>
 <h2 id="models">Downloading GGUF checkpoints</h2>
 <p>The GPT-2 and Llama example programs expect real GGUF files under <code>SLM/</code>. A helper script fetches
 them from Hugging Face:</p>
-<pre><code><span class="kw">chmod</span> +x download.sh
+<pre><code><span class="kw">chmod</span> +x scripts/download.sh
 <span class="kw">mkdir</span> -p SLM
-<span class="kw">./download.sh</span></code></pre>
+<span class="kw">./scripts/download.sh</span></code></pre>
 <p>By default this pulls GPT-2 small in three precisions (F32 full-precision, Q8_0, and Q4_K_S quantized) into
 <code>SLM/gpt2-small-*.gguf</code>. Larger GPT-2 variants (medium/large/XL) and SmolLM2 are commented out in the
 script &mdash; uncomment the lines you need, or point <code>GPT2.cpp</code>/<code>SmollLLM.cpp</code> at your own

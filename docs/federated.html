@@ -46,6 +46,9 @@
 <a href="federated.html" class="link current">Federated Learning</a>
 <a href="api/profiler.html" class="link">Profiler</a>
 </div>
+<div class="sb-group"><div class="sb-label">Web Dashboard</div>
+<a href="api/gateway.html" class="link">Gateway API</a>
+</div>
 <div class="sb-group"><div class="sb-label">Reference</div>
 <a href="known-issues.html" class="link">Known Issues</a>
 </div>
@@ -206,7 +209,7 @@ handshake with the server (the <code>Profiler::to_json()</code> payload describe
 ./bin/client --server 127.0.0.1 --port 9000 --data Dataset/</code></pre>
 <p class="dim">Flags shown are illustrative of the parameters <code>Server</code>/<code>Client</code> expose
 (host/port, minimum clients to start a round, training mode, model/data paths); check
-<code>include/Network/Server.cpp</code>/<code>Client.cpp</code>'s <code>main()</code> for the exact CLI
+<code>include/net/Network/Server.cpp</code>/<code>Client.cpp</code>'s <code>main()</code> for the exact CLI
 surface in your checked-out revision, since <code>Server.hpp</code>/<code>Client.hpp</code> define the
 reusable class and the <code>.cpp</code> files define the actual executable entry points.</p>
 

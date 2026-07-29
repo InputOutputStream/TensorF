@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gateway API — TensorF Docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="mark">TF</span>TensorF <span class="ver">/ docs</span></a>
+  <div class="spacer"></div>
+  <nav><a href="../index.html">Overview</a>
+<a href="../install.html">Install</a>
+<a href="../quickstart.html">Quickstart</a>
+<a href="../architecture.html">Architecture</a>
+<a href="../federated.html">Federated Learning</a></nav>
+  <a class="gh" href="https://github.com/InputOutputStream/TensorF" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-group"><div class="sb-label">Start</div>
+<a href="../index.html" class="link">Overview</a>
+<a href="../install.html" class="link">Install &amp; Build</a>
+<a href="../quickstart.html" class="link">Quickstart</a>
+<a href="../examples.html" class="link">Examples</a>
+</div>
+<div class="sb-group"><div class="sb-label">Core Engine</div>
+<a href="../architecture.html" class="link">Autograd Architecture</a>
+<a href="../api/types.html" class="link">Types.hpp</a>
+<a href="../api/matrix.html" class="link">Matrix&lt;T&gt;</a>
+<a href="../api/tensor.html" class="link">Tensor&lt;T&gt;</a>
+<a href="../api/operations.html" class="link">Operations (19)</a>
+<a href="../api/overloads.html" class="link">Overloads</a>
+</div>
+<div class="sb-group"><div class="sb-label">Neural Network</div>
+<a href="../api/modules.html" class="link">Modules / nn</a>
+<a href="../api/transformers.html" class="link">GPT · Llama · LoRA</a>
+</div>
+<div class="sb-group"><div class="sb-label">Data & Models</div>
+<a href="../api/dataloader.html" class="link">DataLoader</a>
+<a href="../api/modelloader.html" class="link">ModelLoader (GGUF)</a>
+<a href="../api/tokenizer.html" class="link">Tokenizer</a>
+</div>
+<div class="sb-group"><div class="sb-label">Distributed</div>
+<a href="../federated.html" class="link">Federated Learning</a>
+<a href="../api/profiler.html" class="link">Profiler</a>
+</div>
+<div class="sb-group"><div class="sb-label">Web Dashboard</div>
+<a href="../api/gateway.html" class="link current">Gateway API</a>
+</div>
+<div class="sb-group"><div class="sb-label">Reference</div>
+<a href="../known-issues.html" class="link">Known Issues</a>
+</div>
+  </div>
+  <div class="content">
+    
+<span class="kicker">API reference &middot; gateway/src/main.cpp</span>
+<h1>Gateway API — web dashboard backend</h1>
+<p class="lede"><code>gateway/</code> is a standalone Boost.Beast HTTP + WebSocket server that sits in front of
+the compiled TensorF binaries (<code>server</code>, <code>client</code>, <code>benchmark</code>, <code>gpt2</code>,
+<code>smollm</code>, <code>tests</code>) and exposes a REST + realtime API so a web dashboard can start, stop, and
+watch training/federated jobs without any changes to TensorF's own C++ code. It launches each binary as a
+child process, captures its stdout/stderr line by line, and fans those lines out over a WebSocket.</p>
+
+<h2 id="run">Running it</h2>
+<p>The gateway builds from the root Makefile alongside the rest of TensorF — no separate build step.</p>
+<pre><code><span class="kw">make</span> gateway              <span class="cm"># builds bin/tensorf-gateway</span>
+<span class="kw">make</span> run-gateway          <span class="cm"># build + run (PORT=8080, TENSORF_BIN_DIR=./bin by default)</span>
+
+<span class="cm"># equivalent by hand:</span>
+TENSORF_BIN_DIR=./bin ./bin/tensorf-gateway --port 8080</code></pre>
+<table>
+<tr><th>Env var / flag</th><th>Default</th><th>Meaning</th></tr>
+<tr><td><code>TENSORF_GATEWAY_PORT</code> / <code>--port</code></td><td><code>8080</code></td><td>HTTP/WS listen port</td></tr>
+<tr><td><code>TENSORF_BIN_DIR</code> / <code>--bin-dir</code></td><td><code>../bin</code></td><td>Where <code>gpt2</code>, <code>smollm</code>, <code>server</code>, <code>client</code>, <code>benchmark</code>, <code>basic_tests</code> are looked up</td></tr>
+</table>
+
+<h2 id="rest">REST API</h2>
+<table>
+<tr><th>Route</th><th>Method</th><th>Description</th></tr>
+<tr><td><code>/api/health</code></td><td>GET</td><td>Liveness check + count of connected WebSocket clients</td></tr>
+<tr><td><code>/api/jobs</code></td><td>GET</td><td>List all jobs (id, kind, command, status, pid) since gateway start</td></tr>
+<tr><td><code>/api/jobs/{id}</code></td><td>GET</td><td>Single job detail, including up to the last 500 log lines</td></tr>
+<tr><td><code>/api/jobs/{id}/kill</code></td><td>POST</td><td>Sends <code>SIGTERM</code> to the job's process</td></tr>
+<tr><td><code>/api/jobs/benchmark</code></td><td>POST</td><td>Launches <code>bin/benchmark</code></td></tr>
+<tr><td><code>/api/jobs/tests</code></td><td>POST</td><td>Launches <code>bin/basic_tests</code></td></tr>
+<tr><td><code>/api/jobs/gpt2</code></td><td>POST</td><td>Launches <code>bin/gpt2</code></td></tr>
+<tr><td><code>/api/jobs/smollm</code></td><td>POST</td><td>Launches <code>bin/smollm</code></td></tr>
+<tr><td><code>/api/jobs/server</code></td><td>POST</td><td>Launches <code>bin/server</code> (federated). Body: <code>{"port": N}</code></td></tr>
+<tr><td><code>/api/jobs/client</code></td><td>POST</td><td>Launches <code>bin/client</code> (federated). Body: <code>{"host": "...", "port": N}</code></td></tr>
+</table>
+
+<h3 id="job-shape">Job object shape</h3>
+<pre><code>{
+  <span class="cm">"id"</span>: <span class="cm">"18c6e4c862c2737e-0"</span>,
+  <span class="cm">"kind"</span>: <span class="cm">"tests"</span>,
+  <span class="cm">"command"</span>: <span class="cm">"/path/to/bin/basic_tests"</span>,
+  <span class="cm">"pid"</span>: 724,
+  <span class="cm">"status"</span>: <span class="cm">"running"</span>,  <span class="cm">// running | exited | failed | killed</span>
+  <span class="cm">"running"</span>: <span class="cm">true</span>,
+  <span class="cm">"exit_code"</span>: 0,
+  <span class="cm">"log_seq"</span>: 112,          <span class="cm">// total lines produced so far</span>
+  <span class="cm">"log"</span>: [ <span class="cm">"=== 1D ==="</span>, <span class="cm">"[PASS] 1D dot"</span>, ... ]
+}</code></pre>
+
+<h2 id="ws">WebSocket — <code>/ws</code></h2>
+<p>Every connected dashboard receives every event, in real time, as newline-delimited JSON text frames:</p>
+<table>
+<tr><th>Type</th><th>Payload</th><th>When</th></tr>
+<tr><td><code>job_started</code></td><td><code>{"type":"job_started","job":{...}}</code></td><td>Right after a job is launched via any <code>POST /api/jobs/*</code> route</td></tr>
+<tr><td><code>log</code></td><td><code>{"type":"log","job_id":"...","line":"..."}</code></td><td>Each time the job writes a line to stdout/stderr</td></tr>
+</table>
+<div class="callout note">
+  <span class="lbl">Not yet implemented</span>
+  A <code>job_exited</code> broadcast (with final status/exit code) is planned but not wired up yet — poll
+  <code>GET /api/jobs/{id}</code> for now to know when a job finished.
+</div>
+
+<h2 id="design">Design notes</h2>
+<ul>
+<li>Jobs are launched with <code>fork()</code>/<code>execv()</code>, and the gateway's own event loop is
+deliberately single-threaded — mixing <code>fork()</code> with a multithreaded <code>io_context</code> is a
+known Boost.Asio hazard (other threads can leave internal locks held across the fork). Per-job stdout capture
+still runs on its own reader thread, spawned safely <em>after</em> the fork.</li>
+<li>The gateway is stateless across restarts: job history lives in memory only, so restarting
+<code>tensorf-gateway</code> clears the job list. Long-running jobs (a federated <code>server</code>) will keep
+running as orphaned processes if the gateway restarts — kill them manually via <code>pid</code>/<code>pkill</code>
+if needed.</li>
+<li>CORS is wide open (<code>Access-Control-Allow-Origin: *</code>) since this is meant to run on localhost
+behind your own reverse proxy/auth if exposed beyond that.</li>
+</ul>
+
+<div class="pagefoot">
+  <a href="profiler.html">← Profiler</a>
+  <span></span>
+</div>
+
+  </div>
+  
+</div>
+</body>
+</html>

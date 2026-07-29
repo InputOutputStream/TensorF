@@ -46,6 +46,9 @@
 <a href="federated.html" class="link">Federated Learning</a>
 <a href="api/profiler.html" class="link">Profiler</a>
 </div>
+<div class="sb-group"><div class="sb-label">Web Dashboard</div>
+<a href="api/gateway.html" class="link">Gateway API</a>
+</div>
 <div class="sb-group"><div class="sb-label">Reference</div>
 <a href="known-issues.html" class="link current">Known Issues</a>
 </div>
@@ -57,6 +60,15 @@
 <p class="lede">Bugs and design inconsistencies found during a full review of the autograd subsystem
 (<code>Matrix.hpp</code>, <code>Tensor.hpp</code>, <code>Operation.hpp</code>, the overload files, and the 19
 operations), current as of July 20, 2026. Check this page before relying on the affected APIs.</p>
+
+<div class="callout note">
+  <span class="lbl">Update</span>
+  The <code>Optimizer</code> / <code>FeedForward</code> signature mismatch that previously blocked
+  <code>make tests</code> from building has been fixed — the full test suite now compiles and the XOR
+  training sample converges. The 14 items below are latent/template-instantiation issues from the original
+  autograd audit; they haven't each been individually re-verified against the current source, so treat this
+  table as a review checklist rather than a live status board until it's re-audited.
+</div>
 
 <table>
 <tr><th>#</th><th>File</th><th>Severity</th><th>Description</th></tr>

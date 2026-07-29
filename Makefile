@@ -55,9 +55,9 @@ $(shell mkdir -p $(BIN))
 
 # ══════════════════════════════════════════════════════════════════════════════
 .PHONY: all gpt2 llama smollm transformer server client benchmark tests \
-        clean install-deps check-deps help
+        gateway run-gateway clean install-deps check-deps help
 
-all: check-deps gpt2 smollm transformer benchmark server client tests
+all: check-deps gpt2 smollm transformer benchmark server client tests gateway
 
 
 # ── GPT-GPT-2 inference ───────────────────────────────────────────────────────────
@@ -111,6 +111,23 @@ $(BIN)/basic_tests: tests/basic_tests.cpp
 
 net: client server
 
+# ── Web dashboard gateway (REST + WebSocket) ──────────────────────────────────
+GATEWAY_SRC := gateway/src/main.cpp
+GATEWAY_INC := -Igateway/include
+
+gateway: $(BIN)/tensorf-gateway
+$(BIN)/tensorf-gateway: $(GATEWAY_SRC) gateway/include/JobManager.hpp gateway/include/WsHub.hpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $(GATEWAY_INC) $< -o $@ $(LDFLAGS)
+
+# Run the gateway. Override PORT / TENSORF_BIN_DIR as needed:
+#   PORT=9090 make run-gateway
+PORT ?= 8080
+TENSORF_BIN_DIR ?= $(abspath $(BIN))
+
+run-gateway: gateway
+	TENSORF_BIN_DIR=$(TENSORF_BIN_DIR) $(BIN)/tensorf-gateway --port $(PORT)
+
 # ── Network  ───────────────────────────────────────────────────────────
 
 examples: gpt2 smollm transformer
@@ -141,9 +158,8 @@ check-deps:
 	@pkg-config --modversion openblas 2>/dev/null && echo "  OK" \
 	 || echo "  MANQUANT — sudo apt install libopenblas-dev"
 	@echo "── pthreads"
-	@echo "#include <pthread.h>" | $(CXX) -x c++ - -lpthread -o /dev/null 2>/dev/null \
-	 && echo "  OK" || echo "  MANQUANT"
-
+	
+	@echo "int main(){}" | $(CXX) -x c++ - -pthread -o /dev/null && echo OK || echo MANQUANT
 # ══════════════════════════════════════════════════════════════════════════════
 help:
 	@echo ""
@@ -156,6 +172,8 @@ help:
 	@echo "  make client         Client federated  (besoin de include/net/Network/client.cpp)"
 	@echo "  make benchmark      Profiler matériel"
 	@echo "  make tests          Tests unitaires"
+	@echo "  make gateway        Web dashboard gateway (REST + WebSocket, gateway/src/main.cpp)"
+	@echo "  make run-gateway    Build + lance le gateway (PORT=8080 par défaut)"
 	@echo "  make clean          Supprime bin/"
 	@echo "  make install-deps   Installe les libs système"
 	@echo "  make check-deps     Vérifie les libs"
