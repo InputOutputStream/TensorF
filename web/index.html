@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TensorF · Control Room</title>
+
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/charts.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="shell">
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">TF</div>
+      <span>TENSORF</span>
+      <span class="sub">control room</span>
+    </div>
+    <div class="top-right">
+      <div class="ws-status">
+        <span class="dot" id="wsDot"></span>
+        <span id="wsLabel">connecting…</span>
+      </div>
+      <input class="gw-input" id="gwUrl" value="http://localhost:8080" spellcheck="false" title="Gateway base URL">
+      <button class="btn sm" id="btnReconnect">Reconnect</button>
+      <a class="docs-link" href="https://github.com/InputOutputStream/TensorF/blob/main/docs/api/gateway.html" target="_blank" title="Gateway API docs">⌘ Docs ↗</a>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div>
+      <div class="nav-group-label">Overview</div>
+      <div class="nav-item active" data-view="overview"><span class="ico">◈</span> Dashboard</div>
+    </div>
+    <div>
+      <div class="nav-group-label">Compute</div>
+      <div class="nav-item" data-view="launch"><span class="ico">▶</span> Launch job</div>
+      <div class="nav-item" data-view="jobs"><span class="ico">☰</span> Jobs <span class="nav-badge" id="jobsBadge">0</span></div>
+    </div>
+    <div>
+      <div class="nav-group-label">Federated</div>
+      <div class="nav-item" data-view="federated"><span class="ico">⇄</span> FL rounds</div>
+      <div class="nav-item" data-view="profiler"><span class="ico">▤</span> Hardware profiler</div>
+    </div>
+    <div>
+      <div class="nav-group-label">System</div>
+      <div class="nav-item" data-view="memory"><span class="ico">▦</span> Memory & checkpoints</div>
+      <div class="nav-item" data-view="console"><span class="ico">›_</span> Live console</div>
+      <div class="nav-item" data-view="docs"><span class="ico">?</span> Documentation</div>
+    </div>
+    <div class="sidebar-footer">
+      gateway: <span id="sbGwLabel">localhost:8080</span><br>
+      jobs tracked: <span id="sbJobCount">0</span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- ============ OVERVIEW ============ -->
+    <div class="view active" id="view-overview">
+      <div class="view-header">
+        <div>
+          <div class="view-title">Dashboard</div>
+          <div class="view-desc">Live state of the gateway, running jobs, and the most recent federated round.</div>
+        </div>
+        <div class="view-actions">
+          <button class="btn" id="ovRefresh">↻ Refresh</button>
+        </div>
+      </div>
+
+      <div class="grid cols-4" id="overviewStats"></div>
+
+      <div class="section-sub">Loss curves — all jobs</div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">Training / distillation loss <span id="lossLegend"></span></div>
+          <div class="chart-wrap tall"><canvas id="lossChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Recent activity</div>
+          <div id="activityFeed" style="max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+
+      <div class="section-sub">Jobs</div>
+      <div class="card" style="padding:0;">
+        <table class="jobs-table" id="overviewJobsTable">
+          <thead><tr><th>Kind</th><th>ID</th><th>Status</th><th>PID</th><th>Command</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ LAUNCH ============ -->
+    <div class="view" id="view-launch">
+      <div class="view-header">
+        <div>
+          <div class="view-title">Launch a job</div>
+          <div class="view-desc">Starts the compiled TensorF binary as a child process on the gateway host.</div>
+        </div>
+      </div>
+
+      <div class="launch-grid">
+        <div class="launch-card">
+          <div class="lc-kind">Federated · server</div>
+          <div class="lc-name">FL Server</div>
+          <div class="lc-desc">Owns the global model, runs FedAvg/FedDistill round lifecycle.</div>
+          <div class="field-row">
+            <div class="field"><label>Port</label><input type="number" id="srvPort" value="9000"></div>
+          </div>
+          <button class="btn primary lc-run" data-launch="server">▶ Start server</button>
+        </div>
+
+        <div class="launch-card">
+          <div class="lc-kind">Federated · client</div>
+          <div class="lc-name">FL Client</div>
+          <div class="lc-desc">Profiles hardware, joins a round, trains locally, sends deltas or logits.</div>
+          <div class="field-row">
+            <div class="field"><label>Host</label><input type="text" id="cliHost" value="127.0.0.1"></div>
+            <div class="field"><label>Port</label><input type="number" id="cliPort" value="9000"></div>
+          </div>
+          <button class="btn primary lc-run" data-launch="client">▶ Join as client</button>
+        </div>
+
+        <div class="launch-card">
+          <div class="lc-kind">Benchmark</div>
+          <div class="lc-name">bin/benchmark</div>
+          <div class="lc-desc">Matmul GFLOPS, memory bandwidth, cache/storage latency probes.</div>
+          <button class="btn primary lc-run" data-launch="benchmark" style="margin-top:44px;">▶ Run benchmark</button>
+        </div>
+
+        <div class="launch-card">
+          <div class="lc-kind">Tests</div>
+          <div class="lc-name">bin/basic_tests</div>
+          <div class="lc-desc">Core tensor / autograd correctness test suite.</div>
+          <button class="btn primary lc-run" data-launch="tests" style="margin-top:44px;">▶ Run tests</button>
+        </div>
+
+        <div class="launch-card">
+          <div class="lc-kind">Model</div>
+          <div class="lc-name">GPT-2</div>
+          <div class="lc-desc">GGUF-loaded GPT-2 example — encode, forward, generate.</div>
+          <button class="btn primary lc-run" data-launch="gpt2" style="margin-top:44px;">▶ Run GPT-2</button>
+        </div>
+
+        <div class="launch-card">
+          <div class="lc-kind">Model</div>
+          <div class="lc-name">SmolLM</div>
+          <div class="lc-desc">Small LLM example — tokenizer round-trip + generation.</div>
+          <button class="btn primary lc-run" data-launch="smollm" style="margin-top:44px;">▶ Run SmolLM</button>
+        </div>
+      </div>
+
+      <div id="launchResult" style="margin-top:18px;"></div>
+    </div>
+
+    <!-- ============ JOBS ============ -->
+    <div class="view" id="view-jobs">
+      <div class="view-header">
+        <div>
+          <div class="view-title">Jobs</div>
+          <div class="view-desc">Every process launched this gateway session. Click a row for logs, metrics, and controls.</div>
+        </div>
+        <div class="view-actions">
+          <button class="btn" id="jobsRefresh">↻ Refresh</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0; margin-bottom:20px;">
+        <table class="jobs-table" id="jobsTable">
+          <thead><tr><th>Kind</th><th>ID</th><th>Status</th><th>PID</th><th>Command</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div id="jobDetailWrap" style="display:none;">
+        <div class="section-sub">Job detail — <span id="jdId" style="color:var(--amber);"></span></div>
+        <div class="pill-row" id="jdPills"></div>
+        <div class="job-detail-grid" style="margin-top:14px;">
+          <div class="card">
+            <div class="card-title">Log <span id="jdLogCount"></span></div>
+            <div class="console" id="jdConsole"><div class="console-empty">no output yet</div></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Extracted metrics</div>
+            <div class="chart-wrap"><canvas id="jdChart"></canvas></div>
+            <div id="jdMetricsEmpty" class="empty-state" style="margin-top:10px; display:none;">
+              <div class="big">·</div>
+              No numeric metrics (loss/round) detected in this job's log yet.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ FEDERATED ============ -->
+    <div class="view" id="view-federated">
+      <div class="view-header">
+        <div>
+          <div class="view-title">Federated learning rounds</div>
+          <div class="view-desc">FedAvg / FedDistill round telemetry, parsed live from server & client job logs.</div>
+        </div>
+      </div>
+
+      <div class="grid cols-4" id="flStats"></div>
+
+      <div class="section-sub">Round timing breakdown (server)</div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">Aggregate time vs round total (ms)</div>
+          <div class="chart-wrap tall"><canvas id="flTimingChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Clients per round</div>
+          <div class="chart-wrap tall"><canvas id="flClientsChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="section-sub">Client transfer — bandwidth per round</div>
+      <div class="card">
+        <div class="card-title">Send deltas / receive weights (MB/s)</div>
+        <div class="chart-wrap"><canvas id="flBandwidthChart"></canvas></div>
+      </div>
+
+      <div class="section-sub">Round log</div>
+      <div class="card" style="padding:0;">
+        <table class="jobs-table" id="flRoundsTable">
+          <thead><tr><th>Job</th><th>Round</th><th>Mode/side</th><th>Loss</th><th>Time (ms)</th><th>Clients</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ PROFILER ============ -->
+    <div class="view" id="view-profiler">
+      <div class="view-header">
+        <div>
+          <div class="view-title">Hardware profiler</div>
+          <div class="view-desc">Per-client fingerprint + benchmark + derived hyperparameters, parsed from client job logs.</div>
+        </div>
+        <div class="view-actions">
+          <select class="gw-input" id="profJobSelect" style="width:260px;"></select>
+        </div>
+      </div>
+
+      <div id="profilerEmpty" class="empty-state">
+        <div class="big">▤</div>
+        No profiler output captured yet. Launch a <b>client</b> job — its hardware fingerprint prints on startup.
+      </div>
+
+      <div id="profilerContent" style="display:none;">
+        <div class="grid cols-3">
+          <div class="card">
+            <div class="card-title">CPU / ISA</div>
+            <table class="probe-table" id="probeCpu"></table>
+            <div class="isa-badges" id="isaBadges"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Cache</div>
+            <table class="probe-table" id="probeCache"></table>
+          </div>
+          <div class="card">
+            <div class="card-title">RAM</div>
+            <table class="probe-table" id="probeRam"></table>
+          </div>
+        </div>
+
+        <div class="section-sub">Benchmark probes</div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-title">Matmul GFLOP/s</div>
+            <div class="chart-wrap"><canvas id="benchGflopsChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Derived hyperparameters</div>
+            <table class="probe-table" id="probeHyper"></table>
+          </div>
+        </div>
+
+        <div class="section-sub">Memory profile by stage</div>
+        <div class="card">
+          <div class="card-title">RSS peak (MB) — baseline / loaded / train / infer</div>
+          <div class="chart-wrap"><canvas id="memStageChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ MEMORY & CHECKPOINTS ============ -->
+    <div class="view" id="view-memory">
+      <div class="view-header">
+        <div>
+          <div class="view-title">Memory & checkpoints</div>
+          <div class="view-desc">Free RAM by stopping jobs; checkpoint paths are set at launch time via CLI flags.</div>
+        </div>
+      </div>
+
+      <div class="section-sub">Running jobs — memory pressure</div>
+      <div class="grid cols-2" id="memJobCards"></div>
+      <div id="memEmpty" class="empty-state" style="display:none;">
+        <div class="big">▦</div>
+        Nothing running. Launch a job to see live memory pressure and get a free/kill control.
+      </div>
+
+      <div class="section-sub">Checkpointing (federated server)</div>
+      <div class="card">
+        <div class="card-title">How TensorF checkpoints</div>
+        <p style="color:var(--text-dim); font-size:13px; line-height:1.7;">
+          The federated <code style="color:var(--cyan)">server</code> binary checkpoints the global model on its own schedule —
+          there is no gateway endpoint to trigger a save mid-run, only startup flags. Set these when you launch a server job:
+        </p>
+        <table class="probe-table" style="margin-top:10px;">
+          <tr><td>--save-path</td><td>checkpoints/global/model.tnsf (default)</td></tr>
+          <tr><td>--load-path</td><td>resume the global model from a checkpoint</td></tr>
+          <tr><td>--save-every</td><td>save every N FedAvg rounds, 0 = never (default 1)</td></tr>
+          <tr><td>--quantize</td><td>also save a compressed checkpoint: none | fp8 | fp4</td></tr>
+        </table>
+        <p style="color:var(--text-dim); font-size:12px; margin-top:10px;">
+          The gateway is stateless across restarts — job history and logs live in memory only.
+          A running <code style="color:var(--cyan)">server</code> survives a gateway restart as an orphaned process;
+          use <b style="color:var(--amber)">Free / kill</b> below (SIGTERM) to reclaim its memory.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============ CONSOLE ============ -->
+    <div class="view" id="view-console">
+      <div class="view-header">
+        <div>
+          <div class="view-title">Live console</div>
+          <div class="view-desc">Raw WebSocket event stream from <code>/ws</code> — every job, unfiltered.</div>
+        </div>
+        <div class="view-actions">
+          <label class="checkbox-row"><input type="checkbox" id="consoleAutoscroll" checked> autoscroll</label>
+          <button class="btn sm" id="consoleClear">Clear</button>
+        </div>
+      </div>
+      <div class="console" id="globalConsole" style="height:calc(100vh - 230px);"><div class="console-empty">waiting for events…</div></div>
+    </div>
+
+    <!-- ============ DOCS ============ -->
+    <div class="view" id="view-docs">
+      <div class="view-header">
+        <div>
+          <div class="view-title">Documentation</div>
+          <div class="view-desc">Straight to the source — TensorF's own docs site.</div>
+        </div>
+      </div>
+      <div class="doc-grid" id="docGrid"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<!-- Load order matters: state before anything that reads it, parser/utils
+     before views that call them, main.js last since it boots everything. -->
+<script src="js/state.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/docs-data.js"></script>
+<script src="js/api.js"></script>
+<script src="js/jobs.js"></script>
+
+<script src="js/views/docs.js"></script>
+<script src="js/views/overview.js"></script>
+<script src="js/views/launch.js"></script>
+<script src="js/views/jobs-view.js"></script>
+<script src="js/views/federated.js"></script>
+<script src="js/views/profiler.js"></script>
+<script src="js/views/memory.js"></script>
+<script src="js/views/console-view.js"></script>
+
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -76,12 +76,25 @@ static http::response<http::string_body> json_response(
     const http::request<http::string_body>& req, int status, const json& body) {
     http::response<http::string_body> res{static_cast<http::status>(status), req.version()};
     res.set(http::field::server, "tensorf-gateway");
-    res.set(http::field::content_type, "application/json");
     res.set(http::field::access_control_allow_origin, "*");
     res.set(http::field::access_control_allow_headers, "content-type");
     res.set(http::field::access_control_allow_methods, "GET,POST,OPTIONS");
     res.keep_alive(req.keep_alive());
-    res.body() = body.dump();
+
+    // RFC 9110: 1xx/204/304 responses MUST NOT have a message body.
+    // Beast's serializer enforces this and throws std::invalid_argument
+    // ("invalid response body") if handed a non-empty body on a 204 —
+    // the old OPTIONS preflight handler dumped "{}" into a 204 body,
+    // which aborted the whole process on the first CORS preflight
+    // (async_write -> serializer -> uncaught exception -> terminate).
+    // Leave body/content-type unset for these statuses.
+    const auto st = static_cast<http::status>(status);
+    bool no_body = (status >= 100 && status < 200) || st == http::status::no_content ||
+                   st == http::status::not_modified;
+    if (!no_body) {
+        res.set(http::field::content_type, "application/json");
+        res.body() = body.dump();
+    }
     res.prepare_payload();
     return res;
 }
@@ -241,6 +254,20 @@ int main(int argc, char** argv) {
     // running concurrently with it.
     net::io_context ioc{1};
     std::make_shared<Listener>(ioc, tcp::endpoint{tcp::v4(), static_cast<unsigned short>(port)})->run();
-    ioc.run();
+
+    // Defense in depth: ioc.run() rethrows any exception that escapes a
+    // completion handler (this is how the 204-body bug above took the
+    // whole process down instead of just failing one request). Loop and
+    // swallow+log rather than let a single malformed request or future
+    // bug of the same shape kill every in-flight job's connection.
+    for (;;) {
+        try {
+            ioc.run();
+            break; // ran to completion (no more work), normal shutdown
+        } catch (const std::exception& e) {
+            std::cerr << "[gateway] unhandled exception in io_context: " << e.what()
+                      << " — continuing" << std::endl;
+        }
+    }
     return 0;
 }

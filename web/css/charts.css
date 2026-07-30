@@ -1,0 +1,3 @@
+/* Chart.js renders to <canvas>, so most theming happens in JS (see js/charts.js),
+   but canvases still need explicit sizing/containment here. */
+canvas{max-width:100%;}

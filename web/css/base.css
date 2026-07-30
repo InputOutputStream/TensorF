@@ -1,0 +1,54 @@
+/* ============================================================
+   TENSORF CONTROL ROOM — base tokens, reset, typography
+   Design language: "instrument panel" — the profiler already
+   fingerprints ISA/cache/RAM down to the byte; the UI should feel
+   like the readout of that same probe, not a generic SaaS dash.
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root{
+  --bg:        #0d0f0d;
+  --bg-panel:  #141712;
+  --bg-raised: #1a1f19;
+  --line:      #2a3128;
+  --line-soft: #202620;
+  --amber:     #e8a33d;
+  --amber-dim: #7a5a25;
+  --cyan:      #5ecbd8;
+  --cyan-dim:  #2c5a61;
+  --green:     #6fbf73;
+  --red:       #d9645a;
+  --red-dim:   #5a2e29;
+  --text:      #e9e6dd;
+  --text-dim:  #93998f;
+  --text-faint:#5c6259;
+  --mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Menlo, monospace;
+  --sans: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  background:
+    radial-gradient(ellipse at top left, #151912 0%, transparent 60%),
+    var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--amber); color:#0d0f0d;}
+::-webkit-scrollbar{width:10px; height:10px;}
+::-webkit-scrollbar-track{background:var(--bg-panel);}
+::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
+::-webkit-scrollbar-thumb:hover{background:var(--amber-dim);}
+
+a{color:var(--cyan);}
+button{font-family:var(--sans); cursor:pointer;}
+:focus-visible{outline:2px solid var(--amber); outline-offset:2px;}
+
+.section-sub{
+  font-family:var(--mono); font-size:13px; color:var(--text-dim);
+  margin:24px 0 12px; padding-top:20px; border-top:1px solid var(--line);
+}
