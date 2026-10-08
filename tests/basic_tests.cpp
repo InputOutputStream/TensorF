@@ -5,9 +5,9 @@
 #include "nn/Modules/FeedForward.hpp"
 #include "nn/Modules/Optimizer.hpp"
 #include "nn/Modules/Relu.hpp"
-#include "data/DataLoader/GGUF.hpp"
+#include "data/GGUF.hpp"
 
-#include "data/DataLoader/DataLoading.hpp"
+#include "data/DataLoading.hpp"
 
 #include <iostream>
 #include <vector>

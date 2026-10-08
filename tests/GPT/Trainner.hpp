@@ -181,8 +181,7 @@ public:
     {
         T last_loss = T(0);
         for (int i = 0; i < iters; i++) {
-            auto [inputs, targets] = get_batch(split);
-
+            auto [inputs, targets] = get_batch(split);        
             op.zero_grad();
             auto loss = student.forward(inputs, targets, /*apply_mask=*/true);
             loss->backward(Matrix<T>(T(1.0)));

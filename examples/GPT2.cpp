@@ -4,7 +4,7 @@
 #include "nn/Modules/Transformer/GPT/GPT.hpp"
 #include "nn/Modules/Linear.hpp"
 #include "nn/ModelLoader/GPTLoader.hpp"
-#include "data/DataLoader/DataLoading.hpp"
+#include "data/DataLoading.hpp"
 #include "nn/Tokenizer/GPT2Tokenizer.hpp"
 
 #include <iostream>

@@ -82,7 +82,7 @@
 
 // ─── Network utilities + Client base class ───────────────────────────────────
 // Client.hpp includes io_utils.hpp internally.
-#include "Client.hpp"
+#include "net/Network/Client.hpp"
 
 // ─── Central training + aggregation impl ─────────────────────────────────────
 // Trainer<Model, T> owns forward/backward/step, weight serialisation,

@@ -4,9 +4,9 @@
 #include <string>
 #include <stdexcept>
 
-#include "../DataLoader/DataLoading.hpp"
-#include "../DataStructures/Matrix.hpp"
-#include "../Types/types.hpp"
+#include "DataLoading.hpp"
+#include "core/DataStructures/Matrix.hpp"
+#include "core/Types/types.hpp"
 
 template <typename T>
 class LazyDataLoader {

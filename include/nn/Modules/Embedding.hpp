@@ -14,11 +14,11 @@ class Embedding: public Module<T>{
     size_t vocab_size;
     size_t input_dim;
 
-    Embedding(size_t vocab_size, size_t input_dim){
+    Embedding(size_t vocab_size, size_t input_dim, std::optional<unsigned int> seed = std::nullopt){
 
         // Initialize embeddings with Glorot uniform initialization
         auto limit = std::sqrt((T)6.0 / (T)(vocab_size + input_dim));
-        this->embeddings = make_tensor<T>(Matrix<T>::randu(-limit, limit, {vocab_size, input_dim}));
+        this->embeddings = make_tensor<T>(Matrix<T>::randu(-limit, limit, {vocab_size, input_dim}, seed));
         this->register_parameter (this->embeddings);
     }  
 

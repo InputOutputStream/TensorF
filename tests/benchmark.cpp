@@ -44,8 +44,8 @@
 #include "nn/Modules/Transformer/GPT/GPT.hpp"
 #include "nn/Modules/Linear.hpp"
 #include "nn/ModelLoader/GPTLoader.hpp"
-#include "data/DataLoader/DataLoading.hpp"
-#include "data/DataLoader/GGUF.hpp"
+#include "data/DataLoading.hpp"
+#include "data/GGUF.hpp"
 #include "nn/Tokenizer/GPT2Tokenizer.hpp"
 
 // ── TensorF profiler headers  ────────────────────────────────
@@ -104,7 +104,7 @@ struct CLIOptions {
     uint16_t    tcp_port     = DEFAULT_TCP_PORT;
     uint16_t    udp_port     = DEFAULT_UDP_PORT;
     std::string unix_path    = DEFAULT_UNIX_PATH;
-
+    int iterations = 0;
     bool        json_only    = false;   // skip network, only print JSON
     bool        quiet        = false;   // suppress benchmark progress output
     bool        use_udp      = false;   // force UDP transport only
@@ -126,6 +126,7 @@ static void print_usage(const char* prog) {
         "  --unix <path>        Unix socket path (default: %s)\n"
         "  --tcp                Force TCP transport only\n"
         "  --udp                Force UDP transport only\n"
+        "  --iterations         Number of iterations\n"
         "  --internet           Use xxHash checksum (better for WAN)\n"
         "  --json-only          Print JSON to stdout, skip network\n"
         "  --dry-run            Run benchmarks but do not send\n"
@@ -149,6 +150,7 @@ static CLIOptions parse_args(int argc, char* argv[]) {
         else if (a == "--tcp")          opts.use_tcp    = true;
         else if (a == "--udp")          opts.use_udp    = true;
         else if (a == "--internet")     opts.internet   = true;
+        else if (a == "--iterations")   opts.iterations   = (size_t)atoi(argv[++i]);
         else if (a == "--dry-run")      opts.dry_run    = true;
         else if (a == "--host"   && i+1 < argc) opts.server_host = argv[++i];
         else if (a == "--unix"   && i+1 < argc) opts.unix_path   = argv[++i];

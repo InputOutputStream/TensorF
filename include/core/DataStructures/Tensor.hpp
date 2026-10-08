@@ -6,36 +6,36 @@
 #include <ranges>
 #include "Matrix.hpp"
 
-#include "Operations/AddOperation.hpp"
-#include "Operations/MultiplyOperation.hpp"
-#include "Operations/DivisionOperation.hpp"
-#include "Operations/ExponentOperation.hpp"
-#include "Operations/SubtractOperation.hpp"
-#include "Operations/ReluOperation.hpp"
-#include "Operations/DotOperation.hpp"
-#include "Operations/MatmulOperation.hpp"
-#include "Operations/SigmoidOperation.hpp"
-#include "Operations/SumOperation.hpp"
-#include "Operations/LogOperation.hpp"
-#include "Operations/TransposeOperation.hpp"
-#include "Operations/SumAxisOperation.hpp"
-#include "Operations/SoftmaxOperation.hpp"
-#include "Operations/ReshapeOperation.hpp"
-#include "Operations/ConcatOperation.hpp"
-#include "Operations/EmbeddingOperation.hpp"
-#include "Operations/IndexOperation.hpp"
+#include "core/Operations/AddOperation.hpp"
+#include "core/Operations/MultiplyOperation.hpp"
+#include "core/Operations/DivisionOperation.hpp"
+#include "core/Operations/ExponentOperation.hpp"
+#include "core/Operations/SubtractOperation.hpp"
+#include "core/Operations/ReluOperation.hpp"
+#include "core/Operations/DotOperation.hpp"
+#include "core/Operations/MatmulOperation.hpp"
+#include "core/Operations/SigmoidOperation.hpp"
+#include "core/Operations/SumOperation.hpp"
+#include "core/Operations/LogOperation.hpp"
+#include "core/Operations/TransposeOperation.hpp"
+#include "core/Operations/SumAxisOperation.hpp"
+#include "core/Operations/SoftmaxOperation.hpp"
+#include "core/Operations/ReshapeOperation.hpp"
+#include "core/Operations/ConcatOperation.hpp"
+#include "core/Operations/EmbeddingOperation.hpp"
+#include "core/Operations/IndexOperation.hpp"
+#include "core/Operations/spMMOperation.hpp"
 
-#include "Types/types.hpp"
-#include "Overloads/tensor_overloads.hpp"
-#include "Overloads/Overload.hpp"
-
+#include "core/Types/types.hpp"
+#include "core/Overloads/tensor_overloads.hpp"
+#include "core/Overloads/Overload.hpp"
 
 template <typename T>
 class Tensor : public std::enable_shared_from_this<Tensor<T>>
 {
     public:
-        Matrix<T> val; //Tensor value
-        Matrix<T> grad; //Tensor gradian
+        Matrix<T> val;
+        Matrix<T> grad;
         shape_t shape;
         size_t ndims;
         Operation_t<T> backOp = nullptr;
@@ -48,7 +48,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->grad = Matrix<T>(T(0));
     }
 
-    Tensor(Matrix<T> *val) // ov
+    Tensor(Matrix<T> *val)
     {
         this->val.copy_from(val);
         this->shape = this->val.shape;
@@ -56,12 +56,11 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->grad = Matrix<T>();
     }
 
-
-    Tensor(const Matrix<T> &val) // ov
+    // J4: remove the duplicated copy_from(val).
+    Tensor(const Matrix<T> &val)
     {
         this->val.copy_from(val);
         this->grad = Matrix<T>();
-        this->val.copy_from(val);
         this->shape = this->val.shape;
         this->ndims = this->val.get_ndims();
     }
@@ -84,7 +83,6 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->ndims = this->val.get_ndims();
     }
 
-
 //.....................................................................................
 
     void backward(Matrix<T> ingrad)
@@ -92,7 +90,6 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         if(!requires_grad)
             return;
 
-        // x = x - f`(x)*x
         if (this->grad.get_size() > 0) {
             if (this->grad.shape != ingrad.shape)
                 throw std::runtime_error("Gradient shape mismatch in Tensor::backward");
@@ -100,24 +97,23 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         }
         else
             this->grad.copy_from(ingrad);
-        
+
         if (Matrix<T>::hasNaN(grad))
         {
             if (this->backOp) this->backOp->to_string();
             std::cerr << "grad value: " << grad << "\n";
             throw std::runtime_error("Gradient NaN encountered during backprop");
         }
-            
+
+        // J5: this recursion is exponential on shared subgraphs — not changed.
         if (this->backOp != nullptr) {
-            // this->backOp->to_string();
             auto op = this->backOp;
             op->backward(ingrad);
         }
     }
-    
+
     void backward(Tensor_t<T> ingrad)
     {
-        // x = x - f`(x)*x
         this->backward(ingrad->val);
     }
 
@@ -126,32 +122,32 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->grad.clear();
 
         if(this->backOp != nullptr)
-        { 
-            this->backOp->zero_grad(); 
-        }
+            this->backOp->zero_grad();
     }
 
     void reset_graph() {
         if (this->backOp) {
-            this->backOp->reset_graph(); // Tell the operation to clear its inputs
-            this->backOp = nullptr;      // Break the cycle here!
+            this->backOp->reset_graph();
+            this->backOp = nullptr;
         }
     }
 
-    // Overloads..........................................................................
-
-   Tensor<T>& operator=(const Tensor<T>& rhs)
+    // J4: operator= must also copy shape / ndims / requires_grad.
+    Tensor<T>& operator=(const Tensor<T>& rhs)
     {
         this->val.copy_from(rhs.val);
         this->grad.copy_from(rhs.grad);
         this->backOp = rhs.backOp;
+        this->shape = rhs.shape;
+        this->ndims = rhs.ndims;
+        this->requires_grad = rhs.requires_grad;
         return *this;
     }
 
     size_t size(){
         return this->val.get_size();
     }
-        
+
     // Functions In graph...........................................................................
     Tensor_t<T> matmul(Tensor_t<T> x) {
         auto op = std::make_shared<MatmulOperation<T>>(this->shared_from_this(), x);
@@ -257,30 +253,32 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return op->forward();
     }
 
+    // Compose from graph
 
-    // Compose from graph 
-    
     Tensor_t<T> mean(size_t axis) {
-        // sum(axis) / N  
         T N = (T)this->val.shape[axis];
-        auto s = this->sum(axis);          
-        return s / make_tensor<T>(N);      
+        auto s = this->sum(axis);
+        return s / make_tensor<T>(N);
+    }
+
+    // J3: scalar mean over all elements, used by rms_norm.
+    Tensor_t<T> mean() {
+        T N = (T)this->val.data.size();
+        auto s = this->sum();
+        return s / make_tensor<T>(N);
     }
 
     Tensor_t<T> var(size_t axis) {
-        // var = mean((x - mean(x))^2)
-        auto mu   = this->mean(axis);                         
-        auto diff = this->shared_from_this() - mu;            
-        auto sq   = diff * diff;                              
-        return sq->mean(axis);                                
+        auto mu   = this->mean(axis);
+        auto diff = this->shared_from_this() - mu;
+        auto sq   = diff * diff;
+        return sq->mean(axis);
     }
 
     Tensor_t<T> std(size_t axis) {
         return this->var(axis)->sqrt();
     }
 
-    // Static on graph
-    
     static Tensor_t<T> concat(std::vector<Tensor_t<T>> tens, size_t axis){
         auto concat_op = std::make_shared<ConcatOperation<T>>(tens, axis);
         return concat_op->forward();
@@ -288,33 +286,32 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     // Static functions ********************************************************
 
-    //loss functions
-
     static Tensor_t<T> cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred, T eps = 1e-8) {
         size_t N = ypred->val.shape[0];
         auto Teps = make_tensor<T>(eps);
-        auto safe_pred = ypred + Teps;         
+        auto safe_pred = ypred + Teps;
         return -(ytrue * safe_pred->ln())->sum() / make_tensor<T>((T)N);
     }
 
-    // Binary Cross Entropy Loss: -sum(y * log(p) + (1-y) * log(1-p))
+    static Tensor_t<T> masked_cross_entropy(Tensor_t<T> Y, Tensor_t<T> prob, size_t n_labelled) {
+        auto safe = prob + make_tensor<T>(1e-8f);
+        return -(Y * safe->ln())->sum() / make_tensor<T>((T)n_labelled);
+    }
+
     static Tensor_t<T> binary_cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred)
     {
         auto lhs = ytrue * ypred->ln();
         auto rhs = (make_tensor<T>((T)1) - ytrue) * (make_tensor<T>((T)1) - ypred)->ln();
         return -(lhs + rhs)->sum();
     }
-   
+
     static Tensor_t<T> mse(Tensor_t<T> ytrue, Tensor_t<T> ypred)
     {
-
         return pow((ytrue - ypred), (T)2)->sum() / (T)ytrue->val.shape[0];
     }
 
-    // .............................................................................................
-
     static Tensor_t<T> rms_norm(Tensor_t<T> x, Tensor_t<T> weight, T eps = 1e-5) {
-        auto rms = (x * x)->mean() + eps;  // E[x²]
+        auto rms = (x * x)->mean() + eps;  // uses the new no-arg mean()
         return (x / rms->sqrt()) * weight;
     }
 
@@ -344,45 +341,42 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     }
 
     static Tensor_t<T> SiLU(Tensor_t<T> x){
-        return x * x->sigmoid();  
+        return x * x->sigmoid();
     }
 
-    static Tensor_t<T> randn(std::initializer_list<size_t> shape){
-        return make_tensor<T>(Matrix<T>::randomn(shape));
+    static Tensor_t<T> randn(std::initializer_list<size_t> shape, std::optional<unsigned int> seed = std::nullopt){
+        return make_tensor<T>(Matrix<T>::randomn(shape, seed));
     }
 
-    static Tensor_t<T> random(std::initializer_list<size_t> shape){
-        return make_tensor<T>(Matrix<T>::random(shape));
+    static Tensor_t<T> random(std::initializer_list<size_t> shape, std::optional<unsigned int> seed = std::nullopt){
+        return make_tensor<T>(Matrix<T>::random(shape, seed));
     }
 
     static Tensor_t<T> eye(std::initializer_list<size_t> shape){
         return make_tensor<T>(Matrix<T>::eye(shape));
     }
 
-    // Functions Off graph...........................................................................
-
     Tensor_t<T> maximum(int value)
     {
         return make_tensor<T>(this->val.maximum(value));
     }
-   
+
     Tensor_t<T> at(std::initializer_list<size_t> idx)
     {
         shape_t index = Matrix<T>::getShape(idx);
         return make_tensor<T>(this->val.at(index));
     }
 
+    // J2: pass idx->val (Matrix<bool>), not idx (Tensor_t<bool>).
     Tensor_t<T> at(Tensor_t<bool> idx)
     {
-        return make_tensor<T>(this->val.at(idx));
+        return make_tensor<T>(this->val.at(idx->val));
     }
-
 
     template<typename k>
     static Tensor_t<T> from(k in){
         return make_tensor<T>(Matrix<T>::from(in));
     }
 };
-
 
 #endif

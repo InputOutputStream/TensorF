@@ -1,7 +1,7 @@
 #ifndef __SERIALIZE_HPP
 #define __SERIALIZE_HPP
 
-#include "../Types/types.hpp"
+#include "core/Types/types.hpp"
 
 #include <vector>
 #include <memory>

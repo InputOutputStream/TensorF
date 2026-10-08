@@ -8,7 +8,7 @@
 #include "DataStructures/Matrix.hpp"
 #include "DataStructures/Tensor.hpp"
 #include "Modules/Transformer/Llama/Llama.hpp"
-#include "DataLoader/GGUF.hpp"
+#include "GGUF.hpp"
 #include "Tokenizer/LlamaTokenizer.hpp"
 
 // ─────────────────────────────────────────────────────────────────────────────

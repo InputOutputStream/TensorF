@@ -12,7 +12,7 @@
 #include <random>
 #include <numeric>
 
-#include "../Types/types.hpp"
+#include "core/Types/types.hpp"
 
 enum TYPE {
     CSV,

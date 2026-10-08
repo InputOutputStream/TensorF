@@ -14,11 +14,11 @@ class PositionalEncoding : public Module<T> {
         size_t max_sequence_length;
         Tensor_t<T> weight;  // shape: {max_sequence_length, input_dim}
 
-    PositionalEncoding(size_t input_dim, size_t max_sequence_length)
+    PositionalEncoding(size_t input_dim, size_t max_sequence_length, std::optional<unsigned int> seed = std::nullopt)
         : input_dim(input_dim), max_sequence_length(max_sequence_length)
     {
         auto limit = std::sqrt((T)6.0 / (T)(max_sequence_length + input_dim));
-        this->weight = make_tensor<T>(Matrix<T>::randu(-limit, limit, {max_sequence_length, input_dim}));
+        this->weight = make_tensor<T>(Matrix<T>::randu(-limit, limit, {max_sequence_length, input_dim}, seed));
         this->register_parameter(this->weight);
     }
 

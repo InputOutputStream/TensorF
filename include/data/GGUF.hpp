@@ -11,7 +11,7 @@
 #include <cmath>          // for std::ldexp, INFINITY, NAN
 #include <stdexcept>
 
-#include "../Types/types.hpp"
+#include "core/Types/types.hpp"
 
 template<typename T>
 class Matrix;

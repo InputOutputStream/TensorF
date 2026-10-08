@@ -10,8 +10,8 @@
 // #include "Modules/Transformer/GPT/GPT.hpp"
 #include "Modules/Transformer/Llama/Llama.hpp"
 
-#include "DataLoader/GGUF.hpp"
-#include "DataLoader/DataLoading.hpp"
+#include "data/GGUF.hpp"
+#include "data/DataLoading.hpp"
 
 #include <iostream>
 #include <vector>

@@ -7,7 +7,7 @@
 #include "GGUFLoader.hpp"
 #include "DataStructures/Matrix.hpp"
 #include "DataStructures/Tensor.hpp"
-#include "DataLoader/GGUF.hpp"
+#include "GGUF.hpp"
 #include "Tokenizer/GPT2Tokenizer.hpp"
 #include "Modules/Transformer/GPT/GPT.hpp"
 

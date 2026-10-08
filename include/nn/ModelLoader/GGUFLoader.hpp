@@ -4,9 +4,9 @@
 #include <map>
 #include <stdexcept>
 #include <iostream>
-#include "DataStructures/Matrix.hpp"
-#include "DataStructures/Tensor.hpp"
-#include "DataLoader/GGUF.hpp"
+#include "core/DataStructures/Matrix.hpp"
+#include "core/DataStructures/Tensor.hpp"
+#include "GGUF.hpp"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GGUFLoader

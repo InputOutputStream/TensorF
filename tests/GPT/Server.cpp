@@ -83,7 +83,8 @@
 //   trainer.aggregate_logits(logits)  — FedDistill consensus
 // FedAvg weight aggregation is chunked and lives directly in Server.hpp/cpp
 // instead (round_accum) — see the file header above for why.
-#include "Server.hpp"
+
+#include "net/Network/Server.hpp"
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Wall-clock timer

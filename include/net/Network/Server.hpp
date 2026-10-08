@@ -2,7 +2,7 @@
 
 #include "ThreadPool.hpp"
 #include "io_utils.hpp"
-#include "Trainner.hpp"   // ← Trainer owns all aggregation impl
+// #include "Trainner.hpp"   // ← Trainer owns all aggregation impl
 
 #include <netinet/in.h>
 #include <unistd.h>

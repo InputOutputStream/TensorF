@@ -10,7 +10,8 @@
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/charts.css">
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
 </head>
 <body>
 
@@ -48,6 +49,11 @@
       <div class="nav-group-label">Federated</div>
       <div class="nav-item" data-view="federated"><span class="ico">⇄</span> FL rounds</div>
       <div class="nav-item" data-view="profiler"><span class="ico">▤</span> Hardware profiler</div>
+    </div>
+    <div>
+      <div class="nav-group-label">Analysis</div>
+      <div class="nav-item" data-view="benchmark"><span class="ico"></span> Benchmark</div>
+      <div class="nav-item" data-view="tests"><span class="ico">✓</span> Tests</div>
     </div>
     <div>
       <div class="nav-group-label">System</div>
@@ -107,58 +113,8 @@
           <div class="view-desc">Starts the compiled TensorF binary as a child process on the gateway host.</div>
         </div>
       </div>
-
-      <div class="launch-grid">
-        <div class="launch-card">
-          <div class="lc-kind">Federated · server</div>
-          <div class="lc-name">FL Server</div>
-          <div class="lc-desc">Owns the global model, runs FedAvg/FedDistill round lifecycle.</div>
-          <div class="field-row">
-            <div class="field"><label>Port</label><input type="number" id="srvPort" value="9000"></div>
-          </div>
-          <button class="btn primary lc-run" data-launch="server">▶ Start server</button>
-        </div>
-
-        <div class="launch-card">
-          <div class="lc-kind">Federated · client</div>
-          <div class="lc-name">FL Client</div>
-          <div class="lc-desc">Profiles hardware, joins a round, trains locally, sends deltas or logits.</div>
-          <div class="field-row">
-            <div class="field"><label>Host</label><input type="text" id="cliHost" value="127.0.0.1"></div>
-            <div class="field"><label>Port</label><input type="number" id="cliPort" value="9000"></div>
-          </div>
-          <button class="btn primary lc-run" data-launch="client">▶ Join as client</button>
-        </div>
-
-        <div class="launch-card">
-          <div class="lc-kind">Benchmark</div>
-          <div class="lc-name">bin/benchmark</div>
-          <div class="lc-desc">Matmul GFLOPS, memory bandwidth, cache/storage latency probes.</div>
-          <button class="btn primary lc-run" data-launch="benchmark" style="margin-top:44px;">▶ Run benchmark</button>
-        </div>
-
-        <div class="launch-card">
-          <div class="lc-kind">Tests</div>
-          <div class="lc-name">bin/basic_tests</div>
-          <div class="lc-desc">Core tensor / autograd correctness test suite.</div>
-          <button class="btn primary lc-run" data-launch="tests" style="margin-top:44px;">▶ Run tests</button>
-        </div>
-
-        <div class="launch-card">
-          <div class="lc-kind">Model</div>
-          <div class="lc-name">GPT-2</div>
-          <div class="lc-desc">GGUF-loaded GPT-2 example — encode, forward, generate.</div>
-          <button class="btn primary lc-run" data-launch="gpt2" style="margin-top:44px;">▶ Run GPT-2</button>
-        </div>
-
-        <div class="launch-card">
-          <div class="lc-kind">Model</div>
-          <div class="lc-name">SmolLM</div>
-          <div class="lc-desc">Small LLM example — tokenizer round-trip + generation.</div>
-          <button class="btn primary lc-run" data-launch="smollm" style="margin-top:44px;">▶ Run SmolLM</button>
-        </div>
-      </div>
-
+      <!-- The new dynamic launch controls will be injected here -->
+      <div id="launchControls"></div>
       <div id="launchResult" style="margin-top:18px;"></div>
     </div>
 
@@ -203,40 +159,7 @@
 
     <!-- ============ FEDERATED ============ -->
     <div class="view" id="view-federated">
-      <div class="view-header">
-        <div>
-          <div class="view-title">Federated learning rounds</div>
-          <div class="view-desc">FedAvg / FedDistill round telemetry, parsed live from server & client job logs.</div>
-        </div>
-      </div>
-
-      <div class="grid cols-4" id="flStats"></div>
-
-      <div class="section-sub">Round timing breakdown (server)</div>
-      <div class="two-col">
-        <div class="card">
-          <div class="card-title">Aggregate time vs round total (ms)</div>
-          <div class="chart-wrap tall"><canvas id="flTimingChart"></canvas></div>
-        </div>
-        <div class="card">
-          <div class="card-title">Clients per round</div>
-          <div class="chart-wrap tall"><canvas id="flClientsChart"></canvas></div>
-        </div>
-      </div>
-
-      <div class="section-sub">Client transfer — bandwidth per round</div>
-      <div class="card">
-        <div class="card-title">Send deltas / receive weights (MB/s)</div>
-        <div class="chart-wrap"><canvas id="flBandwidthChart"></canvas></div>
-      </div>
-
-      <div class="section-sub">Round log</div>
-      <div class="card" style="padding:0;">
-        <table class="jobs-table" id="flRoundsTable">
-          <thead><tr><th>Job</th><th>Round</th><th>Mode/side</th><th>Loss</th><th>Time (ms)</th><th>Clients</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <!-- Content is rendered by federated.js -->
     </div>
 
     <!-- ============ PROFILER ============ -->
@@ -291,6 +214,28 @@
           <div class="chart-wrap"><canvas id="memStageChart"></canvas></div>
         </div>
       </div>
+    </div>
+
+    <!-- ============ BENCHMARK ============ -->
+    <div class="view" id="view-benchmark">
+      <div class="view-header">
+        <div>
+          <div class="view-title">Benchmark Results</div>
+          <div class="view-desc">Parsed from the most recent benchmark job.</div>
+        </div>
+      </div>
+      <div id="benchmarkContent"><div class="empty-state">No benchmark job run yet.</div></div>
+    </div>
+
+    <!-- ============ TESTS ============ -->
+    <div class="view" id="view-tests">
+      <div class="view-header">
+        <div>
+          <div class="view-title">Tests Results</div>
+          <div class="view-desc">Parsed from the most recent basic_tests job.</div>
+        </div>
+      </div>
+      <div id="testsContent"><div class="empty-state">No test job run yet.</div></div>
     </div>
 
     <!-- ============ MEMORY & CHECKPOINTS ============ -->
@@ -359,6 +304,13 @@
   </div>
 </div>
 
+<!-- Zoom Modal -->
+<div id="chartZoomModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; cursor:pointer;" onclick="closeZoomModal()">
+  <div style="display:flex; justify-content:center; align-items:center; height:100%;">
+    <img id="chartZoomImg" style="max-width:90%; max-height:90%; border:1px solid #444; border-radius:8px;" />
+  </div>
+</div>
+
 <div class="toasts" id="toasts"></div>
 
 <!-- Load order matters: state before anything that reads it, parser/utils
@@ -367,6 +319,7 @@
 <script src="js/utils.js"></script>
 <script src="js/toast.js"></script>
 <script src="js/charts.js"></script>
+<script src="js/param-schema.js"></script>   
 <script src="js/parser.js"></script>
 <script src="js/docs-data.js"></script>
 <script src="js/api.js"></script>
@@ -380,6 +333,8 @@
 <script src="js/views/profiler.js"></script>
 <script src="js/views/memory.js"></script>
 <script src="js/views/console-view.js"></script>
+<script src="js/views/benchmark-view.js"></script>
+<script src="js/views/tests-view.js"></script>
 
 <script src="js/main.js"></script>
 </body>

@@ -129,3 +129,117 @@ function classifyLogLine(line){
 function renderLogLine(line){
   return `<div class="ln ${classifyLogLine(line)}">${escapeHtml(line)}</div>`;
 }
+
+function parseBenchmark(log) {
+  if (Array.isArray(log)) log = log.join('\n');
+
+  const results = {};
+  const advisor = {};
+  const memory = {};
+
+  // Match [Results] block
+  const resultsMatch = log.match(/\[Results\]([\s\S]*?)(?=\n╔|$)/);
+  if (resultsMatch) {
+    const lines = resultsMatch[1].split('\n');
+    for (const line of lines) {
+      const m = line.match(/\s*([\w\s]+)\s*:\s*([\d.]+)\s*([\w\/]+)?/);
+      if (m) {
+        const key = m[1].trim().toLowerCase().replace(/ /g, '_');
+        const val = parseFloat(m[2]);
+        if (!isNaN(val)) results[key] = val;
+      }
+    }
+  }
+
+  // Hyperparameter Advisor box
+  const advisorMatch = log.match(/HYPERPARAMETER ADVISOR REPORT([\s\S]*?)(?=\n╚|$)/);
+  if (advisorMatch) {
+    const text = advisorMatch[1];
+    const lines = text.split('\n');
+    for (const line of lines) {
+      const m = line.match(/\s*([\w\s]+)\s*:\s*([\d.]+)/);
+      if (m) {
+        const key = m[1].trim().toLowerCase().replace(/ /g, '_');
+        const val = parseFloat(m[2]);
+        if (!isNaN(val)) advisor[key] = val;
+      }
+      // Extract other fields like n_embed, n_heads, etc.
+      const dims = line.match(/n_embed\s*:\s*(\d+)/);
+      if (dims) advisor.n_embed = parseInt(dims[1]);
+      const heads = line.match(/n_heads\s*:\s*(\d+)/);
+      if (heads) advisor.n_heads = parseInt(heads[1]);
+      const layers = line.match(/n_layers\s*:\s*(\d+)/);
+      if (layers) advisor.n_layers = parseInt(layers[1]);
+      const block = line.match(/block_size\s*:\s*(\d+)/);
+      if (block) advisor.block_size = parseInt(block[1]);
+      const batch = line.match(/batch_size\s*:\s*(\d+)/);
+      if (batch) advisor.batch_size = parseInt(batch[1]);
+      const quant = line.match(/quantization\s*:\s*(\w+)/);
+      if (quant) advisor.quant = quant[1];
+      const threads = line.match(/num_threads\s*:\s*(\d+)/);
+      if (threads) advisor.threads = parseInt(threads[1]);
+      const params = line.match(/Params only\s*:\s*([\d.]+)\s*MB/);
+      if (params) advisor.params_mb = parseFloat(params[1]);
+      const train = line.match(/Training peak\s*:\s*([\d.]+)\s*MB/);
+      if (train) advisor.train_peak_mb = parseFloat(train[1]);
+      const infer = line.match(/Inference peak\s*:\s*([\d.]+)\s*MB/);
+      if (infer) advisor.infer_peak_mb = parseFloat(infer[1]);
+    }
+    // Scores
+    const hwScore = text.match(/Hardware score\s*:\s*([\d.]+)/);
+    if (hwScore) advisor.hw_score = parseFloat(hwScore[1]);
+    const fitScore = text.match(/Config fit score\s*:\s*([\d.]+)/);
+    if (fitScore) advisor.fit_score = parseFloat(fitScore[1]);
+  }
+
+  // Memory Profile box
+  const memMatch = log.match(/MEMORY PROFILE REPORT([\s\S]*?)(?=\n╚|$)/);
+  if (memMatch) {
+    const text = memMatch[1];
+    const lines = text.split('\n');
+    for (const line of lines) {
+      const m = line.match(/(BASELINE|LOADED|INFER)\s+RSS:\s*([\d.]+)\s*MB\s+Heap:\s*([\d.]+)\s*MB/);
+      if (m) {
+        const stage = m[1].toLowerCase();
+        memory[stage + '_rss'] = parseFloat(m[2]);
+        memory[stage + '_heap'] = parseFloat(m[3]);
+      }
+      const peak = line.match(/Peak RSS\s*:\s*([\d.]+)\s*MB/);
+      if (peak) memory.peak_rss = parseFloat(peak[1]);
+      const rec = line.match(/Recommended free\s*:\s*([\d.]+)\s*MB/);
+      if (rec) memory.recommended_free = parseFloat(rec[1]);
+    }
+  }
+
+  return { results, advisor, memory };
+}
+
+function parseTests(log) {
+  if (Array.isArray(log)) log = log.join('\n');
+  const sections = {};
+  const losses = [];
+
+  // Split by "=== Section ==="
+  const sectionRegex = /=== (.*?) ===([\s\S]*?)(?=(?:===|$))/g;
+  let match;
+  while ((match = sectionRegex.exec(log)) !== null) {
+    const sectionName = match[1].trim();
+    const content = match[2];
+    const results = [];
+    const lines = content.split('\n');
+    for (const line of lines) {
+      if (line.includes('[PASS]')) results.push('PASS');
+      else if (line.includes('[FAIL]')) results.push('FAIL');
+    }
+    sections[sectionName] = results;
+  }
+
+  // Loss lines: "iter: X loss: [Y]"
+  const lossRegex = /iter:\s*(\d+)\s+loss:\s*\[([\d.]+)\]/g;
+  let lossMatch;
+  while ((lossMatch = lossRegex.exec(log)) !== null) {
+    losses.push(parseFloat(lossMatch[2]));
+  }
+
+  return { sections, losses };
+}

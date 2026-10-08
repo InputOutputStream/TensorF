@@ -1,8 +1,7 @@
 // views/overview.js
-
 let lossChartInstance = null;
 
-function renderOverview(){
+function renderOverview() {
   const jobs = Object.values(state.jobs);
   const running = jobs.filter(j => j.running || j.status === 'running');
   const failed = jobs.filter(j => j.status === 'failed');
@@ -21,10 +20,10 @@ function renderOverview(){
   renderActivityFeed();
 }
 
-function renderActivityFeed(){
+function renderActivityFeed() {
   const el = document.getElementById('activityFeed');
   const jobs = Object.values(state.jobs).sort((a, b) => (b.log_seq || 0) - (a.log_seq || 0));
-  if(jobs.length === 0){
+  if (jobs.length === 0) {
     el.innerHTML = '<div class="empty-state" style="padding:24px;">No activity yet.</div>';
     return;
   }
@@ -38,13 +37,13 @@ function renderActivityFeed(){
   }).join('');
 }
 
-function renderLossChart(){
+function renderLossChart() {
   const ctx = document.getElementById('lossChart');
   const datasets = [];
   let ci = 0;
 
   Object.entries(state.metrics).forEach(([id, m]) => {
-    if(!m.loss || m.loss.length === 0) return;
+    if (!m.loss || m.loss.length === 0) return;
     const job = state.jobs[id];
     datasets.push({
       label: `${job ? job.kind : 'job'} ${id.slice(0,6)}`,
@@ -60,10 +59,12 @@ function renderLossChart(){
 
   document.getElementById('lossLegend').textContent = datasets.length ? `(${datasets.length} job${datasets.length > 1 ? 's' : ''})` : '';
 
-  if(lossChartInstance) lossChartInstance.destroy();
-  if(datasets.length === 0){
+  if (lossChartInstance) lossChartInstance.destroy();
+  if (datasets.length === 0) {
     ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
     return;
   }
-  lossChartInstance = new Chart(ctx, { type: 'line', data: { datasets }, options: chartBaseOptions('sample', 'loss') });
+  lossChartInstance = safeChart(ctx, { type: 'line', data: { datasets }, options: chartBaseOptions('sample', 'loss') });
 }
+
+function refreshOverview() { renderOverview(); }

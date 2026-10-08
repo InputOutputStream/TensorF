@@ -141,34 +141,46 @@ static http::response<http::string_body> route(const http::request<http::string_
         }
     }
 
-    if (req.method() == http::verb::post) {
-        json body = parse_body(req);
+        if (req.method() == http::verb::post) {
+            json body = parse_body(req);
 
-        if (path == "/api/jobs/benchmark")
-            return json_response(req, 200, launch_and_announce("benchmark", bin_path("benchmark"), {}));
+            auto launch_with_args = [&](const std::string& kind, const std::string& binary,
+                                        const std::vector<std::string>& default_args) -> json {
+                std::vector<std::string> args;
+                if (body.contains("args") && body["args"].is_array()) {
+                    for (auto& a : body["args"]) args.push_back(a.get<std::string>());
+                } else {
+                    args = default_args;
+                }
+                return launch_and_announce(kind, binary, args);
+            };
 
-        if (path == "/api/jobs/tests")
-            return json_response(req, 200, launch_and_announce("tests", bin_path("basic_tests"), {}));
+            if (path == "/api/jobs/benchmark") {
+                return json_response(req, 200, launch_with_args("benchmark", bin_path("benchmark"), {}));
+            }
+            if (path == "/api/jobs/tests") {
+                return json_response(req, 200, launch_with_args("tests", bin_path("basic_tests"), {}));
+            }
+            if (path == "/api/jobs/gpt2") {
+                return json_response(req, 200, launch_with_args("gpt2", bin_path("gpt2"), {}));
+            }
+            if (path == "/api/jobs/smollm") {
+                return json_response(req, 200, launch_with_args("smollm", bin_path("smollm"), {}));
+            }
 
-        if (path == "/api/jobs/gpt2")
-            return json_response(req, 200, launch_and_announce("gpt2", bin_path("gpt2"), {}));
+            if (path == "/api/jobs/server") {
+                std::vector<std::string> default_args;
+                if (body.contains("port")) default_args = {"--port", std::to_string(body["port"].get<int>())};
+                return json_response(req, 200, launch_with_args("server", bin_path("server"), default_args));
+            }
 
-        if (path == "/api/jobs/smollm")
-            return json_response(req, 200, launch_and_announce("smollm", bin_path("smollm"), {}));
-
-        if (path == "/api/jobs/server") {
-            std::vector<std::string> args;
-            if (body.contains("port")) args = {"--port", std::to_string(body["port"].get<int>())};
-            return json_response(req, 200, launch_and_announce("server", bin_path("server"), args));
+            if (path == "/api/jobs/client") {
+                std::vector<std::string> default_args;
+                if (body.contains("host")) { default_args.push_back("--host"); default_args.push_back(body["host"].get<std::string>()); }
+                if (body.contains("port")) { default_args.push_back("--port"); default_args.push_back(std::to_string(body["port"].get<int>())); }
+                return json_response(req, 200, launch_with_args("client", bin_path("client"), default_args));
+            }
         }
-
-        if (path == "/api/jobs/client") {
-            std::vector<std::string> args;
-            if (body.contains("host")) { args.push_back("--host"); args.push_back(body["host"].get<std::string>()); }
-            if (body.contains("port")) { args.push_back("--port"); args.push_back(std::to_string(body["port"].get<int>())); }
-            return json_response(req, 200, launch_and_announce("client", bin_path("client"), args));
-        }
-    }
 
     return json_response(req, 404, {{"error", "not found"}});
 }

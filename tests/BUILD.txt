@@ -1,0 +1,12 @@
+Layout (same include root as before, e.g. -Iinclude):
+  DataStructures/Matrix.hpp     only header users include (old path unchanged)
+  DataStructures/Broadcast.hpp  included first by Matrix.hpp
+  DataStructures/MatrixOps.hpp  included last by Matrix.hpp
+  Overloads/Overload.hpp        your Prompt-A version + float16 printing patch
+  Graph.hpp                     your J6 version + FP8 threshold patch
+  Tensor.hpp, Types/*           unchanged (your uploaded versions)
+
+Tests: g++ -std=c++20 -Wall -Wextra -Wshadow -fsanitize=address,undefined -Iinclude tests/matrix_tests.cpp -lopenblas
+  add -DMATRIX_NO_BLAS to build without cblas
+  tests/contract.cpp: every Matrix call form used by Tensor.hpp / tensor_overloads.hpp / Graph.hpp (add -pthread)
+  tests/diff_ops.cpp: compile once with -DORIG against your old Matrix.hpp, once against the new one, diff the outputs

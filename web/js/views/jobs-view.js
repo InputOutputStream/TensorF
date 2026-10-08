@@ -1,9 +1,8 @@
-// views/jobs-view.js — jobs table + selected-job detail panel
-
+// views/jobs-view.js
 let jdChartInstance = null;
 
-function renderJobRows(tbody, jobs){
-  if(jobs.length === 0){
+function renderJobRows(tbody, jobs) {
+  if (jobs.length === 0) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="7">no jobs yet — launch one to get started</td></tr>`;
     return;
   }
@@ -27,18 +26,18 @@ function renderJobRows(tbody, jobs){
   tbody.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => selectJob(tr.dataset.id)));
 }
 
-function renderJobsTable(){
+function renderJobsTable() {
   const jobs = Object.values(state.jobs).sort((a, b) => (b.started_at || '').localeCompare(a.started_at || ''));
   renderJobRows(document.querySelector('#jobsTable tbody'), jobs);
 }
 
-async function selectJob(id){
+async function selectJob(id) {
   state.selectedJobId = id;
   document.getElementById('jobDetailWrap').style.display = 'block';
   document.getElementById('jdId').textContent = id;
   renderJobsTable();
 
-  try{ await fetchJobDetail(id); }catch(e){ /* fall back to cached data */ }
+  try { await fetchJobDetail(id); } catch (e) { /* fall back to cached data */ }
 
   const job = state.jobs[id];
   const cls = statusClass(job);
@@ -56,27 +55,44 @@ async function selectJob(id){
   consoleEl.innerHTML = lines.length ? lines.map(renderLogLine).join('') : '<div class="console-empty">no output yet</div>';
   consoleEl.scrollTop = consoleEl.scrollHeight;
 
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'btn sm';
+  copyBtn.textContent = 'Copy Log';
+  copyBtn.onclick = () => {
+    const logText = consoleEl.textContent;
+    navigator.clipboard.writeText(logText).catch(() => {});
+  };
+  document.querySelector('#jdPills').appendChild(copyBtn);
+
   renderJobDetailMetrics(id);
 }
 
-function renderJobDetailMetrics(id){
-  if(state.selectedJobId !== id) return;
+function renderJobDetailMetrics(id) {
+  if (state.selectedJobId !== id) return;
   const m = state.metrics[id] || { loss: [] };
   const ctx = document.getElementById('jdChart');
   const emptyEl = document.getElementById('jdMetricsEmpty');
 
-  if(jdChartInstance) jdChartInstance.destroy();
-  if(!m.loss || m.loss.length === 0){
+  if (jdChartInstance) jdChartInstance.destroy();
+  if (!m.loss || m.loss.length === 0) {
     emptyEl.style.display = 'block';
     return;
   }
   emptyEl.style.display = 'none';
-  jdChartInstance = new Chart(ctx, {
+  jdChartInstance = safeChart(ctx, {
     type: 'line',
-    data: { datasets: [{
-      label: 'loss', data: m.loss.map(p => ({ x: p.idx, y: p.val })),
-      borderColor: '#e8a33d', backgroundColor: 'rgba(232,163,61,.08)', fill: true, pointRadius: 2, tension: .25, borderWidth: 2,
-    }]},
+    data: {
+      datasets: [{
+        label: 'loss',
+        data: m.loss.map(p => ({ x: p.idx, y: p.val })),
+        borderColor: '#e8a33d',
+        backgroundColor: 'rgba(232,163,61,.08)',
+        fill: true,
+        pointRadius: 2,
+        tension: .25,
+        borderWidth: 2,
+      }]
+    },
     options: chartBaseOptions('sample', 'loss'),
   });
 
@@ -85,10 +101,10 @@ function renderJobDetailMetrics(id){
   document.getElementById('jdLogCount').textContent = `(${lines.length})`;
 }
 
-function appendJobConsole(id, line){
-  if(state.selectedJobId !== id) return;
+function appendJobConsole(id, line) {
+  if (state.selectedJobId !== id) return;
   const consoleEl = document.getElementById('jdConsole');
-  if(consoleEl.querySelector('.console-empty')) consoleEl.innerHTML = '';
+  if (consoleEl.querySelector('.console-empty')) consoleEl.innerHTML = '';
   consoleEl.insertAdjacentHTML('beforeend', renderLogLine(line));
   consoleEl.scrollTop = consoleEl.scrollHeight;
 }

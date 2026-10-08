@@ -11,7 +11,7 @@
 #include <iostream>
 #include <map>
 
-#include "../Types/types.hpp"
+#include "core/Types/types.hpp"
 
 /**
  * NpyLoader

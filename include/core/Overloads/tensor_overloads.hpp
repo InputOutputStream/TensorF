@@ -27,6 +27,7 @@
 #include "Operations/ConcatOperation.hpp"
 #include "Operations/EmbeddingOperation.hpp"
 #include "Operations/IndexOperation.hpp"
+#include "Operations/spMMOperation.hpp"
 
 template <typename T>
 class Tensor;
@@ -418,71 +419,60 @@ Tensor_t<E> operator -(Tensor_t<E> ten)
 }
 
 // Non graph related ops........................................................
+
 template <typename E>
-Tensor_t<E> operator <(const E a, Tensor_t<E> right)
-{    
-    Matrix<E> res(right->val);
-    res =  a < res;
-    return make_tensor<E>(res); 
+Tensor_t<bool> operator <(const E a, Tensor_t<E> right)
+{
+    return make_tensor<bool>(a < right->val);
 }
 
 template <typename E>
-Tensor_t<E> operator <(Tensor_t<E> right, const E a)
-{    
-    Matrix<E> res(right->val);
-    res =  res < a;
-    return make_tensor<E>(res); 
+Tensor_t<bool> operator <(Tensor_t<E> right, const E a)
+{
+    return make_tensor<bool>(right->val < a);
 }
 
 template <typename E>
-Tensor_t<E> operator >(const E a, Tensor_t<E> right)
-{    
-    Matrix<E> res(right->val);
-    res =  a > res;
-    return make_tensor<E>(res); 
+Tensor_t<bool> operator >(const E a, Tensor_t<E> right)
+{
+    return make_tensor<bool>(a > right->val);
 }
 
 template <typename E>
-Tensor_t<E> operator >(Tensor_t<E> right, const E a)
-{    
-    Matrix<E> res(right->val);
-    res =  res > a;
-    return make_tensor<E>(res); 
-}
-
-
-
-template <typename E>
-Tensor_t<E> operator <=(const E a, Tensor_t<E> right)
-{    
-    Matrix<E> res(right->val);
-    res =  a <= res;
-    return make_tensor<E>(res); 
+Tensor_t<bool> operator >(Tensor_t<E> right, const E a)
+{
+    return make_tensor<bool>(right->val > a);
 }
 
 template <typename E>
-Tensor_t<E> operator <=(Tensor_t<E> right, const E a)
-{    
-    Matrix<E> res(right->val);
-    res =  res <= a;
-    return make_tensor<E>(res); 
+Tensor_t<bool> operator <=(const E a, Tensor_t<E> right)
+{
+    return make_tensor<bool>(a <= right->val);
 }
 
 template <typename E>
-Tensor_t<E> operator >=(const E a, Tensor_t<E> right)
-{    
-    Matrix<E> res(right->val);
-    res =  a >= res;
-    return make_tensor<E>(res); 
+Tensor_t<bool> operator <=(Tensor_t<E> right, const E a)
+{
+    return make_tensor<bool>(right->val <= a);
 }
 
 template <typename E>
-Tensor_t<E> operator >=(Tensor_t<E> right, const E a)
-{    
-    Matrix<E> res(right->val);
-    res =  res >= a;
-    return make_tensor<E>(res); 
+Tensor_t<bool> operator >=(const E a, Tensor_t<E> right)
+{
+    return make_tensor<bool>(a >= right->val);
 }
 
+template <typename E>
+Tensor_t<bool> operator >=(Tensor_t<E> right, const E a)
+{
+    return make_tensor<bool>(right->val >= a);
+}
+
+// Convenience: Y = A * X
+template <typename T>
+Tensor_t<T> spmm(std::shared_ptr<const CSR<T>> A, Tensor_t<T> x, size_t num_threads = 1) {
+    auto op = std::make_shared<SpMMOperation<T>>(std::move(A), x, num_threads);
+    return op->forward();
+}
 
 #endif // !TENSOR_EXTERN__HPP

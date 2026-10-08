@@ -39,7 +39,7 @@ class ReluOperation : public Operation<T>
     template <typename T>
     void ReluOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * (this->t1->val > (T)0));
+        this->t1->backward(Matrix<T>(grad.data * (this->t1->val.data > (T)0), t1->shape));
     }
 
     template<typename T>

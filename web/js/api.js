@@ -95,3 +95,8 @@ async function fetchJobDetail(id){
   upsertJob(detail);
   return detail;
 }
+
+
+function launchJobRaw(kind, args) {
+  return launchJob(kind, { args });
+}

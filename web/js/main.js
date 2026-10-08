@@ -7,6 +7,18 @@ const VIEW_RENDERERS = {
   federated: renderFederated,
   profiler: renderProfiler,
   memory: renderMemory,
+  benchmark: () => {
+    const container = document.getElementById('view-benchmark');
+    const jobs = Object.values(state.jobs).filter(j => j.kind === 'benchmark');
+    if (jobs.length) renderBenchmark(jobs[jobs.length - 1]);
+    else container.innerHTML = '<div class="empty-state">No benchmark job found.</div>';
+  },
+  tests: () => {
+    const container = document.getElementById('view-tests');
+    const jobs = Object.values(state.jobs).filter(j => j.kind === 'tests' || j.kind === 'basic_tests');
+    if (jobs.length) renderTests(jobs[jobs.length - 1]);
+    else container.innerHTML = '<div class="empty-state">No test job found.</div>';
+  }
 };
 
 function refreshCurrentView(light = false){

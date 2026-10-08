@@ -72,6 +72,8 @@ SLM/transformer-gpt-numpy
 *.mod *.smod *.lai *.la *.a *.lib
 *.exe *.out *.app *.dwo
 
+build-android-arm64-v8a/
+.vscode/
 # Data & models
 checkpoints/
 Datasets/

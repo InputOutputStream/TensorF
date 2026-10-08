@@ -1,14 +1,12 @@
-// views/profiler.js — renders the Profiler fingerprint block every
-// `client` job prints on startup (see docs/api/profiler.html).
-
+// views/profiler.js — hardware fingerprint + benchmark view delegation
 let benchChartInst = null, memStageChartInst = null;
 const ISA_LEVELS = ['BASELINE', 'AVX', 'AVX2', 'AVX512', 'AVX512_VNNI', 'AMX'];
 
-function renderProfiler(){
+function renderProfiler() {
   const sel = document.getElementById('profJobSelect');
   const candidates = Object.entries(state.metrics).filter(([, m]) => m.profiler && (m.profiler.cpu_model || m.profiler.isa));
 
-  if(candidates.length === 0){
+  if (candidates.length === 0) {
     document.getElementById('profilerEmpty').style.display = 'block';
     document.getElementById('profilerContent').style.display = 'none';
     sel.innerHTML = '<option>no profiler data</option>';
@@ -20,14 +18,19 @@ function renderProfiler(){
 
   const prevVal = sel.value;
   sel.innerHTML = candidates.map(([id]) => `<option value="${id}">${state.jobs[id]?.kind || 'job'} · ${id.slice(0,10)}</option>`).join('');
-  if(candidates.find(([id]) => id === prevVal)) sel.value = prevVal;
+  if (candidates.find(([id]) => id === prevVal)) sel.value = prevVal;
   sel.onchange = () => renderProfilerContent(sel.value);
   renderProfilerContent(sel.value || candidates[candidates.length - 1][0]);
 }
 
-function renderProfilerContent(id){
+function renderProfilerContent(id) {
   const m = state.metrics[id];
-  if(!m) return;
+  if (!m) return;
+  const job = state.jobs[id];
+  if (job && job.kind === 'benchmark') {
+    renderBenchmark(job);
+    return;
+  }
   const p = m.profiler || {};
   const b = m.bench || {};
   const h = m.hyper || {};
@@ -66,10 +69,10 @@ function renderProfilerContent(id){
   renderMemStageChart(p, h, m);
 }
 
-function renderBenchChart(b){
+function renderBenchChart(b) {
   const ctx = document.getElementById('benchGflopsChart');
-  if(benchChartInst) benchChartInst.destroy();
-  benchChartInst = new Chart(ctx, {
+  if (benchChartInst) benchChartInst.destroy();
+  benchChartInst = safeChart(ctx, {
     type: 'bar',
     data: {
       labels: ['Matmul (L3)', 'Matmul (RAM)'],
@@ -79,11 +82,11 @@ function renderBenchChart(b){
   });
 }
 
-function renderMemStageChart(p, h, m){
+function renderMemStageChart(p, h, m) {
   const ctx = document.getElementById('memStageChart');
-  if(memStageChartInst) memStageChartInst.destroy();
+  if (memStageChartInst) memStageChartInst.destroy();
   const rss = m.rounds && m.rounds.length ? m.rounds[m.rounds.length - 1].rss_mb : null;
-  memStageChartInst = new Chart(ctx, {
+  memStageChartInst = safeChart(ctx, {
     type: 'bar',
     data: {
       labels: ['baseline', 'loaded', 'train', 'infer'],

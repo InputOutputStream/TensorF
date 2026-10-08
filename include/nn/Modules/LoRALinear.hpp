@@ -19,14 +19,14 @@ public:
     Tensor_t<T> B;        // {rank, out} — trained
     T scale;              // alpha / rank
 
-    LoRALinear(size_t out, size_t in, size_t rank, T alpha, bool sbias = true) {
+    LoRALinear(size_t out, size_t in, size_t rank, T alpha, bool sbias = true, std::optional<unsigned int> seed = std::nullopt) {
         // NOTE: weight layout is {out, in} — matches Linear::weight so a pretrained
         // dense weight can be copied straight in via load_pretrained() below,
         // and transposed the same way Linear does in forward().
         weight = make_tensor<T>(Matrix<T>::zeros({out, in})); // load pretrained here
         this->sbias = sbias;
         bias = make_tensor<T>(Matrix<T>::zeros({out}));       // frozen, optional
-        A = make_tensor<T>(Matrix<T>::randn({in, rank}));
+        A = make_tensor<T>(Matrix<T>::randn({in, rank}, seed));
         B = make_tensor<T>(Matrix<T>::zeros({rank, out}));
         scale = alpha / (T)rank;
         

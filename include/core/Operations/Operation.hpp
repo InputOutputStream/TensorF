@@ -23,6 +23,8 @@ class Operation : public std::enable_shared_from_this<Operation<T>>// Abstract O
     virtual void zero_grad() = 0;
     virtual void reset_graph() = 0;
     virtual Tensor_t<T> forward() = 0;
+
+    virtual ~Operation() = default;
       
 };
 

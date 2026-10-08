@@ -1,10 +1,10 @@
 #ifndef __QUANTIZER_HPP__
 #define __QUANTIZER_HPP__
 
-#include "../Types/types.hpp"
-#include "../DataStructures/Matrix.hpp"
-#include "../DataStructures/Tensor.hpp"
-#include "../Modules/Module.hpp"
+#include "core/Types/types.hpp"
+#include "core/DataStructures/Matrix.hpp"
+#include "core/DataStructures/Tensor.hpp"
+#include "core/Modules/Module.hpp"
 
 #include <vector>
 #include <cmath>

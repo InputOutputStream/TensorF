@@ -25,9 +25,9 @@
 
 #include "stb_image.h"
 
-#include "../Types/types.hpp"   // shape_t
-#include "../DataStructures/Matrix.hpp"
-#include "../DataStructures/Tensor.hpp"
+#include "core/Types/types.hpp"
+#include "core/DataStructures/Matrix.hpp"
+#include "core/DataStructures/Tensor.hpp"
 
 #include <string>
 #include <vector>

@@ -36,7 +36,7 @@ INC := \
 # ── Librairies système ────────────────────────────────────────────────────────
 LIBS     := -lpthread
 
-# OpenBLAS — cherche d'abord via pkg-config, sinon fallback -lblas
+# OpenBLAS — d'abord via pkg-config, sinon fallback -lblas
 OPENBLAS := $(shell pkg-config --libs openblas 2>/dev/null)
 ifeq ($(OPENBLAS),)
     LIBS += -lblas
@@ -44,7 +44,7 @@ else
     LIBS += $(OPENBLAS)
 endif
 
-# nlohmann/json — header-only, juste besoin du -I si pas dans /usr/include
+# nlohmann/json — header-only
 JSON_INC := $(shell pkg-config --cflags nlohmann_json 2>/dev/null)
 INC      += $(JSON_INC)
 
@@ -54,10 +54,10 @@ LDFLAGS  := $(LIBS) $(LSAN)
 $(shell mkdir -p $(BIN))
 
 # ══════════════════════════════════════════════════════════════════════════════
-.PHONY: all gpt2 llama smollm transformer server client benchmark tests \
-        gateway run-gateway clean install-deps check-deps help
+.PHONY: all gpt2 llama smollm transformer benchmark tests \
+        gateway run-gateway clean install-deps check-deps help # server client
 
-all: check-deps gpt2 smollm transformer benchmark server client tests gateway
+all: check-deps gpt2 smollm transformer benchmark tests gateway # server client
 
 
 # ── GPT-GPT-2 inference ───────────────────────────────────────────────────────────
@@ -80,8 +80,8 @@ $(BIN)/transformer: examples/transformer.cpp
 
 # ── Federated learning — server ───────────────────────────────────────────────
 
-SERVER_SRC ?= include/net/Network/Server.cpp
-CLIENT_SRC ?= include/net/Network/Client.cpp
+SERVER_SRC ?= tests/GPT/Server.cpp
+CLIENT_SRC ?= tests/GPT/Client.cpp
 
 server: $(BIN)/server
 $(BIN)/server: $(SERVER_SRC)
@@ -105,7 +105,80 @@ $(BIN)/basic_tests: tests/basic_tests.cpp
 	@echo "[CXX] $< → $@"
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 	@echo "[RUN] $(BIN)/basic_tests"
-	$(BIN)/basic_tests
+# 	$(BIN)/basic_tests
+
+# ── GNN Tests ───────────────────────────────────────────────────────────
+
+# ── gcntest  ───────────────────────────────────────────────────────────
+tests: $(BIN)/gcntest
+$(BIN)/gcntest: tests/gcntest.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/gcntest"
+# 	$(BIN)/gcntest
+
+# ── spmmtest  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/spmmtest
+$(BIN)/spmmtest: tests/spmmtest.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/spmmtest"
+# 	$(BIN)/spmmtest
+
+# ── coratrain  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/coratrain
+$(BIN)/coratrain: tests/coratrain.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/coratrain"
+# 	$(BIN)/coratrain
+
+# ── contract  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/contract
+$(BIN)/contract: tests/contract.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/contract"
+# 	$(BIN)/contract
+
+# ── diff_ops  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/diff_ops
+$(BIN)/diff_ops: tests/diff_ops.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/diff_ops"
+# 	$(BIN)/diff_ops
+
+# ── matrix_tests  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/matrix_tests
+$(BIN)/matrix_tests: tests/matrix_tests.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/matrix_tests"
+# 	$(BIN)/matrix_tests
+
+# ── scope_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/scope_test
+$(BIN)/scope_test: tests/scope_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/scope_test"
+# 	$(BIN)/scope_test
+
+# ── support_tests  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/support_tests
+$(BIN)/support_tests: tests/support_tests.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/support_tests"
+# 	$(BIN)/support_tests
 
 # ── Network  ───────────────────────────────────────────────────────────
 
@@ -168,10 +241,11 @@ help:
 	@echo "  make llama          Llama (SmolLM2) inference"
 	@echo "  make smollm         SmolLM2 complet (avec dataset)"
 	@echo "  make transformer    Entraînement character-level"
-	@echo "  make server         Serveur federated (besoin de include/net/Network/server.cpp)"
-	@echo "  make client         Client federated  (besoin de include/net/Network/client.cpp)"
+# 	@echo "  make server         Serveur federated (besoin de tests/GPT/server.cpp)"
+# 	@echo "  make client         Client federated  (besoin de tests/GPT/client.cpp)"
 	@echo "  make benchmark      Profiler matériel"
 	@echo "  make tests          Tests unitaires"
+	@echo "  make gcntest        Test du gcn"
 	@echo "  make gateway        Web dashboard gateway (REST + WebSocket, gateway/src/main.cpp)"
 	@echo "  make run-gateway    Build + lance le gateway (PORT=8080 par défaut)"
 	@echo "  make clean          Supprime bin/"

@@ -3,8 +3,8 @@
 #include "nn/Modules/Transformer/Llama/Llama.hpp"
 #include "nn/ModelLoader/LlamaLoader.hpp"
 #include "nn/Modules/Linear.hpp"
-#include "data/DataLoader/GGUF.hpp"
-#include "data/DataLoader/DataLoading.hpp"
+#include "data/GGUF.hpp"
+#include "data/DataLoading.hpp"
 #include "nn/Tokenizer/LlamaTokenizer.hpp"
 #include <iostream>
 #include <vector>
