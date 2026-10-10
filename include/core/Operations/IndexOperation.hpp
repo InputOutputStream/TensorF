@@ -43,12 +43,10 @@ class IndexOperation : public Operation<T>
     template <typename T>
     void IndexOperation<T>::backward(Matrix<T> grad)
     {
-        Matrix<T> t1_grad = Matrix<T>::zeros(this->orig_shape);
-        size_t total = this->mask.get_size();
-        size_t gi = 0;
-        for (size_t i = 0; i < total; ++i)
-            if (this->mask.data[i])
-                t1_grad.data[i] = grad.data[gi++];
+        // forward is a same-shape, zero-filled selection => d/dx = grad (.) mask
+        if (grad.get_size() != this->mask.get_size())
+            throw std::invalid_argument("IndexOperation::backward: gradient size does not match mask");
+        Matrix<T> t1_grad = grad * this->mask;
         this->t1->backward(t1_grad);
     }
 

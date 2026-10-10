@@ -44,10 +44,16 @@ class TransposeOperation : public Operation<T>
     template <typename T>
     void TransposeOperation<T>::backward(Matrix<T> grad)
     {
-        if(this->inperm.size() > 0)
-            this->t1->backward(grad.transpose(this->inperm)); 
-        else 
-            this->t1->backward(grad.transpose()); 
+        Matrix<T> g;
+        if (this->inperm.size() > 0) {
+            shape_t inv(this->inperm.size());
+            for (size_t i = 0; i < this->inperm.size(); ++i) inv[this->inperm[i]] = i;
+            g = grad.transpose(inv);
+        } else {
+            g = grad.transpose();   // full axis reversal is its own inverse
+        }
+        if (g.shape != this->t1->val.shape) g = g.reshape(this->t1->val.shape);  // e.g. 1D {n} -> {n,1}
+        this->t1->backward(g);
     }
 
     template <typename T>

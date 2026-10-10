@@ -430,7 +430,7 @@ public:
     bool operator==(const Matrix<T>& rhs) const { return (shape == rhs.shape) && vecmath::equal(data, rhs.data); }
 
     template <typename U>
-    requires std::is_arithmetic_v<U>
+    requires (std::is_arithmetic_v<U> || std::is_same_v<U, T>)
     Matrix<bool> operator==(const U val) const {
         std::vector<bool> res;
         res.reserve(data.size());
@@ -439,7 +439,7 @@ public:
     }
 
     template <typename U>
-    requires std::is_arithmetic_v<U>
+    requires (std::is_arithmetic_v<U> || std::is_same_v<U, T>)
     Matrix<bool> operator!=(const U val) const {
         std::vector<bool> res;
         res.reserve(data.size());
@@ -452,6 +452,9 @@ public:
 
     Matrix<T> pow(const Matrix<T>& rhs) const
     {
+        // fast path: single-element exponent 
+        if (rhs.data.size() == 1 && rhs.shape.size() <= shape.size())
+            return Matrix<T>(vecmath::pow_s(data, rhs.data[0]), shape);
         return binop(rhs, [](const std::vector<T>& a, const std::vector<T>& b) {
             std::vector<T> r;
             r.reserve(a.size());

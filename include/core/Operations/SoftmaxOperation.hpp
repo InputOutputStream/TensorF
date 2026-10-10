@@ -63,16 +63,18 @@ Tensor_t<T> SoftmaxOperation<T>::forward()
             if (x.data[i * C + j] > max_val)
                 max_val = x.data[i * C + j];
 
-        // 2. exp(x - max)
-        T sum = T(0);
+        // 2. exp(x - max), accumulated in the wider acc type (safe for FP8/FP4/float16)
+        using A = scalar::acc_t<T>;
+        A sum = A(0);
         for (size_t j = 0; j < C; ++j) {
-            out[i * C + j] = std::exp(x.data[i * C + j] - max_val);
-            sum += out[i * C + j];
+            A e = std::exp(scalar::to_acc<T>(x.data[i * C + j]) - scalar::to_acc<T>(max_val));
+            out[i * C + j] = scalar::from_acc<T>(e);
+            sum += e;
         }
 
         // 3. normalise
         for (size_t j = 0; j < C; ++j)
-            out[i * C + j] /= sum;
+            out[i * C + j] = scalar::from_acc<T>(std::exp(scalar::to_acc<T>(x.data[i * C + j]) - scalar::to_acc<T>(max_val)) / sum);
     }
 
     this->output = Matrix<T>(out, x.shape);
@@ -95,13 +97,14 @@ void SoftmaxOperation<T>::backward(Matrix<T> grad)
 
     for (size_t i = 0; i < N; ++i) {
         // dot(G[i,:], S[i,:])
-        T dot = T(0);
+        using A = scalar::acc_t<T>;
+        A dot = A(0);
         for (size_t j = 0; j < C; ++j)
-            dot += grad.data[i * C + j] * S.data[i * C + j];
+            dot += scalar::to_acc<T>(grad.data[i * C + j]) * scalar::to_acc<T>(S.data[i * C + j]);
 
         // dL/dx[i,j] = S[i,j] * (G[i,j] - dot)
         for (size_t j = 0; j < C; ++j)
-            dx[i * C + j] = S.data[i * C + j] * (grad.data[i * C + j] - dot);
+            dx[i * C + j] = scalar::from_acc<T>(scalar::to_acc<T>(S.data[i * C + j]) * (scalar::to_acc<T>(grad.data[i * C + j]) - dot));
     }
 
     this->t1->backward(Matrix<T>(dx, S.shape));

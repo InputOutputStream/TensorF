@@ -21,6 +21,22 @@ class MatmulOperation : public Operation<T>
 
     void backward(Matrix<T> grad);
 
+    // Gradients of C = A.matmul(B) for any rank (1D promotion, batch broadcasting, last-two-axes transpose).
+    static std::pair<Matrix<T>, Matrix<T>> matmul_grads(const Matrix<T>& A, const Matrix<T>& B, const Matrix<T>& G)
+    {
+        Matrix<T> A2 = A, B2 = B;
+        if (A.shape.size() == 1) A2 = A.reshape({1, A.shape[0]});
+        if (B.shape.size() == 1) B2 = B.reshape({B.shape[0], 1});
+        // restore the (possibly squeezed) output axes to rank-2+ form
+        shape_t gs = G.shape;
+        if (A.shape.size() == 1) gs.insert(gs.end() - (B.shape.size() == 1 ? 0 : 1), 1);
+        if (B.shape.size() == 1) gs.push_back(1);
+        Matrix<T> G2 = G.reshape(gs);
+        Matrix<T> gA = sumGradForBroadcast(G2.matmul(mxd::swap_last2(B2)), A2.shape);
+        Matrix<T> gB = sumGradForBroadcast(mxd::swap_last2(A2).matmul(G2), B2.shape);
+        return { gA.reshape(A.shape), gB.reshape(B.shape) };
+    }
+
     Tensor_t<T> forward();
 
     void zero_grad();
@@ -41,25 +57,9 @@ class MatmulOperation : public Operation<T>
     template <typename T>
     void MatmulOperation<T>::backward(Matrix<T> grad)
     {
-        // If 3D batched tensor, swap ONLY the last two dims (seq_len and features)
-        Matrix<T> b_T = (this->t2->val.shape.size() == 3) 
-                            ? this->t2->val.transpose({0, 2, 1}) 
-                            : this->t2->val.transpose();
-
-        Matrix<T> a_T = (this->t1->val.shape.size() == 3) 
-                            ? this->t1->val.transpose({0, 2, 1}) 
-                            : this->t1->val.transpose();
-
-        // Compute raw gradients
-        Matrix<T> raw_grad1 = grad.matmul(b_T);
-        Matrix<T> raw_grad2 = a_T.matmul(grad);
-
-        // Sum over batch/broadcasted dimensions so 2D weights get 2D gradients!
-        Matrix<T> grad1 = sumGradForBroadcast(raw_grad1, this->t1->val.shape);
-        Matrix<T> grad2 = sumGradForBroadcast(raw_grad2, this->t2->val.shape);
-
-        this->t1->backward(grad1);
-        this->t2->backward(grad2);
+        auto g = matmul_grads(this->t1->val, this->t2->val, grad);
+        this->t1->backward(g.first);
+        this->t2->backward(g.second);
     }
 
     template<typename T>

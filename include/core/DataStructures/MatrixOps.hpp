@@ -1,7 +1,4 @@
 #pragma once
-// MatrixOps.hpp — free functions / operators on Matrix<T>. Included at the end of Matrix.hpp
-// (include Matrix.hpp, not this file). These are ordinary templates found by ADL.
-//
 // Scalar parameters are non-deduced (std::type_identity_t<T>), so 2*m, m+1, m+=1 work for Matrix<float>.
 
 #include <ostream>
@@ -54,6 +51,13 @@ template <typename T> Matrix<bool> operator<=(const Matrix<T>& m, std::type_iden
 template <typename T> Matrix<bool> operator>=(std::type_identity_t<T> a, const Matrix<T>& m) { return mxd::to_bool_matrix<T>(vecmath::cmp_ge(a, m.data), m.shape); }  // a >= m
 template <typename T> Matrix<bool> operator>=(const Matrix<T>& m, std::type_identity_t<T> a) { return mxd::to_bool_matrix<T>(vecmath::cmp_ge(m.data, a), m.shape); }  // m >= a
 
+// Matrix<T> * Matrix<bool>: the boolean mask acts as 0/1 (numpy semantics). Needed because comparisons now return
+// Matrix<bool>, while existing code (ReluOperation: grad * (x > 0)) multiplies the result into a float matrix.
+template <typename T> requires (!std::is_same_v<T, bool>)
+Matrix<T> operator*(const Matrix<T>& lhs, const Matrix<bool>& mask) { return lhs * Matrix<T>::where(mask, T(1), T(0)); }
+template <typename T> requires (!std::is_same_v<T, bool>)
+Matrix<T> operator*(const Matrix<bool>& mask, const Matrix<T>& rhs) { return Matrix<T>::where(mask, T(1), T(0)) * rhs; }
+
 // ───────────────────────────── compound assignment ─────────────────────────────
 // Matrix op= Matrix: same shape -> in place; otherwise rhs is broadcast to lhs.shape (validated).
 
@@ -80,6 +84,20 @@ MATRIX_COMPOUND_OP(/=, div_inplace, div_inplace_s)
 
 // ───────────────────────────── autograd helper ─────────────────────────────
 
+namespace mxd {
+    // Swap the last two axes (rank >= 2); identity for rank < 2.
+    template <typename T>
+    Matrix<T> swap_last2(const Matrix<T>& m)
+    {
+        size_t r = m.shape.size();
+        if (r < 2) return m;
+        shape_t perm(r);
+        for (size_t i = 0; i < r; ++i) perm[i] = i;
+        std::swap(perm[r - 1], perm[r - 2]);
+        return m.transpose(perm);
+    }
+}
+ 
 // Reduces a broadcast gradient back to `originalShape` (sums leading dims and dims that were size 1).
 template <typename T>
 Matrix<T> sumGradForBroadcast(const Matrix<T>& grad, const std::vector<size_t>& originalShape)

@@ -46,7 +46,10 @@ class EmbeddingOperation : public Operation<T>
 
         for (size_t i = 0; i < this->idx_saved->val.get_size(); ++i)
         {
-            size_t row = (size_t)this->idx_saved->val.data[i];
+            double rd = std::round(static_cast<double>(scalar::to_acc<T>(this->idx_saved->val.data[i])));   // same rounding as elemsAt
+            if (!(rd >= 0) || rd >= static_cast<double>(this->t1->val.shape[0]))
+                throw std::out_of_range("EmbeddingOperation::backward: index out of range");
+            size_t row = static_cast<size_t>(rd);
             for (size_t j = 0; j < embed_dim; ++j)
                 t1_grad.data[row * embed_dim + j] += grad.data[i * embed_dim + j];
         }

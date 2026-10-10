@@ -1,5 +1,6 @@
 #include "Types/types.hpp"
 #include "Operation.hpp"
+#include "MatmulOperation.hpp"
 
 #ifndef __DOT_OPP_INCLUDED__
 #define __DOT_OPP_INCLUDED__
@@ -40,8 +41,19 @@ class DotOperation : public Operation<T>
     template <typename T>
     void DotOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad.dot(this->t2->val.transpose()));
-        this->t2->backward(this->t1->val.transpose().dot(grad));
+        const Matrix<T>& A = this->t1->val;
+        const Matrix<T>& B = this->t2->val;
+        // Matrix::dot: 1D.1D or equal-shape 2D.2D -> flattened inner product (scalar result)
+        if ((A.shape.size() == 1 && B.shape.size() == 1) ||
+            (A.shape.size() == 2 && B.shape.size() == 2 && A.shape == B.shape)) {
+            T g = grad.data.at(0);
+            this->t1->backward(B * g);
+            this->t2->backward(A * g);
+            return;
+        }
+        auto gr = MatmulOperation<T>::matmul_grads(A, B, grad);
+        this->t1->backward(gr.first);
+        this->t2->backward(gr.second);
     }
 
     template<typename T>

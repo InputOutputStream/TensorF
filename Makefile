@@ -180,6 +180,15 @@ $(BIN)/support_tests: tests/support_tests.cpp
 	@echo "[RUN] $(BIN)/support_tests"
 # 	$(BIN)/support_tests
 
+# ── lowprec_tests  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/lowprec_tests
+$(BIN)/lowprec_tests: tests/lowprec_tests.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/lowprec_tests"
+# 	$(BIN)/lowprec_tests
+
 # ── Network  ───────────────────────────────────────────────────────────
 
 net: client server
