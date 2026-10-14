@@ -46,6 +46,9 @@ class MatmulOperation : public Operation<T>
         std::cout << "Matmul Operation \n";
     }
       
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1, this->t2};
+    }
 };
 
 
@@ -58,8 +61,8 @@ class MatmulOperation : public Operation<T>
     void MatmulOperation<T>::backward(Matrix<T> grad)
     {
         auto g = matmul_grads(this->t1->val, this->t2->val, grad);
-        this->t1->backward(g.first);
-        this->t2->backward(g.second);
+        this->t1->accumulate(g.first);
+        this->t2->accumulate(g.second);
     }
 
     template<typename T>

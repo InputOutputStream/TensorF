@@ -28,6 +28,10 @@ class PowerOperation : public Operation<T>
     void to_string(){
         std::cout << "Power Operation \n";
     }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1, this->t2};
+    }
 };
 
 
@@ -39,7 +43,7 @@ class PowerOperation : public Operation<T>
     template <typename T>
     void PowerOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * this->t2->val * pow(this->t1->val, (this->t2->val - Matrix<T>(1))));
+        this->t1->accumulate(grad * this->t2->val * pow(this->t1->val, (this->t2->val - Matrix<T>(1))));
     }
 
     template <typename T>

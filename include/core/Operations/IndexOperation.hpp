@@ -14,7 +14,9 @@ class IndexOperation : public Operation<T>
         Matrix<bool> mask;
         shape_t orig_shape;
 
-    IndexOperation(Tensor_t<T> t1, const Matrix<bool>& inmask): t1(t1), mask(inmask){
+    IndexOperation(Tensor_t<T> t1, const Matrix<bool>& inmask){
+        this->t1 = t1;
+        this->mask = inmask;
     }
     void backward(Matrix<T> grad);
 
@@ -24,6 +26,10 @@ class IndexOperation : public Operation<T>
     void reset_graph();
     void to_string(){
         std::cout << "Bool Index Operation \n";
+    }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1};
     }
 };
 
@@ -47,7 +53,7 @@ class IndexOperation : public Operation<T>
         if (grad.get_size() != this->mask.get_size())
             throw std::invalid_argument("IndexOperation::backward: gradient size does not match mask");
         Matrix<T> t1_grad = grad * this->mask;
-        this->t1->backward(t1_grad);
+        this->t1->accumulate(t1_grad);
     }
 
     template <typename T>

@@ -34,6 +34,10 @@ class TransposeOperation : public Operation<T>
     void to_string(){
         std::cout << "Transpose Operation \n";
     }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1};
+    }
 };
 
 
@@ -53,7 +57,7 @@ class TransposeOperation : public Operation<T>
             g = grad.transpose();   // full axis reversal is its own inverse
         }
         if (g.shape != this->t1->val.shape) g = g.reshape(this->t1->val.shape);  // e.g. 1D {n} -> {n,1}
-        this->t1->backward(g);
+        this->t1->accumulate(g);
     }
 
     template <typename T>

@@ -28,7 +28,10 @@ class SumOperation : public Operation<T>
     void to_string(){
         std::cout << "Sum Operation \n";
     }
-      
+
+    std::vector<Tensor_t<T>> inputs() const override {
+    return {this->t1};
+}
 };
 
 
@@ -41,7 +44,7 @@ class SumOperation : public Operation<T>
     void SumOperation<T>::backward(Matrix<T> grad)
     {
         Matrix<T> ones = Matrix<T>::ones(this->t1->val.shape); 
-        this->t1->backward(grad.data[0] * ones);
+        this->t1->accumulate(grad.data[0] * ones);
     }
 
     template<typename T>

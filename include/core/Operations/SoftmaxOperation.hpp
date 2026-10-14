@@ -28,8 +28,9 @@ class SoftmaxOperation : public Operation<T>
         Matrix<T>   output;   // saved forward output S, needed for backward
 
     SoftmaxOperation(Tensor_t<T> t1)
-        : t1(t1)
-    {}
+    {
+        this->t1 = t1;
+    }
 
     Tensor_t<T> forward() override;
     void backward(Matrix<T> grad) override;
@@ -38,6 +39,10 @@ class SoftmaxOperation : public Operation<T>
 
     void to_string() override {
         std::cout << "Softmax Operation\n";
+    }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1};
     }
 };
 
@@ -107,7 +112,7 @@ void SoftmaxOperation<T>::backward(Matrix<T> grad)
             dx[i * C + j] = scalar::from_acc<T>(scalar::to_acc<T>(S.data[i * C + j]) * (scalar::to_acc<T>(grad.data[i * C + j]) - dot));
     }
 
-    this->t1->backward(Matrix<T>(dx, S.shape));
+    this->t1->accumulate(Matrix<T>(dx, S.shape));
 }
 
 template <typename T>

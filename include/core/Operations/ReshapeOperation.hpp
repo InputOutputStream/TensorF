@@ -29,6 +29,10 @@ class ReshapeOperation : public Operation<T>
     void to_string(){
         std::cout << "Reshape Operation \n";
     }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1};
+    }
 };
 
 
@@ -43,7 +47,7 @@ Tensor_t<T> ReshapeOperation<T>::forward()
 template <typename T>
 void ReshapeOperation<T>::backward(Matrix<T> grad)
 {
-    this->t1->backward(Matrix<T>(grad.data, this->orig_shape));
+    this->t1->accumulate(Matrix<T>(grad.data, this->orig_shape));
 }
 
 template <typename T>

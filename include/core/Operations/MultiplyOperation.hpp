@@ -28,6 +28,10 @@ class MultiplyOperation : public Operation<T>
     void to_string(){
         std::cout << "Multiply Operation \n";
     }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1, this->t2};
+    }
 };
 
 
@@ -44,8 +48,8 @@ class MultiplyOperation : public Operation<T>
         Matrix<T> grad1 = sumGradForBroadcast(grad * this->t2->val, t1->val.shape);
         Matrix<T> grad2 = sumGradForBroadcast(grad * this->t1->val, t2->val.shape);
 
-        this->t1->backward(grad1);         
-        this->t2->backward(grad2);        
+        this->t1->accumulate(grad1);         
+        this->t2->accumulate(grad2);        
     }
 
     template <typename T>

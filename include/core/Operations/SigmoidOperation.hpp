@@ -31,6 +31,10 @@ class SigmoidOperation : public Operation<T>
     void to_string(){
         std::cout << "Sigmoid Operation \n";
     }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1};
+    }
       
 };
 
@@ -43,7 +47,7 @@ class SigmoidOperation : public Operation<T>
     void SigmoidOperation<T>::backward(Matrix<T> grad)
     {
         Matrix<T> temp = this->tmp->val * (Matrix<T>(1) + (Matrix<T>(-1)*this->tmp->val));
-        this->t1->backward(grad * temp);
+        this->t1->accumulate(grad * temp);
     }
 
     template<typename T>

@@ -28,6 +28,11 @@ class EmbeddingOperation : public Operation<T>
     void to_string(){
         std::cout << "Embedding Operation \n";
     }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1, this->idx_saved};
+    }
+
 };
 
 
@@ -54,13 +59,13 @@ class EmbeddingOperation : public Operation<T>
                 t1_grad.data[row * embed_dim + j] += grad.data[i * embed_dim + j];
         }
         
-        this->t1->backward(t1_grad);
+        this->t1->accumulate(t1_grad);
     }
 
     template <typename T>
     Tensor_t<T> EmbeddingOperation<T>::forward()
     {
-        return std::make_shared<Tensor<T>>(this->t1->val.elemsAt(idx_saved->val), this->shared_from_this());
+        return std::make_shared<Tensor<T>>(this->t1->val.elemsAt(this->idx_saved->val), this->shared_from_this());
     }
 
     template <typename T>

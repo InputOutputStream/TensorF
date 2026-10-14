@@ -27,6 +27,10 @@ class LogOperation : public Operation<T>
     void to_string(){
         std::cout << "Log Operation \n";
     }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1};
+    }
 };
 
 
@@ -37,7 +41,7 @@ class LogOperation : public Operation<T>
     template <typename T>
     void LogOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->backward(grad * ((T)1/this->t1->val)); 
+        this->t1->accumulate(grad * ((T)1/this->t1->val)); 
     }
 
     template <typename T>

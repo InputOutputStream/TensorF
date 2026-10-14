@@ -28,6 +28,11 @@ class DivisionOperation : public Operation<T>
     void to_string(){
         std::cout << "Divide Operation \n";
     }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1, this->t2};
+    }
+
 };
 
 
@@ -47,8 +52,8 @@ class DivisionOperation : public Operation<T>
         Matrix<T> t2_sq = this->t2->val * this->t2->val;
         Matrix<T> grad2 = sumGradForBroadcast(numerator / t2_sq, this->t2->val.shape);
 
-        this->t1->backward(grad1);
-        this->t2->backward(grad2);
+        this->t1->accumulate(grad1);
+        this->t2->accumulate(grad2);
     }
 
     template <typename T>

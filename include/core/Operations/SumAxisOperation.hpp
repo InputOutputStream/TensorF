@@ -35,6 +35,10 @@ class SumAxisOperation : public Operation<T>
     void to_string() override {
         std::cout << "SumAxis Operation (axis=" << axis << ")\n";
     }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1};
+    }
 };
 
 // ── forward ──────────────────────────────────────────────────────────────────
@@ -103,7 +107,7 @@ void SumAxisOperation<T>::backward(Matrix<T> grad)
         out[i] = grad.data[grad_idx];
     }
 
-    this->t1->backward(Matrix<T>(out, this->input_shape));
+    this->t1->accumulate(Matrix<T>(out, this->input_shape));
 }
 
 template <typename T>

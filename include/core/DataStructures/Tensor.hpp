@@ -4,6 +4,8 @@
 #include <memory>
 #include <vector>
 #include <ranges>
+#include <unordered_set>
+
 #include "Matrix.hpp"
 
 #include "core/Operations/AddOperation.hpp"
@@ -85,32 +87,51 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
 //.....................................................................................
 
-    void backward(Matrix<T> ingrad)
-    {
-        if(!requires_grad)
-            return;
+    void accumulate(const Matrix<T>& g) {
+        if (!requires_grad) return;
+        if (grad.get_size() > 0) {
+            if (grad.shape != g.shape) throw std::runtime_error("Gradient shape mismatch in Tensor::accumulate");
+            grad += g;
+        } else grad.copy_from(g);
+    }
 
-        if (this->grad.get_size() > 0) {
-            if (this->grad.shape != ingrad.shape)
-                throw std::runtime_error("Gradient shape mismatch in Tensor::backward");
-            this->grad += ingrad;
+    void backward(Matrix<T> seed) {
+        /* Topological order: 
+            -iterative DFS
+            - post-order (inputs before the node)
+            - `seen` lives for the whole walk
+        */
+        struct Frame 
+        { 
+            Tensor<T>* n; 
+            std::vector<Tensor_t<T>> in; 
+            size_t i = 0; 
+        };
+
+        std::vector<Tensor<T>*> order;
+        std::unordered_set<Tensor<T>*> seen{this};
+        std::vector<Frame> st;
+        st.push_back({this, backOp ? backOp->inputs() : std::vector<Tensor_t<T>>{}});
+        while (!st.empty()) {
+            Frame& f = st.back();
+            if (f.i < f.in.size()) {
+                Tensor<T>* c = f.in[f.i++].get();
+                if (c && seen.insert(c).second)
+                    st.push_back({c, c->backOp ? c->backOp->inputs() : std::vector<Tensor_t<T>>{}});
+            } else { order.push_back(f.n); st.pop_back(); }
         }
-        else
-            this->grad.copy_from(ingrad);
-
-        if (Matrix<T>::hasNaN(grad))
-        {
-            if (this->backOp) this->backOp->to_string();
-            std::cerr << "grad value: " << grad << "\n";
-            throw std::runtime_error("Gradient NaN encountered during backprop");
-        }
-
-        // J5: this recursion is exponential on shared subgraphs — not changed.
-        if (this->backOp != nullptr) {
-            auto op = this->backOp;
-            op->backward(ingrad);
+        /* 
+            seed, then sweep in reverse: 
+            each node runs once with its complete gradient
+        */
+        accumulate(seed);
+        for (auto it = order.rbegin(); it != order.rend(); ++it) {
+            Tensor<T>* n = *it;
+            if (n->backOp && n->requires_grad && n->grad.get_size() > 0)
+                n->backOp->backward(n->grad);      // each op now calls t1->accumulate(g1), t2->accumulate(g2)
         }
     }
+ 
 
     void backward(Tensor_t<T> ingrad)
     {

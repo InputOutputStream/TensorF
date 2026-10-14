@@ -30,6 +30,11 @@ class DotOperation : public Operation<T>
     void to_string(){
         std::cout << "Dot Operation \n";
     }
+
+    std::vector<Tensor_t<T>> inputs() const override {
+        return {this->t1, this->t2};
+    }
+
       
 };
 
@@ -47,13 +52,13 @@ class DotOperation : public Operation<T>
         if ((A.shape.size() == 1 && B.shape.size() == 1) ||
             (A.shape.size() == 2 && B.shape.size() == 2 && A.shape == B.shape)) {
             T g = grad.data.at(0);
-            this->t1->backward(B * g);
-            this->t2->backward(A * g);
+            this->t1->accumulate(B * g);
+            this->t2->accumulate(A * g);
             return;
         }
         auto gr = MatmulOperation<T>::matmul_grads(A, B, grad);
-        this->t1->backward(gr.first);
-        this->t2->backward(gr.second);
+        this->t1->accumulate(gr.first);
+        this->t2->accumulate(gr.second);
     }
 
     template<typename T>
