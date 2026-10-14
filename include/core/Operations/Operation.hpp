@@ -17,7 +17,8 @@ class Operation : public std::enable_shared_from_this<Operation<T>>// Abstract O
     public:
         Tensor_t<T> t1, t2;
 
-    virtual std::vector<Tensor_t<T>> inputs() const = 0;
+    
+    virtual std::vector<Tensor_t<T>> inputs() const = 0;   // tensors that receive gradients from backward()
     virtual void backward(Matrix<T> grad) = 0;
     virtual void to_string() = 0;
     virtual void zero_grad() = 0;

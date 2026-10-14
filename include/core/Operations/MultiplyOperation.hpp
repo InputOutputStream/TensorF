@@ -10,6 +10,7 @@ template <typename T>
 class MultiplyOperation : public Operation<T>
 {
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1, this->t2}; }
         Tensor_t<T> t1, t2;
         
     MultiplyOperation(Tensor_t<T> t1, Tensor_t<T> t2)
@@ -18,19 +19,15 @@ class MultiplyOperation : public Operation<T>
         this->t2 = t2;
     }  
 
-    void backward(Matrix<T> grad);
+    void backward(Matrix<T> grad) override;
 
-    Tensor_t<T> forward(); 
+    Tensor_t<T> forward() override; 
 
-    void zero_grad();
+    void zero_grad() override;
 
-    void reset_graph();
-    void to_string(){
+    void reset_graph() override;
+    void to_string() override {
         std::cout << "Multiply Operation \n";
-    }
-
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1, this->t2};
     }
 };
 

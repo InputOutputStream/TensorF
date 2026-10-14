@@ -13,6 +13,7 @@ class ExponentOperation : public Operation<T>
         Tensor_t<T> tmp;
 
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1}; }
         Tensor_t<T> t1;
         
     ExponentOperation(Tensor_t<T> t1)
@@ -20,19 +21,12 @@ class ExponentOperation : public Operation<T>
         this->t1 = t1;
     }  
 
-    void backward(Matrix<T> grad);
-
-    Tensor_t<T> forward(); 
-    void zero_grad();
-
-
-    void reset_graph();
-    void to_string(){
+    void backward(Matrix<T> grad) override;
+    Tensor_t<T> forward() override; 
+    void zero_grad() override;
+    void reset_graph() override;
+    void to_string() override{
         std::cout << "Exp Operation \n";
-    }
-
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1};
     }
 };
 

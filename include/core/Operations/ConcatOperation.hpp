@@ -10,36 +10,32 @@ template <typename T>
 class ConcatOperation : public Operation<T>
 {
 public:
-    std::vector<Tensor_t<T>> input_elms;
+    std::vector<Tensor_t<T>> inputs() const override { return in_tensors; }
+    std::vector<Tensor_t<T>> in_tensors;
     size_t axis;
-    std::vector<size_t> split_sizes;  // size of each input_elms along axis, for backward
+    std::vector<size_t> split_sizes;  // size of each input along axis, for backward
 
-    ConcatOperation(std::vector<Tensor_t<T>> input_elms, size_t axis)
-        : input_elms(input_elms), axis(axis) {}
+    ConcatOperation(std::vector<Tensor_t<T>> in, size_t axis)
+        : in_tensors(in), axis(axis) {}
    
-    Tensor_t<T> forward();
-    void backward(Matrix<T> grad);
+    Tensor_t<T> forward() override;
+    void backward(Matrix<T> grad) override;
 
-    void zero_grad() override { for (auto& t : input_elms) t->zero_grad(); }
+    void zero_grad() override { for (auto& t : in_tensors) t->zero_grad(); }
     void reset_graph() override { 
-        for (auto& t : input_elms){
+        for (auto& t : in_tensors){
             if(t)
                 t->reset_graph(); 
         }
     }
     void to_string() override { std::cout << "Concat Operation\n"; }
-    
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->input_elms};
-    }
-
 };
 
 template <typename T>
 Tensor_t<T> ConcatOperation<T>::forward() 
     {
         std::vector<Matrix<T>> mats;
-        for (auto& t : input_elms) {
+        for (auto& t : in_tensors) {
             mats.push_back(t->val);
             split_sizes.push_back(t->val.shape[axis]);
         }
@@ -52,10 +48,10 @@ void ConcatOperation<T>::backward(Matrix<T> grad)
     {
         // split grad along axis at the recorded boundaries
         size_t offset = 0;
-        for (size_t i = 0; i < input_elms.size(); ++i) {
+        for (size_t i = 0; i < in_tensors.size(); ++i) {
             // slice grad from offset to offset+split_sizes[i] along axis
             Matrix<T> g = grad.slice_axis(offset, offset + split_sizes[i], axis);
-            input_elms[i]->accumulate(g);
+            in_tensors[i]->accumulate(g);
             offset += split_sizes[i];
         }
     }

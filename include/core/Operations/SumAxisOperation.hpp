@@ -19,6 +19,7 @@ template <typename T>
 class SumAxisOperation : public Operation<T>
 {
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1}; }
         Tensor_t<T> t1;
         size_t axis;
         shape_t input_shape;   // saved for backward broadcast
@@ -34,10 +35,6 @@ class SumAxisOperation : public Operation<T>
 
     void to_string() override {
         std::cout << "SumAxis Operation (axis=" << axis << ")\n";
-    }
-
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1};
     }
 };
 

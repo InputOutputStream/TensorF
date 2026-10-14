@@ -10,6 +10,7 @@ template <typename T>
 class DivisionOperation : public Operation<T>
 {
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1, this->t2}; }
         Tensor_t<T> t1, t2;
         
     DivisionOperation(Tensor_t<T> t1, Tensor_t<T> t2)
@@ -18,21 +19,16 @@ class DivisionOperation : public Operation<T>
         this->t2 = t2;
     }  
 
-    void backward(Matrix<T> grad);
+    void backward(Matrix<T> grad) override;
 
-    Tensor_t<T> forward(); 
-    void zero_grad();
+    Tensor_t<T> forward() override; 
+    void zero_grad() override;
 
-    void reset_graph();
+    void reset_graph() override;
 
-    void to_string(){
+    void to_string() override {
         std::cout << "Divide Operation \n";
     }
-
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1, this->t2};
-    }
-
 };
 
 

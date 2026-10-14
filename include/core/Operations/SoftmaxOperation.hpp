@@ -24,13 +24,13 @@ template <typename T>
 class SoftmaxOperation : public Operation<T>
 {
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1}; }
         Tensor_t<T> t1;
         Matrix<T>   output;   // saved forward output S, needed for backward
 
     SoftmaxOperation(Tensor_t<T> t1)
-    {
-        this->t1 = t1;
-    }
+        : t1(t1)
+    {}
 
     Tensor_t<T> forward() override;
     void backward(Matrix<T> grad) override;
@@ -39,10 +39,6 @@ class SoftmaxOperation : public Operation<T>
 
     void to_string() override {
         std::cout << "Softmax Operation\n";
-    }
-
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1};
     }
 };
 

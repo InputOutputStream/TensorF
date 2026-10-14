@@ -1100,15 +1100,59 @@ public:
         }
     }
 
+    // Permutation that moves the contraction axis (second-to-last) of the right operand of dot() to the front:
+    // [r-2, 0, 1, ..., r-3, r-1]. Requires r >= 2.
+    static shape_t dot_rhs_perm(size_t r)
+    {
+        shape_t perm(r);
+        perm[0] = r - 2;
+        for (size_t i = 1; i + 1 < r; i++) perm[i] = i - 1;
+        perm[r - 1] = r - 1;
+        return perm;
+    }
+
+    // numpy.dot, strictly:
+    //   1-D . 1-D  -> inner product (shape {1})
+    //   N-D . 1-D  -> sum over the last axis of this and the only axis of rhs
+    //   N-D . M-D (M >= 2, N >= 1) -> sum over the last axis of this and the second-to-last of rhs;
+    //                 result shape = this.shape[:-1] + rhs.shape[:-2] + rhs.shape[-1:]
+    //   2-D . 2-D is therefore the ordinary matrix product. (NOT a batched matmul for N,M > 2.)
     Matrix<T> dot(const Matrix<T>& rhs) const
     {
-        if (areShapes1D(shape, rhs.shape))
+        const size_t ra = shape.size(), rb = rhs.shape.size();
+        if (ra == 0 || rb == 0) throw std::runtime_error("dot: empty shape\n");
+        if (ra == 1 && rb == 1)
             return Matrix<T>(std::vector<T>{dotProduct1D(data, rhs.data)}, shape_t{1});
-        if (areShapes2D(shape, rhs.shape))
-            return dotProduct2D(rhs);        // [DECISION] flattened inner product, see dotProduct2D
-        if (!dotShapesAssert(rhs.shape))
-            throw std::runtime_error("dot: invalid shapes for dot product\n");
-        return matmul(rhs);
+        if constexpr (std::is_same_v<T, bool>) {
+            throw std::runtime_error("dot: not supported for bool except 1-D . 1-D");
+        } else {
+            const size_t K = shape.back();
+            if (rb == 1) {
+                if (rhs.shape[0] != K)
+                    throw std::invalid_argument("dot: shapes " + mxd::shape_str(shape) + " and " + mxd::shape_str(rhs.shape) + " are not aligned\n");
+                return matmul(rhs);
+            }
+            if (rhs.shape[rb - 2] != K)
+                throw std::invalid_argument("dot: shapes " + mxd::shape_str(shape) + " and " + mxd::shape_str(rhs.shape) + " are not aligned\n");
+            if (ra == 2 && rb == 2) return matmul(rhs);
+            const size_t M = K == 0 ? 0 : data.size() / K, N = K == 0 ? 0 : rhs.data.size() / K;
+            Matrix<T> A2 = reshape(shape_t{M, K});
+            Matrix<T> B2 = rhs.transpose(dot_rhs_perm(rb)).reshape(shape_t{K, N});
+            shape_t os(shape.begin(), shape.end() - 1);
+            os.insert(os.end(), rhs.shape.begin(), rhs.shape.end() - 2);
+            os.push_back(rhs.shape.back());
+            return A2.matmul(B2).reshape(os);
+        }
+    }
+
+    // numpy.vdot-style flattened inner product: sum(a.flatten() * b.flatten()). Operands may have different
+    // shapes as long as the element counts match. Result shape {1}.
+    Matrix<T> vdot(const Matrix<T>& rhs) const
+    {
+        if (data.size() != rhs.data.size())
+            throw std::invalid_argument("vdot: operands must have the same number of elements (" + std::to_string(data.size()) +
+                                        " vs " + std::to_string(rhs.data.size()) + ")\n");
+        return Matrix<T>(std::vector<T>{dotProduct1D(data, rhs.data)}, shape_t{1});
     }
 
     // ───────────────────────────── printing ─────────────────────────────

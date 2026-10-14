@@ -14,6 +14,7 @@ class TransposeOperation : public Operation<T>
         shape_t inperm;
 
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1}; }
         Tensor_t<T> t1;
         
     TransposeOperation(Tensor_t<T> t1)
@@ -21,22 +22,14 @@ class TransposeOperation : public Operation<T>
         this->t1 = t1;
     }  
 
-    void backward(Matrix<T> grad);
-
-    Tensor_t<T> forward(); 
+    void backward(Matrix<T> grad) override;
+    Tensor_t<T> forward() override; 
     Tensor_t<T> forward(std::initializer_list<size_t> inperm);
     Tensor_t<T> forward(shape_t inperm);
-   
     void zero_grad();
-
-
-    void reset_graph();
-    void to_string(){
+    void reset_graph() override;
+    void to_string() override{
         std::cout << "Transpose Operation \n";
-    }
-
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1};
     }
 };
 

@@ -11,6 +11,7 @@ class EmbeddingOperation : public Operation<T>
 {
 
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1}; }
         Tensor_t<T> t1;
         Tensor_t<T> idx_saved; 
 
@@ -20,19 +21,14 @@ class EmbeddingOperation : public Operation<T>
         idx_saved = indices;
     }  
 
-    void backward(Matrix<T> grad);
+    void backward(Matrix<T> grad) override;
 
-    Tensor_t<T> forward(); 
-    void zero_grad();
-    void reset_graph();
-    void to_string(){
+    Tensor_t<T> forward() override; 
+    void zero_grad() override;
+    void reset_graph() override;
+    void to_string() override{
         std::cout << "Embedding Operation \n";
     }
-
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1, this->idx_saved};
-    }
-
 };
 
 
@@ -65,7 +61,7 @@ class EmbeddingOperation : public Operation<T>
     template <typename T>
     Tensor_t<T> EmbeddingOperation<T>::forward()
     {
-        return std::make_shared<Tensor<T>>(this->t1->val.elemsAt(this->idx_saved->val), this->shared_from_this());
+        return std::make_shared<Tensor<T>>(this->t1->val.elemsAt(idx_saved->val), this->shared_from_this());
     }
 
     template <typename T>

@@ -10,6 +10,7 @@ template <typename T>
 class ReshapeOperation : public Operation<T>
 {
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1}; }
         Tensor_t<T> t1;
         shape_t orig_shape, n_shape;
 
@@ -20,18 +21,14 @@ class ReshapeOperation : public Operation<T>
         n_shape = new_shape;
     }  
 
-    void backward(Matrix<T> grad);
+    void backward(Matrix<T> grad)override;
 
-    Tensor_t<T> forward(); 
+    Tensor_t<T> forward()override; 
     
-    void zero_grad();
-    void reset_graph();
-    void to_string(){
+    void zero_grad()override;
+    void reset_graph()override;
+    void to_string() override {
         std::cout << "Reshape Operation \n";
-    }
-
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1};
     }
 };
 

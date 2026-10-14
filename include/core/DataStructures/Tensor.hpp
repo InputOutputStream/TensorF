@@ -86,28 +86,13 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     }
 
 //.....................................................................................
-
-    void accumulate(const Matrix<T>& g) {
-        if (!requires_grad) return;
-        if (grad.get_size() > 0) {
-            if (grad.shape != g.shape) throw std::runtime_error("Gradient shape mismatch in Tensor::accumulate");
-            grad += g;
-        } else grad.copy_from(g);
-    }
-
-    void backward(Matrix<T> seed) {
-        /* Topological order: 
-            -iterative DFS
-            - post-order (inputs before the node)
-            - `seen` lives for the whole walk
-        */
-        struct Frame 
-        { 
-            Tensor<T>* n; 
-            std::vector<Tensor_t<T>> in; 
-            size_t i = 0; 
-        };
-
+ 
+    // Every tensor reachable from this one through backOp->inputs(), in topological order:
+    // inputs come before the tensors computed from them, `this` is last. Iterative DFS (no
+    // recursion depth limit), each node appears once, input order is fixed => deterministic.
+    std::vector<Tensor<T>*> topo_order()
+    {
+        struct Frame { Tensor<T>* n; std::vector<Tensor_t<T>> in; size_t i = 0; };
         std::vector<Tensor<T>*> order;
         std::unordered_set<Tensor<T>*> seen{this};
         std::vector<Frame> st;
@@ -120,15 +105,38 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
                     st.push_back({c, c->backOp ? c->backOp->inputs() : std::vector<Tensor_t<T>>{}});
             } else { order.push_back(f.n); st.pop_back(); }
         }
-        /* 
-            seed, then sweep in reverse: 
-            each node runs once with its complete gradient
-        */
+        return order;
+    }
+ 
+    // Adds a gradient contribution; never recurses. Ops call this on their inputs.
+    void accumulate(const Matrix<T>& g)
+    {
+        if (!requires_grad) return;
+        if (grad.get_size() > 0) {
+            if (grad.shape != g.shape)
+                throw std::runtime_error("Gradient shape mismatch in Tensor::accumulate");
+            grad += g;
+        } else grad.copy_from(g);
+    }
+ 
+    // Reverse-mode driver: each node runs exactly once, after all of its consumers.
+    void backward(Matrix<T> seed)
+    {
+        auto order = topo_order();
+        // Gradients of computed (non-leaf) tensors are per-call scratch; only leaves accumulate across calls,
+        // so a second backward() without zero_grad() adds exactly one more contribution to each leaf.
+        for (Tensor<T>* n : order) if (n->backOp) n->grad.clear();
         accumulate(seed);
         for (auto it = order.rbegin(); it != order.rend(); ++it) {
             Tensor<T>* n = *it;
-            if (n->backOp && n->requires_grad && n->grad.get_size() > 0)
-                n->backOp->backward(n->grad);      // each op now calls t1->accumulate(g1), t2->accumulate(g2)
+            if (n->grad.get_size() == 0) continue;
+            if (Matrix<T>::hasNaN(n->grad)) {        
+                if (n->backOp) n->backOp->to_string();
+                std::cerr << "grad value: " << n->grad << "\n";
+                throw std::runtime_error("Gradient NaN encountered during backprop");
+            }
+            if (n->backOp && n->requires_grad)
+                n->backOp->backward(n->grad);       // pushes into the inputs via accumulate()
         }
     }
  
@@ -138,12 +146,10 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->backward(ingrad->val);
     }
 
+    // Clears the gradient of this tensor and everything it was computed from (each node once).
     void zero_grad()
     {
-        this->grad.clear();
-
-        if(this->backOp != nullptr)
-            this->backOp->zero_grad();
+        for (Tensor<T>* n : topo_order()) n->grad.clear();
     }
 
     void reset_graph() {
@@ -328,7 +334,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     static Tensor_t<T> mse(Tensor_t<T> ytrue, Tensor_t<T> ypred)
     {
-        return pow((ytrue - ypred), (T)2)->sum() / (T)ytrue->val.shape[0];
+        return pow((ytrue - ypred), (T)2)->sum() / (T)ytrue->val.data.size();
     }
 
     static Tensor_t<T> rms_norm(Tensor_t<T> x, Tensor_t<T> weight, T eps = 1e-5) {

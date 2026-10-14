@@ -10,26 +10,19 @@ template <typename T>
 class IndexOperation : public Operation<T>
 {
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1}; }
         Tensor_t<T> t1;
         Matrix<bool> mask;
         shape_t orig_shape;
 
-    IndexOperation(Tensor_t<T> t1, const Matrix<bool>& inmask){
-        this->t1 = t1;
-        this->mask = inmask;
-    }
-    void backward(Matrix<T> grad);
-
-    Tensor_t<T> forward(); 
-
-    void zero_grad();
-    void reset_graph();
-    void to_string(){
+    IndexOperation(Tensor_t<T> t1, const Matrix<bool>& inmask): t1(t1), mask(inmask)
+    {}
+    void backward(Matrix<T> grad) override;
+    Tensor_t<T> forward() override; 
+    void zero_grad() override;
+    void reset_graph() override;
+    void to_string() override{
         std::cout << "Bool Index Operation \n";
-    }
-
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1};
     }
 };
 

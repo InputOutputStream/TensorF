@@ -9,6 +9,7 @@ template <typename T>
 class MatmulOperation : public Operation<T>
 {
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1, this->t2}; }
         Tensor_t<T> t1, t2;
 
     //..............................................................................................................
@@ -19,7 +20,7 @@ class MatmulOperation : public Operation<T>
         this->t2 = t2;
     }
 
-    void backward(Matrix<T> grad);
+    void backward(Matrix<T> grad) override;
 
     // Gradients of C = A.matmul(B) for any rank (1D promotion, batch broadcasting, last-two-axes transpose).
     static std::pair<Matrix<T>, Matrix<T>> matmul_grads(const Matrix<T>& A, const Matrix<T>& B, const Matrix<T>& G)
@@ -37,18 +38,15 @@ class MatmulOperation : public Operation<T>
         return { gA.reshape(A.shape), gB.reshape(B.shape) };
     }
 
-    Tensor_t<T> forward();
+    Tensor_t<T> forward() override;
 
-    void zero_grad();
-    void reset_graph();
+    void zero_grad() override;
+    void reset_graph() override;
 
-    void to_string(){
+    void to_string() override {
         std::cout << "Matmul Operation \n";
     }
       
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1, this->t2};
-    }
 };
 
 

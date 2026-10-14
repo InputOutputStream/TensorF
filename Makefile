@@ -189,6 +189,15 @@ $(BIN)/lowprec_tests: tests/lowprec_tests.cpp
 	@echo "[RUN] $(BIN)/lowprec_tests"
 # 	$(BIN)/lowprec_tests
 
+# ── backprop_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/backprop_test
+$(BIN)/backprop_test: tests/backprop_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/backprop_test"
+# 	$(BIN)/backprop_test
+
 # ── Network  ───────────────────────────────────────────────────────────
 
 net: client server

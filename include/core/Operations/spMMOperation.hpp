@@ -18,6 +18,7 @@ template <typename T>
 class SpMMOperation : public Operation<T>
 {
 public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1}; }
     Tensor_t<T> t1;                              // X
     std::shared_ptr<const CSR<T>> A;
     size_t num_threads;
@@ -26,7 +27,7 @@ public:
         : t1(x), A(std::move(A)), num_threads(std::max<size_t>(1, num_threads))
     {
         if (!this->A) throw std::invalid_argument("SpMM: null adjacency");
-        if (this->t1->val.shape.size() != 2 || this->t1->val.shape[0] != this->A->n)
+        if (t1->val.shape.size() != 2 || t1->val.shape[0] != this->A->n)
             throw std::invalid_argument("SpMM: X must be 2-D with N rows (N = adjacency size)");
     }
 
@@ -44,10 +45,6 @@ public:
     void reset_graph() override {
         if (this->t1) { this->t1->reset_graph(); this->t1 = nullptr; }
         A.reset();
-    }
-
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1};
     }
 
     void to_string() override { std::cout << "SpMM Operation \n"; }
@@ -87,9 +84,9 @@ public:
     template<typename T>
     Tensor_t<T> SpMMOperation<T>::forward()
     {
-        const size_t N = A->n, F = this->t1->val.shape[1];
+        const size_t N = A->n, F = t1->val.shape[1];
         std::vector<T> y(N * F);
-        run_gather(this->t1->val.data.data(), y.data(), F);
+        run_gather(t1->val.data.data(), y.data(), F);
         return std::make_shared<Tensor<T>>(Matrix<T>(std::move(y), shape_t{N, F}), this->shared_from_this());
     }
 

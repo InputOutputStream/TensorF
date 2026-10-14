@@ -9,6 +9,7 @@ template <typename T>
 class ReluOperation : public Operation<T>
 {
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1}; }
         Tensor_t<T> t1;
 
     //..............................................................................................................
@@ -18,20 +19,17 @@ class ReluOperation : public Operation<T>
         this->t1 = t1;
     }
 
-    void backward(Matrix<T> grad);
+    void backward(Matrix<T> grad)override;
 
-    Tensor_t<T> forward();
+    Tensor_t<T> forward()override;
 
-    void zero_grad();
-    void reset_graph();
+    void zero_grad()override;
+    void reset_graph()override;
 
-    void to_string(){
+    void to_string() override {
         std::cout << "Relu Operation \n";
     }
       
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1};
-    }
 };
 
 
@@ -42,7 +40,7 @@ class ReluOperation : public Operation<T>
     template <typename T>
     void ReluOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->accumulate(Matrix<T>(grad.data * (this->t1->val.data > (T)0), this->t1->shape));
+        this->t1->accumulate(grad * (this->t1->val > (T)0));
     }
 
     template<typename T>

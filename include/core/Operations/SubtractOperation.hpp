@@ -9,6 +9,7 @@ template <typename T>
 class SubtractOperation : public Operation<T>
 {
     public:
+    std::vector<Tensor_t<T>> inputs() const override { return {this->t1, this->t2}; }
         Tensor_t<T> t1, t2;
 
     //..............................................................................................................
@@ -19,20 +20,17 @@ class SubtractOperation : public Operation<T>
         this->t2 = t2;
     }
 
-    void backward(Matrix<T> grad);
+    void backward(Matrix<T> grad) override; 
 
-    Tensor_t<T> forward();
-    void zero_grad();
+    Tensor_t<T> forward() override;
+    void zero_grad() override;
 
-    void reset_graph();
+    void reset_graph() override;
 
-    void to_string(){
+    void to_string() override{
         std::cout << "Subtract Operation \n";
     }
-    
-    std::vector<Tensor_t<T>> inputs() const override {
-        return {this->t1, this->t2};
-    }
+      
 };
 
 
@@ -46,8 +44,8 @@ class SubtractOperation : public Operation<T>
     {
         // Distributing Gradients when carrying out subtraction
         
-        Matrix<T> grad1 = sumGradForBroadcast(grad, this->t1->val.shape);
-        Matrix<T> grad2 = sumGradForBroadcast(-grad, this->t2->val.shape);
+        Matrix<T> grad1 = sumGradForBroadcast(grad, t1->val.shape);
+        Matrix<T> grad2 = sumGradForBroadcast(-grad, t2->val.shape);
         
         this->t1->accumulate(grad1);
         this->t2->accumulate(grad2);
