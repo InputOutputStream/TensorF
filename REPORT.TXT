@@ -1,0 +1,384 @@
+_profiler_test  gpt2                      scope_test
+backprop_test            hw_fingerprint_test       smollm
+basic_tests              lowprec_tests             spmmtest
+contract                 matrix_tests              support_tests
+coratrain                memory_profiler_test      tensorf-gateway
+device_benchmark_test    profiler_capability_test  transformer
+diff_ops                 profiler_probe_test
+gcntest                  profiler_workload_test
+➜  TensorF git:(main) ✗ ./scripts/run_android.sh 
+-- The CXX compiler identification is Clang 21.0.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /home/thot/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - not found
+-- Check if compiler accepts -pthread
+-- Check if compiler accepts -pthread - yes
+-- Found Threads: TRUE  
+-- Configuring done (1.7s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/thot/Tensor flow project/TensorF/build-android-arm64-v8a
+[ 50%] Building CXX object CMakeFiles/gcntest.dir/tests/gcntest.cpp.o
+[100%] Linking CXX executable bin/gcntest
+[100%] Built target gcntest
+[ 50%] Building CXX object CMakeFiles/spmmtest.dir/tests/spmmtest.cpp.o
+[100%] Linking CXX executable bin/spmmtest
+[100%] Built target spmmtest
+[ 50%] Building CXX object CMakeFiles/coratrain.dir/tests/coratrain.cpp.o
+[100%] Linking CXX executable bin/coratrain
+[100%] Built target coratrain
+[ 50%] Building CXX object CMakeFiles/algorithm_profiler_test.dir/tests/algorithm_profiler_test.cpp.o
+[100%] Linking CXX executable bin/algorithm_profiler_test
+[100%] Built target algorithm_profiler_test
+[ 50%] Building CXX object CMakeFiles/memory_profiler_test.dir/tests/memory_profiler_test.cpp.o
+[100%] Linking CXX executable bin/memory_profiler_test
+[100%] Built target memory_profiler_test
+[ 50%] Building CXX object CMakeFiles/backprop_test.dir/tests/backprop_test.cpp.o
+[100%] Linking CXX executable bin/backprop_test
+[100%] Built target backprop_test
+[ 50%] Building CXX object CMakeFiles/device_benchmark_test.dir/tests/device_benchmark_test.cpp.o
+[100%] Linking CXX executable bin/device_benchmark_test
+[100%] Built target device_benchmark_test
+[ 50%] Building CXX object CMakeFiles/hw_fingerprint_test.dir/tests/hw_fingerprint_test.cpp.o
+[100%] Linking CXX executable bin/hw_fingerprint_test
+[100%] Built target hw_fingerprint_test
+* daemon not running; starting now at tcp:5037
+* daemon started successfully
+device ABI: arm64-v8a
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/gcntest: 1 file pushed, 0 skipped. 159.3 MB/s (7757304 bytes in 0.046s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/spmmtest: 1 file pushed, 0 skipped. 149.3 MB/s (8950456 bytes in 0.057s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/coratrain: 1 file pushed, 0 skipped. 137.0 MB/s (8282640 bytes in 0.058s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/algorithm_profiler_test: 1 file pushed, 0 skipped. 138.9 MB/s (11535208 bytes in 0.079s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/memory_profiler_test: 1 file pushed, 0 skipped. 132.1 MB/s (7424384 bytes in 0.054s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/hw_fingerprint_test: 1 file pushed, 0 skipped. 147.4 MB/s (9163040 bytes in 0.059s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/device_benchmark_test: 1 file pushed, 0 skipped. 230.4 MB/s (10186616 bytes in 0.042s)
+7 files pushed, 0 skipped. 130.6 MB/s (63299648 bytes in 0.462s)
+=== spmmtest ===
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss 0.000001, accuracy 100.000000%
+N=3000 nnz=14982  dense: 505.246 ms/iter (34.3323 MB for A)   sparse: 19.7248 ms/iter (117.047 KB for A)
+all passed, failures=0
+=== gcntest ===
+nodes=60 similarity edges=838 csr nnz=1736
+max |A - A^T| = 0
+epoch 0 loss 0.0807598 acc(all) 50%
+epoch 30 loss 7.0334e-07 acc(all) 100%
+epoch 60 loss 1.66893e-07 acc(all) 100%
+epoch 90 loss 1.54972e-07 acc(all) 100%
+epoch 120 loss 1.52985e-07 acc(all) 100%
+epoch 150 loss 1.49012e-07 acc(all) 100%
+=== device_benchmark_test ===
+---- quick run ----
+build: optimized, simd=neon
+fma f32 6.8 GFLOP/s (1 thread), f64 2.6
+gemm f32_16   4.55 GFLOP/s (rsd 0.02)
+gemm f32_256  4.39 GFLOP/s (rsd 0.01)
+gemm f32_512  4.19 GFLOP/s (rsd 0.01)
+gemm f32_64   5.02 GFLOP/s (rsd 0.00)
+gemm f32_tall 4.55 GFLOP/s (rsd 0.02)
+gemm f64_256  2.10 GFLOP/s (rsd 0.00)
+working set      16 KB: latency    3.28 ns, stream   33.48 GB/s
+working set      64 KB: latency    4.11 ns, stream   34.85 GB/s
+working set     256 KB: latency    9.51 ns, stream   15.70 GB/s
+working set    1024 KB: latency  141.00 ns, stream   10.49 GB/s
+working set    4096 KB: latency  212.07 ns, stream    9.96 GB/s
+working set   16384 KB: latency  237.07 ns, stream    9.59 GB/s
+working set   65536 KB: latency  249.03 ns, stream    9.42 GB/s
+gather 4.3 M edges/s (0.55 GB/s, 0.06 of stream)
+conv 3.72 GFLOP/s, md 0.177 Ginteractions/s, rnn 23845 steps/s (3.14 GFLOP/s)
+fork-join 8.9 us, tiny call 33.1 ns
+threads  1: 7.8 GFLOP/s (eff 1.00), 9.1 GB/s
+threads  2: 14.3 GFLOP/s (eff 0.92), 9.9 GB/s
+threads  4: 25.8 GFLOP/s (eff 0.83), 9.9 GB/s
+threads  8: 51.9 GFLOP/s (eff 0.83), 9.4 GB/s
+class little  pinned=1 1t 6.4 GFLOP/s, all 38.8 GFLOP/s
+class big     pinned=1 1t 7.8 GFLOP/s, all 15.6 GFLOP/s
+skipped: sustained: out of time budget
+note: cache sizes unknown: cannot confirm the DRAM probe left the cache
+total 5.27 s
+FAIL /home/thot/Tensor flow project/TensorF/tests/device_benchmark_test.cpp:201  P.sustained.ran && P.sustained.window_gflops.size() >= 3 && P.sustained.fraction > 0.2 && P.sustained.fraction < 3.0
+FAIL /home/thot/Tensor flow project/TensorF/tests/device_benchmark_test.cpp:252  P.sustained.temp_start_c && P.sustained.temp_end_c && *P.sustained.temp_end_c > *P.sustained.temp_start_c
+100/102 checks passed
+➜  TensorF git:(main) ✗ 
+➜  TensorF git:(main) ✗ make clean
+[CLEAN] ./bin/
+rm -rf ./bin
+➜  TensorF git:(main) ✗ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+➜  TensorF git:(main) ✗ ./scripts/run_android.sh
+-- The CXX compiler identification is Clang 21.0.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /home/thot/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - not found
+-- Check if compiler accepts -pthread
+-- Check if compiler accepts -pthread - yes
+-- Found Threads: TRUE  
+-- Configuring done (0.7s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/thot/Tensor flow project/TensorF/build-android-arm64-v8a
+[ 50%] Building CXX object CMakeFiles/gcntest.dir/tests/gcntest.cpp.o
+[100%] Linking CXX executable bin/gcntest
+[100%] Built target gcntest
+[ 50%] Building CXX object CMakeFiles/spmmtest.dir/tests/spmmtest.cpp.o
+[100%] Linking CXX executable bin/spmmtest
+[100%] Built target spmmtest
+[ 50%] Building CXX object CMakeFiles/coratrain.dir/tests/coratrain.cpp.o
+[100%] Linking CXX executable bin/coratrain
+[100%] Built target coratrain
+[ 50%] Building CXX object CMakeFiles/algorithm_profiler_test.dir/tests/algorithm_profiler_test.cpp.o
+[100%] Linking CXX executable bin/algorithm_profiler_test
+[100%] Built target algorithm_profiler_test
+[ 50%] Building CXX object CMakeFiles/memory_profiler_test.dir/tests/memory_profiler_test.cpp.o
+[100%] Linking CXX executable bin/memory_profiler_test
+[100%] Built target memory_profiler_test
+gmake: *** No rule to make target 'backprop_test'.  Stop.
+➜  TensorF git:(main) ✗ ./scripts/run_android.sh
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/thot/Tensor flow project/TensorF/build-android-arm64-v8a
+[100%] Built target gcntest
+[100%] Built target spmmtest
+[100%] Built target coratrain
+[100%] Built target algorithm_profiler_test
+[100%] Built target memory_profiler_test
+[ 50%] Building CXX object CMakeFiles/device_benchmark_test.dir/tests/device_benchmark_test.cpp.o
+[100%] Linking CXX executable bin/device_benchmark_test
+[100%] Built target device_benchmark_test
+[ 50%] Building CXX object CMakeFiles/hw_fingerprint_test.dir/tests/hw_fingerprint_test.cpp.o
+[100%] Linking CXX executable bin/hw_fingerprint_test
+[100%] Built target hw_fingerprint_test
+device ABI: arm64-v8a
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/gcntest: 1 file pushed, 0 skipped. 131.1 MB/s (7757304 bytes in 0.056s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/spmmtest: 1 file pushed, 0 skipped. 208.5 MB/s (8950456 bytes in 0.041s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/coratrain: 1 file pushed, 0 skipped. 208.9 MB/s (8282640 bytes in 0.038s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/algorithm_profiler_test: 1 file pushed, 0 skipped. 198.2 MB/s (11535208 bytes in 0.056s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/memory_profiler_test: 1 file pushed, 0 skipped. 191.9 MB/s (7424384 bytes in 0.037s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/hw_fingerprint_test: 1 file pushed, 0 skipped. 156.6 MB/s (9163040 bytes in 0.056s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/device_benchmark_test: 1 file pushed, 0 skipped. 142.1 MB/s (10186616 bytes in 0.068s)
+7 files pushed, 0 skipped. 132.8 MB/s (63299648 bytes in 0.455s)
+=== spmmtest ===
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss 0.000000, accuracy 100.000000%
+N=3000 nnz=14982  dense: 486.404 ms/iter (34.3323 MB for A)   sparse: 18.0985 ms/iter (117.047 KB for A)
+all passed, failures=0
+=== gcntest ===
+nodes=60 similarity edges=838 csr nnz=1736
+max |A - A^T| = 0
+epoch 0 loss 0.0985373 acc(all) 50%
+epoch 30 loss 6.41747e-07 acc(all) 100%
+epoch 60 loss 2.14577e-07 acc(all) 100%
+epoch 90 loss 1.80801e-07 acc(all) 100%
+epoch 120 loss 1.74841e-07 acc(all) 100%
+epoch 150 loss 1.72854e-07 acc(all) 100%
+=== algorithm_profiler_test ===
+---- model vs real kernels (1 thread) ----
+gemm 192x300x500       predicted    12.042 ms  measured    10.803 ms  ratio 1.11
+gemm 1000x64x64        predicted     1.713 ms  measured     1.483 ms  ratio 1.15
+conv 8ch 48x48         predicted     0.605 ms  measured     0.610 ms  ratio 0.99
+gather 50k nodes       predicted   124.996 ms  measured   110.425 ms  ratio 1.13
+rnn H=128 step         predicted     0.010 ms  measured     0.007 ms  ratio 1.41
+md 2048 brute          predicted    21.962 ms  measured    21.895 ms  ratio 1.00
+chase 32MB x20000      predicted     5.431 ms  measured     4.761 ms  ratio 1.14
+229/229 checks passed
+=== memory_profiler_test ===
+FAIL /home/thot/Tensor flow project/TensorF/tests/memory_profiler_test.cpp:142  after.rss >= before.rss + 50 * MB
+real allocator overhead: valid=1 factor=1.000 requested=24 MB delta=23 MB
+106/107 checks passed
+➜  TensorF git:(main) ✗ 
+➜  TensorF git:(main) ✗ ./scripts/run_android.sh
+-- Configuring done (0.0s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/thot/Tensor flow project/TensorF/build-android-arm64-v8a
+[100%] Built target gcntest
+[100%] Built target spmmtest
+[100%] Built target coratrain
+[100%] Built target algorithm_profiler_test
+[100%] Built target memory_profiler_test
+[100%] Built target device_benchmark_test
+[100%] Built target hw_fingerprint_test
+device ABI: arm64-v8a
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/gcntest: 1 file pushed, 0 skipped. 181.1 MB/s (7757304 bytes in 0.041s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/spmmtest: 1 file pushed, 0 skipped. 211.5 MB/s (8950456 bytes in 0.040s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/coratrain: 1 file pushed, 0 skipped. 229.3 MB/s (8282640 bytes in 0.034s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/algorithm_profiler_test: 1 file pushed, 0 skipped. 232.0 MB/s (11535208 bytes in 0.047s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/memory_profiler_test: 1 file pushed, 0 skipped. 208.1 MB/s (7424384 bytes in 0.034s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/hw_fingerprint_test: 1 file pushed, 0 skipped. 230.6 MB/s (9163040 bytes in 0.038s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/device_benchmark_test: 1 file pushed, 0 skipped. 181.9 MB/s (10186616 bytes in 0.053s)
+7 files pushed, 0 skipped. 138.9 MB/s (63299648 bytes in 0.435s)
+=== spmmtest ===
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss 0.000001, accuracy 100.000000%
+N=3000 nnz=14982  dense: 451.417 ms/iter (34.3323 MB for A)   sparse: 18.5584 ms/iter (117.047 KB for A)
+all passed, failures=0
+=== gcntest ===
+nodes=60 similarity edges=838 csr nnz=1736
+max |A - A^T| = 0
+epoch 0 loss 0.0918572 acc(all) 50%
+epoch 30 loss 1.03315e-07 acc(all) 100%
+epoch 60 loss 4.17233e-08 acc(all) 100%
+epoch 90 loss 3.97364e-08 acc(all) 100%
+epoch 120 loss 3.97364e-08 acc(all) 100%
+epoch 150 loss 3.57628e-08 acc(all) 100%
+=== memory_profiler_test ===
+FAIL /home/thot/Tensor flow project/TensorF/tests/memory_profiler_test.cpp:142  after.rss >= before.rss + 50 * MB
+real allocator overhead: valid=1 factor=1.000 requested=24 MB delta=23 MB
+106/107 checks passed
+➜  TensorF git:(main) ✗ ./scripts/run_android.sh
+-- The CXX compiler identification is Clang 21.0.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /home/thot/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - not found
+-- Check if compiler accepts -pthread
+-- Check if compiler accepts -pthread - yes
+-- Found Threads: TRUE  
+-- Configuring done (0.9s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/thot/Tensor flow project/TensorF/build-android-arm64-v8a
+[ 50%] Building CXX object CMakeFiles/gcntest.dir/tests/gcntest.cpp.o
+[100%] Linking CXX executable bin/gcntest
+[100%] Built target gcntest
+[ 50%] Building CXX object CMakeFiles/spmmtest.dir/tests/spmmtest.cpp.o
+[100%] Linking CXX executable bin/spmmtest
+[100%] Built target spmmtest
+[ 50%] Building CXX object CMakeFiles/coratrain.dir/tests/coratrain.cpp.o
+[100%] Linking CXX executable bin/coratrain
+[100%] Built target coratrain
+[ 50%] Building CXX object CMakeFiles/algorithm_profiler_test.dir/tests/algorithm_profiler_test.cpp.o
+[100%] Linking CXX executable bin/algorithm_profiler_test
+[100%] Built target algorithm_profiler_test
+[ 50%] Building CXX object CMakeFiles/memory_profiler_test.dir/tests/memory_profiler_test.cpp.o
+[100%] Linking CXX executable bin/memory_profiler_test
+[100%] Built target memory_profiler_test
+[ 50%] Building CXX object CMakeFiles/device_benchmark_test.dir/tests/device_benchmark_test.cpp.o
+[100%] Linking CXX executable bin/device_benchmark_test
+[100%] Built target device_benchmark_test
+[ 50%] Building CXX object CMakeFiles/hw_fingerprint_test.dir/tests/hw_fingerprint_test.cpp.o
+[100%] Linking CXX executable bin/hw_fingerprint_test
+[100%] Built target hw_fingerprint_test
+device ABI: arm64-v8a
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/gcntest: 1 file pushed, 0 skipped. 139.1 MB/s (7757304 bytes in 0.053s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/spmmtest: 1 file pushed, 0 skipped. 147.1 MB/s (8950456 bytes in 0.058s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/coratrain: 1 file pushed, 0 skipped. 150.6 MB/s (8282640 bytes in 0.052s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/algorithm_profiler_test: 1 file pushed, 0 skipped. 163.8 MB/s (11535208 bytes in 0.067s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/memory_profiler_test: 1 file pushed, 0 skipped. 195.0 MB/s (7424384 bytes in 0.036s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/hw_fingerprint_test: 1 file pushed, 0 skipped. 198.2 MB/s (9163040 bytes in 0.044s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/device_benchmark_test: 1 file pushed, 0 skipped. 204.4 MB/s (10186616 bytes in 0.048s)
+7 files pushed, 0 skipped. 133.9 MB/s (63299648 bytes in 0.451s)
+=== spmmtest ===
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss 0.000000, accuracy 100.000000%
+N=3000 nnz=14982  dense: 461.839 ms/iter (34.3323 MB for A)   sparse: 19.8802 ms/iter (117.047 KB for A)
+all passed, failures=0
+=== gcntest ===
+nodes=60 similarity edges=838 csr nnz=1736
+max |A - A^T| = 0
+epoch 0 loss 0.0851213 acc(all) 0%
+epoch 30 loss 0.00498543 acc(all) 100%
+epoch 60 loss 0.00161341 acc(all) 100%
+epoch 90 loss 0.000956402 acc(all) 100%
+epoch 120 loss 0.000666652 acc(all) 100%
+epoch 150 loss 0.000499631 acc(all) 100%
+=== algorithm_profiler_test ===
+---- model vs real kernels (1 thread) ----
+gemm 192x300x500       predicted    11.990 ms  measured    10.813 ms  ratio 1.11
+gemm 1000x64x64        predicted     1.705 ms  measured     1.511 ms  ratio 1.13
+conv 8ch 48x48         predicted     0.610 ms  measured     0.610 ms  ratio 1.00
+gather 50k nodes       predicted   122.186 ms  measured   105.628 ms  ratio 1.16
+rnn H=128 step         predicted     0.010 ms  measured     0.007 ms  ratio 1.39
+md 2048 brute          predicted    21.985 ms  measured    21.911 ms  ratio 1.00
+chase 32MB x20000      predicted     4.737 ms  measured     4.650 ms  ratio 1.02
+229/229 checks passed
+=== hw_fingerprint_test ===
+---- real machine ----
+Android 15 (phone) Xiaomi 23053RN02A
+aarch64 MT6769V/CZ, 8/8 cpus online, 8 usable
+  class big: 2 cpu(s) Cortex-A75 2000 MHz cap 1024
+  class little: 6 cpu(s) Cortex-A55 1800 MHz cap 516
+memory 7685 MB total, 3173 MB usable now
+  note: cache topology unreadable for class little
+  note: cache topology unreadable for class big
+  note: no thermal zones readable: the governor must use the OS thermal API or a heuristic
+  note: power_supply not readable: battery and charger state unknown (use BatteryManager in the app shell)
+FAIL /home/thot/Tensor flow project/TensorF/tests/hw_fingerprint_test.cpp:248  fp.storage.known && fp.storage.total >= fp.storage.free && fp.storage.free > 0
+79/80 checks passed
+➜  TensorF git:(main) ✗ 
+

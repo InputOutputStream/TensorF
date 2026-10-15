@@ -1,0 +1,463 @@
+OK
+[CXX] examples/GPT2.cpp → bin/gpt2
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools examples/GPT2.cpp -o bin/gpt2 -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[CXX] examples/SmollLLM.cpp → bin/smollm
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools examples/SmollLLM.cpp -o bin/smollm -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[CXX] examples/transformer.cpp → bin/transformer
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools examples/transformer.cpp -o bin/transformer -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[CXX] tests/basic_tests.cpp → bin/basic_tests
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/basic_tests.cpp -o bin/basic_tests -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+^Cmake: *** [Makefile:102: bin/basic_tests] Interrupt
+
+➜  TensorF git:(main) ✗ make 
+── Compilateur
+g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+── nlohmann/json
+3.11.3
+  OK pkg-config
+── OpenBLAS
+0.3.26
+  OK
+── pthreads
+OK
+[CXX] tests/basic_tests.cpp → bin/basic_tests
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/basic_tests.cpp -o bin/basic_tests -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/basic_tests
+[CXX] tests/gcntest.cpp → bin/gcntest
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/gcntest.cpp -o bin/gcntest -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/gcntest
+[CXX] tests/spmmtest.cpp → bin/spmmtest
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/spmmtest.cpp -o bin/spmmtest -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/spmmtest
+[CXX] tests/coratrain.cpp → bin/coratrain
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/coratrain.cpp -o bin/coratrain -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/coratrain
+[CXX] tests/contract.cpp → bin/contract
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/contract.cpp -o bin/contract -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/contract
+[CXX] tests/diff_ops.cpp → bin/diff_ops
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/diff_ops.cpp -o bin/diff_ops -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/diff_ops
+[CXX] tests/matrix_tests.cpp → bin/matrix_tests
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/matrix_tests.cpp -o bin/matrix_tests -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/matrix_tests
+[CXX] tests/scope_test.cpp → bin/scope_test
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/scope_test.cpp -o bin/scope_test -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/scope_test
+[CXX] tests/support_tests.cpp → bin/support_tests
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/support_tests.cpp -o bin/support_tests -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/support_tests
+[CXX] tests/lowprec_tests.cpp → bin/lowprec_tests
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/lowprec_tests.cpp -o bin/lowprec_tests -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/lowprec_tests
+[CXX] tests/backprop_test.cpp → bin/backprop_test
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/backprop_test.cpp -o bin/backprop_test -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/backprop_test
+[CXX] tests/profiler_probe_test.cpp → bin/profiler_probe_test
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/profiler_probe_test.cpp -o bin/profiler_probe_test -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/profiler_probe_test
+[CXX] tests/profiler_capability_test.cpp → bin/profiler_capability_test
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/profiler_capability_test.cpp -o bin/profiler_capability_test -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/profiler_capability_test
+[CXX] tests/profiler_workload_test.cpp → bin/profiler_workload_test
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/profiler_workload_test.cpp -o bin/profiler_workload_test -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/profiler_workload_test
+[CXX] tests/device_benchmark_test.cpp → bin/device_benchmark_test
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/device_benchmark_test.cpp -o bin/device_benchmark_test -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/device_benchmark_test
+[CXX] tests/hw_fingerprint_test.cpp → bin/hw_fingerprint_test
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/hw_fingerprint_test.cpp -o bin/hw_fingerprint_test -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/hw_fingerprint_test
+[CXX] tests/memory_profiler_test.cpp → bin/memory_profiler_test
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/memory_profiler_test.cpp -o bin/memory_profiler_test -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/memory_profiler_test
+[CXX] tests/algorithm_profiler_test.cpp → bin/algorithm_profiler_test
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools tests/algorithm_profiler_test.cpp -o bin/algorithm_profiler_test -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+[RUN] ./bin/algorithm_profiler_test
+[CXX] gateway/src/main.cpp → bin/tensorf-gateway
+g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter -I. -I./include -I./include/core -I./include/nn -I./include/data -I./include/net -I./include/profiler -I./include/parallel -I./include/tools -Igateway/include gateway/src/main.cpp -o bin/tensorf-gateway -lpthread -L/usr/lib/x86_64-linux-gnu/openblas-pthread/ -lopenblas  
+➜  TensorF git:(main) ✗ make clean
+[CLEAN] ./bin/
+rm -rf ./bin
+➜  TensorF git:(main) ✗ ./scripts/run_android.sh
+-- The CXX compiler identification is Clang 21.0.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /home/thot/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - not found
+-- Check if compiler accepts -pthread
+-- Check if compiler accepts -pthread - yes
+-- Found Threads: TRUE  
+-- Configuring done (1.1s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/thot/Tensor flow project/TensorF/build-android-arm64-v8a
+[ 50%] Building CXX object CMakeFiles/gcntest.dir/tests/gcntest.cpp.o
+[100%] Linking CXX executable bin/gcntest
+[100%] Built target gcntest
+[ 50%] Building CXX object CMakeFiles/spmmtest.dir/tests/spmmtest.cpp.o
+[100%] Linking CXX executable bin/spmmtest
+[100%] Built target spmmtest
+[ 50%] Building CXX object CMakeFiles/coratrain.dir/tests/coratrain.cpp.o
+[100%] Linking CXX executable bin/coratrain
+[100%] Built target coratrain
+[ 50%] Building CXX object CMakeFiles/algorithm_profiler_test.dir/tests/algorithm_profiler_test.cpp.o
+[100%] Linking CXX executable bin/algorithm_profiler_test
+[100%] Built target algorithm_profiler_test
+[ 50%] Building CXX object CMakeFiles/memory_profiler_test.dir/tests/memory_profiler_test.cpp.o
+[100%] Linking CXX executable bin/memory_profiler_test
+[100%] Built target memory_profiler_test
+[ 50%] Building CXX object CMakeFiles/device_benchmark_test.dir/tests/device_benchmark_test.cpp.o
+[100%] Linking CXX executable bin/device_benchmark_test
+[100%] Built target device_benchmark_test
+[ 50%] Building CXX object CMakeFiles/hw_fingerprint_test.dir/tests/hw_fingerprint_test.cpp.o
+[100%] Linking CXX executable bin/hw_fingerprint_test
+[100%] Built target hw_fingerprint_test
+[ 50%] Building CXX object CMakeFiles/profiler_capability_test.dir/tests/profiler_capability_test.cpp.o
+[100%] Linking CXX executable bin/profiler_capability_test
+[100%] Built target profiler_capability_test
+[ 50%] Building CXX object CMakeFiles/profiler_workload_test.dir/tests/profiler_workload_test.cpp.o
+[100%] Linking CXX executable bin/profiler_workload_test
+[100%] Built target profiler_workload_test
+[ 50%] Building CXX object CMakeFiles/profiler_probe_test.dir/tests/profiler_probe_test.cpp.o
+[100%] Linking CXX executable bin/profiler_probe_test
+[100%] Built target profiler_probe_test
+device ABI: arm64-v8a
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/gcntest: 1 file pushed, 0 skipped. 124.5 MB/s (7757304 bytes in 0.059s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/spmmtest: 1 file pushed, 0 skipped. 129.7 MB/s (8950456 bytes in 0.066s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/coratrain: 1 file pushed, 0 skipped. 181.0 MB/s (8282640 bytes in 0.044s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/algorithm_profiler_test: 1 file pushed, 0 skipped. 176.4 MB/s (11535208 bytes in 0.062s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/memory_profiler_test: 1 file pushed, 0 skipped. 174.2 MB/s (7424384 bytes in 0.041s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/hw_fingerprint_test: 1 file pushed, 0 skipped. 184.7 MB/s (9163040 bytes in 0.047s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/device_benchmark_test: 1 file pushed, 0 skipped. 180.9 MB/s (10186616 bytes in 0.054s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_capability_test: 1 file pushed, 0 skipped. 191.0 MB/s (11192248 bytes in 0.056s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_workload_test: 1 file pushed, 0 skipped. 170.8 MB/s (10559344 bytes in 0.059s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_probe_test: 1 file pushed, 0 skipped. 187.3 MB/s (14144296 bytes in 0.072s)
+10 files pushed, 0 skipped. 137.3 MB/s (99195536 bytes in 0.689s)
+=== spmmtest ===
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss -0.000000, accuracy 100.000000%
+N=3000 nnz=14982  dense: 530.917 ms/iter (34.3323 MB for A)   sparse: 20.3582 ms/iter (117.047 KB for A)
+all passed, failures=0
+=== gcntest ===
+nodes=60 similarity edges=838 csr nnz=1736
+max |A - A^T| = 0
+epoch 0 loss 0.0692904 acc(all) 100%
+epoch 30 loss 0.00405166 acc(all) 100%
+epoch 60 loss 0.00109664 acc(all) 100%
+epoch 90 loss 0.000645284 acc(all) 100%
+epoch 120 loss 0.000452846 acc(all) 100%
+epoch 150 loss 0.000341421 acc(all) 100%
+=== algorithm_profiler_test ===
+---- model vs real kernels (1 thread) ----
+gemm 192x300x500       predicted    12.652 ms  measured    11.047 ms  ratio 1.15
+gemm 1000x64x64        predicted     1.799 ms  measured     1.561 ms  ratio 1.15
+conv 8ch 48x48         predicted     0.630 ms  measured     0.627 ms  ratio 1.00
+gather 50k nodes       predicted   128.265 ms  measured   120.703 ms  ratio 1.06
+rnn H=128 step         predicted     0.010 ms  measured     0.007 ms  ratio 1.41
+md 2048 brute          predicted    22.605 ms  measured    22.467 ms  ratio 1.01
+chase 32MB x20000      predicted     5.102 ms  measured     5.044 ms  ratio 1.01
+229/229 checks passed
+=== memory_profiler_test ===
+FAIL /home/thot/Tensor flow project/TensorF/tests/memory_profiler_test.cpp:142  after.rss >= before.rss + 50 * MB
+real allocator overhead: valid=1 factor=1.000 requested=24 MB delta=23 MB
+106/107 checks passed
+➜  TensorF git:(main) ✗ ./scripts/run_android.sh
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/thot/Tensor flow project/TensorF/build-android-arm64-v8a
+[100%] Built target gcntest
+[100%] Built target spmmtest
+[100%] Built target coratrain
+[100%] Built target algorithm_profiler_test
+[100%] Built target memory_profiler_test
+[100%] Built target device_benchmark_test
+[100%] Built target hw_fingerprint_test
+[100%] Built target profiler_capability_test
+[100%] Built target profiler_workload_test
+[100%] Built target profiler_probe_test
+device ABI: arm64-v8a
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/gcntest: 1 file pushed, 0 skipped. 125.5 MB/s (7757304 bytes in 0.059s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/spmmtest: 1 file pushed, 0 skipped. 199.3 MB/s (8950456 bytes in 0.043s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/coratrain: 1 file pushed, 0 skipped. 192.4 MB/s (8282640 bytes in 0.041s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/algorithm_profiler_test: 1 file pushed, 0 skipped. 201.1 MB/s (11535208 bytes in 0.055s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/memory_profiler_test: 1 file pushed, 0 skipped. 178.7 MB/s (7424384 bytes in 0.040s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/hw_fingerprint_test: 1 file pushed, 0 skipped. 187.5 MB/s (9163040 bytes in 0.047s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/device_benchmark_test: 1 file pushed, 0 skipped. 191.4 MB/s (10186616 bytes in 0.051s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_capability_test: 1 file pushed, 0 skipped. 168.2 MB/s (11192248 bytes in 0.063s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_workload_test: 1 file pushed, 0 skipped. 181.4 MB/s (10559344 bytes in 0.056s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_probe_test: 1 file pushed, 0 skipped. 179.7 MB/s (14144296 bytes in 0.075s)
+10 files pushed, 0 skipped. 141.6 MB/s (99195536 bytes in 0.668s)
+=== spmmtest ===
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss 0.000001, accuracy 100.000000%
+N=3000 nnz=14982  dense: 483.031 ms/iter (34.3323 MB for A)   sparse: 18.9245 ms/iter (117.047 KB for A)
+all passed, failures=0
+=== gcntest ===
+nodes=60 similarity edges=838 csr nnz=1736
+max |A - A^T| = 0
+epoch 0 loss 0.104395 acc(all) 50%
+epoch 30 loss 7.72879e-07 acc(all) 100%
+epoch 60 loss 1.15236e-07 acc(all) 100%
+epoch 90 loss 1.01328e-07 acc(all) 100%
+epoch 120 loss 1.01328e-07 acc(all) 100%
+epoch 150 loss 1.01328e-07 acc(all) 100%
+=== algorithm_profiler_test ===
+---- model vs real kernels (1 thread) ----
+gemm 192x300x500       predicted    12.467 ms  measured    11.078 ms  ratio 1.13
+gemm 1000x64x64        predicted     1.773 ms  measured     1.567 ms  ratio 1.13
+conv 8ch 48x48         predicted     0.621 ms  measured     0.626 ms  ratio 0.99
+gather 50k nodes       predicted   122.851 ms  measured   109.376 ms  ratio 1.12
+rnn H=128 step         predicted     0.010 ms  measured     0.007 ms  ratio 1.40
+md 2048 brute          predicted    22.569 ms  measured    22.468 ms  ratio 1.00
+chase 32MB x20000      predicted     4.827 ms  measured     4.824 ms  ratio 1.00
+229/229 checks passed
+=== hw_fingerprint_test ===
+---- real machine ----
+Android 15 (phone) Xiaomi 23053RN02A
+aarch64 MT6769V/CZ, 8/8 cpus online, 8 usable
+  class big: 2 cpu(s) Cortex-A75 2000 MHz cap 1024
+  class little: 6 cpu(s) Cortex-A55 1800 MHz cap 516
+memory 7685 MB total, 2791 MB usable now
+  note: cache topology unreadable for class little
+  note: cache topology unreadable for class big
+  note: no thermal zones readable: the governor must use the OS thermal API or a heuristic
+  note: power_supply not readable: battery and charger state unknown (use BatteryManager in the app shell)
+FAIL /home/thot/Tensor flow project/TensorF/tests/hw_fingerprint_test.cpp:248  fp.storage.known && fp.storage.total >= fp.storage.free && fp.storage.free > 0
+79/80 checks passed
+➜  TensorF git:(main) ✗ ./scripts/run_android.sh
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/thot/Tensor flow project/TensorF/build-android-arm64-v8a
+[100%] Built target gcntest
+[100%] Built target spmmtest
+[100%] Built target coratrain
+[100%] Built target algorithm_profiler_test
+[100%] Built target memory_profiler_test
+[100%] Built target device_benchmark_test
+[100%] Built target hw_fingerprint_test
+[100%] Built target profiler_capability_test
+[100%] Built target profiler_workload_test
+[100%] Built target profiler_probe_test
+device ABI: arm64-v8a
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/gcntest: 1 file pushed, 0 skipped. 51.8 MB/s (7757304 bytes in 0.143s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/spmmtest: 1 file pushed, 0 skipped. 168.5 MB/s (8950456 bytes in 0.051s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/coratrain: 1 file pushed, 0 skipped. 189.3 MB/s (8282640 bytes in 0.042s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/algorithm_profiler_test: 1 file pushed, 0 skipped. 197.6 MB/s (11535208 bytes in 0.056s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/memory_profiler_test: 1 file pushed, 0 skipped. 203.5 MB/s (7424384 bytes in 0.035s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/hw_fingerprint_test: 1 file pushed, 0 skipped. 204.8 MB/s (9163040 bytes in 0.043s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/device_benchmark_test: 1 file pushed, 0 skipped. 231.2 MB/s (10186616 bytes in 0.042s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_capability_test: 1 file pushed, 0 skipped. 193.9 MB/s (11192248 bytes in 0.055s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_workload_test: 1 file pushed, 0 skipped. 136.6 MB/s (10559344 bytes in 0.074s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_probe_test: 1 file pushed, 0 skipped. 196.0 MB/s (14144296 bytes in 0.069s)
+10 files pushed, 0 skipped. 126.0 MB/s (99195536 bytes in 0.751s)
+=== spmmtest ===
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss 0.000000, accuracy 100.000000%
+N=3000 nnz=14982  dense: 487.487 ms/iter (34.3323 MB for A)   sparse: 18.7105 ms/iter (117.047 KB for A)
+all passed, failures=0
+=== gcntest ===
+nodes=60 similarity edges=838 csr nnz=1736
+max |A - A^T| = 0
+epoch 0 loss 0.048096 acc(all) 96.6667%
+epoch 30 loss 7.41088e-07 acc(all) 100%
+epoch 60 loss 2.48353e-07 acc(all) 100%
+epoch 90 loss 2.32458e-07 acc(all) 100%
+epoch 120 loss 2.32458e-07 acc(all) 100%
+epoch 150 loss 2.30472e-07 acc(all) 100%
+=== algorithm_profiler_test ===
+---- model vs real kernels (1 thread) ----
+gemm 192x300x500       predicted    12.422 ms  measured    10.822 ms  ratio 1.15
+gemm 1000x64x64        predicted     1.767 ms  measured     1.543 ms  ratio 1.14
+conv 8ch 48x48         predicted     0.619 ms  measured     0.625 ms  ratio 0.99
+gather 50k nodes       predicted   131.218 ms  measured   109.350 ms  ratio 1.20
+rnn H=128 step         predicted     0.010 ms  measured     0.007 ms  ratio 1.44
+md 2048 brute          predicted    22.484 ms  measured    22.476 ms  ratio 1.00
+chase 32MB x20000      predicted     4.848 ms  measured     4.840 ms  ratio 1.00
+229/229 checks passed
+=== profiler_capability_test ===
+[ProfilerCommon: parsing helpers]
+[ProfilerCommon: JSON writer]
+[Fingerprint: big.LITTLE arm64 phone (Android)]
+[Fingerprint: armv7 Android 7 phone]
+[Fingerprint: x86 microarchitecture from family/model]
+[Fingerprint: Intel hybrid (P/E cores) and SMT]
+[Core grouping and classes (pure)]
+[Memory budget: cgroup + kernel reserve]
+[Level plan and latency on small caches]
+[Pointer chase is ONE cycle]
+[Thermal guard verdicts (pure)]
+[ThermalProbe on fixtures]
+[Kernels: GEMM correctness (shapes crossing the JB/KB block edges)]
+[Kernels: RNG, graph, barrier, window]
+[Kernels: measurements produce sane numbers]
+[Kernels: sustained run honours the stop callback]
+[Kernels: barrier-paced loop never deadlocks]
+[Real machine: fingerprint sanity]
+[Suite: hot device stops immediately]
+[Suite: full run under a 9 s budget]
+  FAIL /home/thot/Tensor flow project/TensorF/tests/profiler_capability_test.cpp:539  cv.bw_l1_gbs > cv.bw_dram_gbs
+  (info) f32 4.0 GFLOP/s, DRAM read 8.7 GB/s, noise 11%, used 7.9 s
+
+155 checks, 1 failed
+➜  TensorF git:(main) ✗ ./scripts/run_android.sh
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/thot/Tensor flow project/TensorF/build-android-arm64-v8a
+[100%] Built target gcntest
+[100%] Built target spmmtest
+[100%] Built target coratrain
+[100%] Built target algorithm_profiler_test
+[100%] Built target memory_profiler_test
+[100%] Built target device_benchmark_test
+[100%] Built target hw_fingerprint_test
+[100%] Built target profiler_capability_test
+[100%] Built target profiler_workload_test
+[100%] Built target profiler_probe_test
+device ABI: arm64-v8a
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/gcntest: 1 file pushed, 0 skipped. 126.0 MB/s (7757304 bytes in 0.059s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/spmmtest: 1 file pushed, 0 skipped. 161.8 MB/s (8950456 bytes in 0.053s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/coratrain: 1 file pushed, 0 skipped. 176.1 MB/s (8282640 bytes in 0.045s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/algorithm_profiler_test: 1 file pushed, 0 skipped. 180.4 MB/s (11535208 bytes in 0.061s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/memory_profiler_test: 1 file pushed, 0 skipped. 182.5 MB/s (7424384 bytes in 0.039s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/hw_fingerprint_test: 1 file pushed, 0 skipped. 207.1 MB/s (9163040 bytes in 0.042s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/device_benchmark_test: 1 file pushed, 0 skipped. 190.1 MB/s (10186616 bytes in 0.051s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_capability_test: 1 file pushed, 0 skipped. 199.0 MB/s (11192248 bytes in 0.054s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_workload_test: 1 file pushed, 0 skipped. 186.6 MB/s (10559344 bytes in 0.054s)
+/home/thot/Tensor flow project/TensorF/build-android-arm64-v8a/bin/profiler_probe_test: 1 file pushed, 0 skipped. 194.0 MB/s (14144296 bytes in 0.070s)
+10 files pushed, 0 skipped. 139.1 MB/s (99195536 bytes in 0.680s)
+=== spmmtest ===
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss 0.000943, accuracy 100.000000%
+N=3000 nnz=14982  dense: 482.768 ms/iter (34.3323 MB for A)   sparse: 18.6845 ms/iter (117.047 KB for A)
+all passed, failures=0
+=== gcntest ===
+nodes=60 similarity edges=838 csr nnz=1736
+max |A - A^T| = 0
+epoch 0 loss 0.0916472 acc(all) 50%
+epoch 30 loss 4.76837e-08 acc(all) 100%
+epoch 60 loss 1.58946e-08 acc(all) 100%
+epoch 90 loss 1.58946e-08 acc(all) 100%
+epoch 120 loss 1.58946e-08 acc(all) 100%
+epoch 150 loss 1.58946e-08 acc(all) 100%
+=== algorithm_profiler_test ===
+---- model vs real kernels (1 thread) ----
+gemm 192x300x500       predicted    12.446 ms  measured    11.083 ms  ratio 1.12
+gemm 1000x64x64        predicted     1.770 ms  measured     1.550 ms  ratio 1.14
+conv 8ch 48x48         predicted     0.625 ms  measured     0.626 ms  ratio 1.00
+gather 50k nodes       predicted   123.189 ms  measured   109.004 ms  ratio 1.13
+rnn H=128 step         predicted     0.010 ms  measured     0.007 ms  ratio 1.41
+md 2048 brute          predicted    22.531 ms  measured    22.483 ms  ratio 1.00
+chase 32MB x20000      predicted     4.768 ms  measured     4.718 ms  ratio 1.01
+229/229 checks passed
+=== profiler_workload_test ===
+[dense: flops, bytes, memory]
+[a transformer layer is ~12*E^2 parameters (the old advisor assumed 2*E^2)]
+[attention: quadratic scores, flash-style, cached decode]
+[spmm: gather is irregular]
+[recurrent: dependent chain]
+[particles: all pairs vs neighbour list]
+[embedding, norm, elementwise, optimizer]
+[memory: categories add, scratch is the max]
+[checkpointing: less activation memory, more flops]
+[totals: micro-steps repeat layers, not the optimizer]
+[calibration]
+[predict: compute-bound dense]
+[predict: memory-bound elementwise]
+[predict: irregular access uses the gather rate]
+[predict: threads, width cap, assumed scaling]
+[predict: dependent chains pay a barrier per step]
+[predict: memory fit]
+[predict: calibration and micro-steps]
+[predict: degenerate inputs]
+[parallel_speedup]
+[Algorithm: tunables and rebuild per config]
+[same predictor, different algorithms, different bottlenecks]
+[prediction JSON]
+[live: real capability vector]
+  (info) mlp batch 64 on this device: 13.59 ms/step predicted (+/- 60%), dominant compute
+
+196 checks, 0 failed
+=== profiler_probe_test ===
+[fit: a known 2x miss is recovered and held-out cases are priced within a few percent]
+[fit: factors are per kind; unprobed kinds fall back to the global median]
+[fit: a composite step is held out and priced layer by layer]
+[guards: memory, exceptions, budget, thermal, bad prediction]
+[measure: a slow case still gets min_samples, never a single noisy sample]
+[fit_report: leave-one-out on hand-made results (no timing)]
+[output: JSON and printed report]
+
+Workload model validation  (blas: shim, threads validated: 1, 0.0 s)
+  case                        predicted   measured   ratio  noise  LOO err
+  d1                             0.42 ms     0.63 ms   1.50x     0%       0%
+  d2                             1.42 ms     2.12 ms   1.50x     0%       0%
+  skipped "quoted"            exception: bad "thing"
+
+  per kind (factor = measured/predicted; LOO = error on a held-out case):
+    dense        cases 2  factor 1.50  raw miss  33% -> LOO miss   0% (max 0%)
+    fallback     factor 1.50  (applied to kinds with no probe)
+  overall: raw median miss 33%, leave-one-out median miss 0%
+  not validated (no op to measure): conv2d particle
+
+Workload model validation  (blas: , threads validated: 1, 0.0 s)
+  case                        predicted   measured   ratio  noise  LOO err
+  per kind (factor = measured/predicted; LOO = error on a held-out case):
+    fallback     factor 1.00  (applied to kinds with no probe)
+  overall: raw median miss 0%, leave-one-out median miss 60%
+[reference cases: definitions]
+[reference cases: every step runs on real ops (tiny scale)]
+[real probe with a synthetic capability vector: mechanics, not accuracy]
+[real probe with a REAL capability vector]
+
+Workload model validation  (blas: shim, threads validated: 1, 8.1 s)
+  case                        predicted   measured   ratio  noise  LOO err
+  dense_sq 128x128x128           1.04 ms     0.90 ms   0.86x     4%      45%
+  dense_sq 256x256x256           8.33 ms    10.49 ms   1.26x     2%      17%
+  dense_sq 512x512x512          66.67 ms    90.57 ms   1.36x     4%      23%
+  dense_skinny 4x1024x1024       4.92 ms     3.25 ms   0.66x     8%      90%
+  dense_rect 64x784x256          6.38 ms     8.00 ms   1.25x     2%      17%
+  add_small n=16384              0.02 ms     0.04 ms   1.74x     2%     193%
+  add_large n=4194304            5.47 ms    27.88 ms   5.10x     3%      66%
+  spmm n=5000 F=16               1.49 ms     1.73 ms   1.16x    24%     116%
+  spmm n=20000 F=64             23.44 ms    49.45 ms   2.11x    13%      12%
+  spmm n=50000 F=32             29.47 ms    88.16 ms   2.99x     1%      48%
+  rnn B=8 h=64 T=50              1.28 ms     3.20 ms   2.50x     5%      29%
+  rnn B=32 h=128 T=25            9.97 ms    17.65 ms   1.77x     3%      41%
+  mlp_train B=32 H=128           3.26 ms     9.55 ms   2.93x     9%      57%
+  mlp_train B=128 H=256         26.07 ms    56.02 ms   2.15x     2%      41%
+  per kind (factor = measured/predicted; LOO = error on a held-out case):
+    dense        cases 5  factor 1.25  raw miss  21% -> LOO miss  23% (max 90%)
+    spmm         cases 3  factor 2.11  raw miss  53% -> LOO miss  48% (max 116%)
+    recurrent    cases 2  factor 2.10  raw miss  52% -> LOO miss  35% (max 41%)
+    elementwise  cases 2  factor 2.98  raw miss  61% -> LOO miss 129% (max 193%)
+    composite    cases 2  factor 1.76  raw miss  60% -> LOO miss  49% (max 57%)
+    fallback     factor 1.76  (applied to kinds with no probe)
+  overall: raw median miss 47%, leave-one-out median miss 43%
+  not validated (no op to measure): conv2d attention norm embedding particle optimizer
+
+249 checks, 0 failed
+/home/thot/Tensor flow project/TensorF/Datasets/cora/cora.content: 1 file pushed, 0 skipped. 309.8 MB/s (7823427 bytes in 0.024s)
+/home/thot/Tensor flow project/TensorF/Datasets/cora/cora.cites: 1 file pushed, 0 skipped. 46.2 MB/s (69928 bytes in 0.001s)
+2 files pushed, 0 skipped. 91.5 MB/s (7893355 bytes in 0.082s)

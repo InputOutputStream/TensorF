@@ -31,6 +31,8 @@ INC := \
     -I$(ROOT)/include/nn \
     -I$(ROOT)/include/data \
     -I$(ROOT)/include/net \
+    -I$(ROOT)/include/profiler \
+    -I$(ROOT)/include/parallel \
     -I$(ROOT)/include/tools
 
 # ── Librairies système ────────────────────────────────────────────────────────
@@ -90,12 +92,6 @@ $(BIN)/server: $(SERVER_SRC)
 
 client: $(BIN)/client
 $(BIN)/client: $(CLIENT_SRC)
-	@echo "[CXX] $< → $@"
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
-
-# ── Benchmark / profiler ──────────────────────────────────────────────────────
-benchmark: $(BIN)/benchmark
-$(BIN)/benchmark: tests/benchmark.cpp
 	@echo "[CXX] $< → $@"
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 
@@ -197,6 +193,69 @@ $(BIN)/backprop_test: tests/backprop_test.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 	@echo "[RUN] $(BIN)/backprop_test"
 # 	$(BIN)/backprop_test
+
+# # ── profiler_probe_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/profiler_probe_test
+$(BIN)/profiler_probe_test: tests/profiler_probe_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/profiler_probe_test"
+# 	$(BIN)/profiler_probe_test
+
+# ── profiler_capability_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/profiler_capability_test
+$(BIN)/profiler_capability_test: tests/profiler_capability_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/profiler_capability_test"
+# 	$(BIN)/profiler_capability_test
+
+# ── profiler_workload_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/profiler_workload_test
+$(BIN)/profiler_workload_test: tests/profiler_workload_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/profiler_workload_test"
+# 	$(BIN)/profiler_workload_test
+
+# ── device_benchmark_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/device_benchmark_test
+$(BIN)/device_benchmark_test: tests/device_benchmark_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/device_benchmark_test"
+# 	$(BIN)/device_benchmark_test
+
+# ── hw_fingerprint_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/hw_fingerprint_test
+$(BIN)/hw_fingerprint_test: tests/hw_fingerprint_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/hw_fingerprint_test"
+# 	$(BIN)/hw_fingerprint_test
+
+# ── memory_profiler_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/memory_profiler_test
+$(BIN)/memory_profiler_test: tests/memory_profiler_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/memory_profiler_test"
+# 	$(BIN)/memory_profiler_test
+
+# ── algorithm_profiler_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/algorithm_profiler_test
+$(BIN)/algorithm_profiler_test: tests/algorithm_profiler_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/algorithm_profiler_test"
+# 	$(BIN)/algorithm_profiler_test
 
 # ── Network  ───────────────────────────────────────────────────────────
 

@@ -16,6 +16,8 @@ set(TENSORF_INCLUDES
   ${CMAKE_CURRENT_SOURCE_DIR}/include/nn
   ${CMAKE_CURRENT_SOURCE_DIR}/include/data
   ${CMAKE_CURRENT_SOURCE_DIR}/include/net
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/profiler
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/parallel
   ${CMAKE_CURRENT_SOURCE_DIR}/include/tools)
 
 # BLAS. Default: the self-contained shim in include/tools/cblas.h (no OpenBLAS needed).
@@ -47,9 +49,18 @@ find_package(Threads REQUIRED)
 target_link_libraries(tensorf_deps INTERFACE Threads::Threads)
 
 set(TENSORF_OUT ${CMAKE_BINARY_DIR}/bin)
-foreach(t gcntest spmmtest coratrain basic_tests)
+foreach(t gcntest spmmtest coratrain basic_tests algorithm_profiler_test memory_profiler_test device_benchmark_test hw_fingerprint_test profiler_capability_test profiler_probe_test profiler_workload_test)
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE tensorf_deps)
   target_compile_options(${t} PRIVATE -Wall -Wextra -Wno-unused-parameter)
   set_target_properties(${t} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TENSORF_OUT})
 endforeach()
+
+# algorithm_profiler_test  gpt2                      scope_test
+# backprop_test            hw_fingerprint_test       smollm
+# basic_tests              lowprec_tests             spmmtest
+# contract                 matrix_tests              support_tests
+# coratrain                memory_profiler_test      tensorf-gateway
+# device_benchmark_test    profiler_capability_test  transformer
+# diff_ops                 profiler_probe_test
+# gcntest                  profiler_workload_test
