@@ -28,6 +28,11 @@
  *   - predict energy. That needs the governor's joules-per-op calibration (separate
  *     document); Prediction carries FLOPs and bytes so energy can be derived later.
  *
+ * Memory model validation (TensorAccounting.hpp, hook + graph census, tests/profiler_memory_test.cpp):
+ *   dense and elementwise training memory are validated against real Tensor autograd (parameters, gradients and
+ *   activations to the byte; backward temporaries to <0.1%). conv2d, attention, norm, recurrent, embedding and
+ *   spmm memory are analytic ONLY: their numbers are estimates until the same measurement is run on them.
+ *
  * Honesty notes on the analytic model:
  *   - Byte counts are an "ideal traffic" estimate: each tensor read or written once per
  *     pass. Real kernels with poor blocking move more; Calibration absorbs that.
@@ -163,6 +168,13 @@ inline void add_param_mem(LayerCost& c, double n_params, const RunSpec& r) {
         c.mem.optimizer += n_params * bytes_of(Dtype::F32) * r.opt_states;   // optimizer state kept in f32
     }
 }
+// Reverse-mode autograd keeps the gradient of every intermediate (non-leaf) tensor alive until the graph is
+// released: one extra copy of the layer's output, on top of the saved inputs. Measured against TensorF's
+// Tensor::backward with the allocation hook (TensorAccounting.hpp census): the retained intermediate
+// gradients of an MLP step equal the sum of its layers' output sizes to the byte.
+inline void retain_out_grad(LayerCost& c, const RunSpec& r) {
+    if (r.train()) c.mem.activations += c.act_out_bytes;
+}
 }  // namespace detail
 
 // ─── Layer library ───────────────────────────────────────────────────────────
@@ -187,10 +199,19 @@ inline LayerCost dense(double M, double K, double N, const RunSpec& r, std::stri
         c.bytes_bwd = (r.trainable ? (M * N + M * K + K * N) * e : 0.0) + (r.need_input_grad ? (M * N + K * N + M * K) * e : 0.0);
         c.op_calls += (r.trainable ? 2 : 0) + (r.need_input_grad ? 1 : 0) + (bias ? 1 : 0);
         c.mem.activations = M * K * e;                 // the input is kept for dW
+        detail::retain_out_grad(c, r);
     } else {
         c.mem.activations = M * N * e;
     }
     c.mem.scratch = M * N * e;
+    if (r.train()) {
+        // TensorF's matmul_grads(A,B,G) holds, at its peak, 3*M*K + 3*K*N + 1*M*N elements of temporaries
+        // (value copies of A, B and G, two transposes, two products and their reshape copies). Fitted with the
+        // allocation hook over ten shapes, error < 0.1%. It computes BOTH gradients whether or not the inputs
+        // require grad, so these temporaries and the 4*M*K*N flops are paid even for a first layer: describe
+        // TensorF as it is (need_input_grad = true) unless a future op skips the work.
+        c.mem.scratch = std::max(c.mem.scratch, (3.0 * M * K + 3.0 * K * N + 1.0 * M * N) * e);
+    }
     return c;
 }
 
@@ -330,6 +351,7 @@ inline LayerCost elementwise(double n, double flops_per_elem, double streams, co
         c.bytes_bwd = c.bytes_fwd;
         c.op_calls += 1;
         c.mem.activations = n * e;
+        detail::retain_out_grad(c, r);
     } else {
         c.mem.activations = n * e;
     }

@@ -53,7 +53,9 @@ namespace tensorf::prof {
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
-enum class OS { Linux, Android, Apple, Windows, Other };
+// NB: enumerators are mixed-case on purpose. The NDK CMake toolchain defines ANDROID as a macro
+// (-DANDROID=1) and GNU modes predefine `linux`, so an enumerator named after a platform macro breaks the build.
+enum class OS     { Linux, Android, Apple, Windows, Other };
 enum class Arch   { X86_64, X86, ARM64, ARM32, OTHER };
 enum class Vendor { INTEL, AMD, ARM_LICENSED, APPLE, UNKNOWN };   // ARM_LICENSED: ARM, Qualcomm, Samsung, ... cores
 enum class CoreClass { UNIFORM, PRIME, PERFORMANCE, EFFICIENCY };

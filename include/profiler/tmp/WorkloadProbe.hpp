@@ -375,10 +375,11 @@ inline ProbeCase rnn_case(const char* name, size_t B, size_t in, size_t hid, siz
 inline ProbeCase mlp_case(const char* name, size_t B, size_t I, size_t H, size_t O) {
     ProbeCase c; c.name = std::string(name) + " B=" + std::to_string(B) + " H=" + std::to_string(H);
     c.kind = kOpKinds;                                       // a composite of dense + elementwise: attributed to the global factor
+    // need_input_grad stays true on fc1: TensorF's MatmulOperation::backward computes BOTH gradients and only then
+    // asks accumulate() to drop the one for an input that does not require grad, so the work is done regardless.
     RunSpec r; r.mode = Mode::TRAIN; r.opt_states = 0;
-    RunSpec first = r; first.need_input_grad = false;
     Workload w; w.name = c.name; w.units_per_micro_step = (double)B;
-    w.layers = {dense((double)B, (double)I, (double)H, first, "fc1", false),
+    w.layers = {dense((double)B, (double)I, (double)H, r, "fc1", false),
                 elementwise((double)(B * H), 1.0, 2.0, r, "relu"),
                 dense((double)B, (double)H, (double)O, r, "fc2", false),
                 elementwise((double)(B * O), 2.0, 2.0, r, "square+sum")};

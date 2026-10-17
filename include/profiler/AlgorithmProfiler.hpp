@@ -596,9 +596,15 @@ public:
     }
 
     ProfileResult evaluate(const Config& cfg, const ExecPlan& plan) const {
+        return evaluate_with(cfg, model_->costs(cfg), plan);
+    }
+
+    // Same, with the step costs already built (they do not depend on the thread count, so a search
+    // over threads builds them once).
+    ProfileResult evaluate_with(const Config& cfg, StepCosts costs, const ExecPlan& plan) const {
         ProfileResult r;
         r.config = cfg; r.plan = plan;
-        r.costs = model_->costs(cfg);
+        r.costs = std::move(costs);
         CostModel cm(P_);
         r.time = cm.predict(r.costs, plan);
         r.time.seconds *= scale_;
@@ -617,17 +623,16 @@ public:
         return r;
     }
 
-    // Fit the model to real measurements: probe(cfg, plan) must run ONE real step and return seconds.
-    ModelFit calibrate(const ProbeFn& probe, const std::vector<std::pair<Config, ExecPlan>>& runs, int repeats = 3) {
+    struct Sample { Config config; ExecPlan plan; double measured_s = 0; };
+
+    // Fit the model to measurements that were already taken.
+    ModelFit fit_samples(const std::vector<Sample>& samples) {
         ModelFit f;
         std::vector<double> ratios;
-        for (const auto& run : runs) {
-            std::vector<double> t;
-            for (int i = 0; i < std::max(1, repeats); ++i) t.push_back(probe(run.first, run.second));
-            std::sort(t.begin(), t.end());
-            const double measured = t[t.size() / 2];
-            const double predicted = raw_prediction(run.first, run.second).seconds;
-            if (measured > 0 && predicted > 0 && std::isfinite(measured) && std::isfinite(predicted)) ratios.push_back(measured / predicted);
+        for (const auto& s : samples) {
+            const double predicted = raw_prediction(s.config, s.plan).seconds;
+            if (s.measured_s > 0 && predicted > 0 && std::isfinite(s.measured_s) && std::isfinite(predicted))
+                ratios.push_back(s.measured_s / predicted);
         }
         f.samples = int(ratios.size());
         if (ratios.empty()) return f;
@@ -639,6 +644,18 @@ public:
         scale_ = f.scale;
         error_ = f.spread;
         return f;
+    }
+
+    // Fit the model to real measurements: probe(cfg, plan) must run ONE real step and return seconds.
+    ModelFit calibrate(const ProbeFn& probe, const std::vector<std::pair<Config, ExecPlan>>& runs, int repeats = 3) {
+        std::vector<Sample> samples;
+        for (const auto& run : runs) {
+            std::vector<double> t;
+            for (int i = 0; i < std::max(1, repeats); ++i) t.push_back(probe(run.first, run.second));
+            std::sort(t.begin(), t.end());
+            samples.push_back({run.first, run.second, t[t.size() / 2]});
+        }
+        return fit_samples(samples);
     }
 
 private:

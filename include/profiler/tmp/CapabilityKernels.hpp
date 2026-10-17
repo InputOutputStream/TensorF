@@ -35,6 +35,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <stdlib.h>   // posix_memalign
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -55,6 +56,25 @@ namespace tensorf::prof::kernels {
 
 // ─── Memory + threading helpers ──────────────────────────────────────────────
 
+// std::aligned_alloc is missing below Android API 28 (libc++ marks it using_if_exists) and on MSVC.
+// posix_memalign exists on every Android level and on Linux/macOS; Windows has _aligned_malloc.
+inline void* aligned_alloc_portable(size_t alignment, size_t bytes) {
+#if defined(_WIN32)
+    return _aligned_malloc(bytes, alignment);
+#else
+    void* p = nullptr;
+    if (posix_memalign(&p, alignment, bytes) != 0) return nullptr;
+    return p;
+#endif
+}
+inline void aligned_free_portable(void* p) {
+#if defined(_WIN32)
+    _aligned_free(p);
+#else
+    std::free(p);
+#endif
+}
+
 template <class T>
 class AlignedBuf {
 public:
@@ -70,16 +90,7 @@ public:
         release();
         if (n == 0) return true;
         const size_t bytes = ((n * sizeof(T) + 63) / 64) * 64;
-
-        void* p = nullptr;
-        #if defined(__ANDROID__)
-            // Android API < 28
-            p = ::memalign(64, bytes);
-        #else
-            // Standard C++17
-            p = std::aligned_alloc(64, bytes);
-        #endif
-
+        void* p = aligned_alloc_portable(64, bytes);
         if (!p) return false;
         p_ = static_cast<T*>(p); n_ = n;
         return true;
@@ -91,7 +102,7 @@ public:
     const T& operator[](size_t i) const { return p_[i]; }
     explicit operator bool() const { return p_ != nullptr; }
 private:
-    void release() { std::free(p_); p_ = nullptr; n_ = 0; }
+    void release() { aligned_free_portable(p_); p_ = nullptr; n_ = 0; }
     T* p_ = nullptr; size_t n_ = 0;
 };
 

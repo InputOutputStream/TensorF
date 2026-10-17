@@ -93,7 +93,11 @@ static void test_dense() {
     CHECK_NEAR(tr.flops(), 6.0 * M * K * N, 1e-6);          // the textbook 3x forward
     CHECK_NEAR(tr.mem.grads, (K * N + N) * 4.0, 1e-6);
     CHECK_NEAR(tr.mem.optimizer, (K * N + N) * 4.0 * 2.0, 1e-6);   // Adam: m and v
-    CHECK_NEAR(tr.mem.activations, M * K * 4.0, 1e-6);      // the input is kept for dW
+    // saved input (for dW) + the retained gradient of the output (autograd keeps intermediate grads alive)
+    CHECK_NEAR(tr.mem.activations, (M * K + M * N) * 4.0, 1e-6);
+    // backward temporaries of TensorF's matmul_grads, fitted with the allocation hook: 3MK + 3KN + MN elements
+    CHECK_NEAR(tr.mem.scratch, (3.0 * M * K + 3.0 * K * N + M * N) * 4.0, 1e-6);
+    CHECK_NEAR(inf.mem.scratch, M * N * 4.0, 1e-6);          // inference only holds the output
     CHECK(tr.gemm_m == M);
 
     t.need_input_grad = false;                              // first layer: no dX
@@ -230,17 +234,17 @@ static void test_memory_estimate() {
     CHECK_NEAR(m.params, 4 * P, 1e-6);
     CHECK_NEAR(m.grads, 4 * P, 1e-6);
     CHECK_NEAR(m.optimizer, 8 * P, 1e-6);
-    CHECK_NEAR(m.activations, 4.0 * 64 * 64 * 4, 1e-6);
-    CHECK_NEAR(m.scratch, 64.0 * 64 * 4, 1e-6);                         // the largest one, not the sum
+    CHECK_NEAR(m.activations, 4.0 * (64.0 * 64 + 64.0 * 64) * 4, 1e-6);   // per layer: saved input + retained output grad
+    CHECK_NEAR(m.scratch, (3.0 * 4096 + 3.0 * 4096 + 4096) * 4, 1e-6);    // the largest layer's backward temporaries, not the sum
     CHECK_NEAR(m.tensor_total, m.params + m.grads + m.optimizer + m.activations + m.scratch, 1e-6);
     CHECK_NEAR(estimate_memory(w, 1.5).process_total, 1.5 * m.tensor_total, 1e-6);
-    // Inference needs less than training for the same layers. With activations dominating
-    // (small shapes) the gap is modest; with parameters dominating (many weights, few rows) it is ~4x
-    // (training adds grads + two Adam moments = 3 extra copies of the parameters).
+    // Inference needs less than training for the same layers. With activations dominating (small shapes) the
+    // gap is modest; with parameters dominating (many weights, few rows) training holds grads + two Adam
+    // moments (3 extra copies of the parameters) plus matmul_grads' 3*K*N temporaries: about 4.7x here.
     CHECK(estimate_memory(stack_of_dense(4, 64, 64, Mode::INFER), 1.0).tensor_total < m.tensor_total * 0.5);
     const double inf_p = estimate_memory(stack_of_dense(4, 4, 512, Mode::INFER), 1.0).tensor_total;
     const double trn_p = estimate_memory(stack_of_dense(4, 4, 512, Mode::TRAIN), 1.0).tensor_total;
-    CHECK(trn_p / inf_p > 3.5 && trn_p / inf_p < 4.1);
+    CHECK(trn_p / inf_p > 4.0 && trn_p / inf_p < 5.5);
 }
 
 static void test_checkpointing() {
@@ -261,9 +265,11 @@ static void test_checkpointing() {
         // persistent memory is untouched
         CHECK_NEAR(estimate_memory(c, 1.0).params, estimate_memory(w, 1.0).params, 1e-6);
     }
-    // 2 segments of 4 equal layers: boundary(1) + largest segment(4) = 5 units of 8
+    // 2 segments of 4 equal layers. Each layer keeps 2 units (saved input + retained output grad), so the
+    // baseline is 16 units; checkpointing keeps boundary(1) + largest segment(4 layers x 2 = 8) = 9.
     const double unit = 64.0 * 64 * 4;
-    CHECK_NEAR(estimate_memory(with_checkpointing(w, 2), 1.0).activations, 5 * unit, 1e-6);
+    CHECK_NEAR(base_act, 16 * unit, 1e-6);
+    CHECK_NEAR(estimate_memory(with_checkpointing(w, 2), 1.0).activations, 9 * unit, 1e-6);
     // empty and oversized segment counts are safe
     CHECK_NEAR(estimate_memory(with_checkpointing(Workload{}, 4), 1.0).tensor_total, 0.0, 1e-12);
     CHECK(estimate_memory(with_checkpointing(w, 1000), 1.0).activations > 0);

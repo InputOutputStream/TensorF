@@ -49,7 +49,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(tensorf_deps INTERFACE Threads::Threads)
 
 set(TENSORF_OUT ${CMAKE_BINARY_DIR}/bin)
-foreach(t gcntest spmmtest coratrain basic_tests algorithm_profiler_test memory_profiler_test device_benchmark_test hw_fingerprint_test profiler_capability_test profiler_probe_test profiler_workload_test)
+foreach(t gcntest spmmtest coratrain basic_tests algorithm_profiler_test memory_profiler_test profiler_memory_test device_benchmark_test profiler_advisor_test hyperparam_advisor_test profiler_memory_nohook_test hw_fingerprint_test profiler_capability_test profiler_probe_test profiler_workload_test )
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE tensorf_deps)
   target_compile_options(${t} PRIVATE -Wall -Wextra -Wno-unused-parameter)
@@ -64,3 +64,9 @@ endforeach()
 # device_benchmark_test    profiler_capability_test  transformer
 # diff_ops                 profiler_probe_test
 # gcntest                  profiler_workload_test
+
+
+# echo "===  ==="; adb shell "$REMOTE/profiler_advisor_test"
+# echo "===   ==="; adb shell "$REMOTE/hyperparam_advisor_test"
+# echo "===  ==="; adb shell "$REMOTE/profiler_memory_test"
+# echo "===  ==="; adb shell "$REMOTE/profiler_memory_nohook_test"

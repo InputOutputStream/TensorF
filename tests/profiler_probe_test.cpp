@@ -403,8 +403,9 @@ static void test_reference_case_definitions() {
     }
     // MLP composites describe the training path: backward flops present, first layer skips dX
     for (const auto& c : cases) if (c.kind == kOpKinds) {
-        // first layer: input needs no gradient, so backward is dW only (== forward flops); fc2 has dW + dX (== 2x forward)
-        CHECK_REL(c.workload.layers[0].flops_bwd, c.workload.layers[0].flops_fwd, 1e-9);
+        // TensorF's matmul backward computes dW AND dX for every layer, including the first (whose input needs no
+        // gradient), so both dense layers describe 2x their forward flops
+        CHECK_REL(c.workload.layers[0].flops_bwd, 2.0 * c.workload.layers[0].flops_fwd, 1e-9);
         CHECK_REL(c.workload.layers[2].flops_bwd, 2.0 * c.workload.layers[2].flops_fwd, 1e-9);
         CHECK(c.workload.layers.size() == 4);
     }

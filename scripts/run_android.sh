@@ -22,13 +22,18 @@ cmake -S "$ROOT" -B "$BUILD" -G "Unix Makefiles" \
   -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI="$ABI" -DANDROID_PLATFORM="android-$API" \
   -DCMAKE_BUILD_TYPE=Release "$@"
-cmake --build "$BUILD" -j"$(nproc)" --target gcntest spmmtest coratrain algorithm_profiler_test memory_profiler_test device_benchmark_test hw_fingerprint_test profiler_capability_test  profiler_workload_test profiler_probe_test
+cmake --build "$BUILD" -j"$(nproc)" --target gcntest spmmtest coratrain algorithm_profiler_test memory_profiler_test device_benchmark_test hw_fingerprint_test profiler_capability_test  profiler_workload_test profiler_probe_test profiler_advisor_test hyperparam_advisor_test profiler_memory_nohook_test profiler_memory_test
 
 adb get-state >/dev/null            # fails early if no device is connected/authorised
 echo "device ABI: $(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
 adb shell "mkdir -p $REMOTE"
-adb push "$BUILD/bin/gcntest" "$BUILD/bin/spmmtest" "$BUILD/bin/coratrain" "$BUILD/bin/algorithm_profiler_test" "$BUILD/bin/memory_profiler_test" "$BUILD/bin/hw_fingerprint_test" "$BUILD/bin/device_benchmark_test" "$BUILD/bin/profiler_capability_test" "$BUILD/bin/profiler_workload_test" "$BUILD/bin/profiler_probe_test" "$REMOTE/"
-adb shell "chmod +x $REMOTE/gcntest $REMOTE/spmmtest $REMOTE/coratrain $REMOTE/algorithm_profiler_test $REMOTE/memory_profiler_test $REMOTE/hw_fingerprint_test $REMOTE/device_benchmark_test $REMOTE/profiler_capability_test $REMOTE/profiler_workload_test $REMOTE/profiler_probe_test"
+adb push "$BUILD/bin/gcntest" "$BUILD/bin/spmmtest" "$BUILD/bin/coratrain" "$BUILD/bin/algorithm_profiler_test" "$BUILD/bin/memory_profiler_test" "$BUILD/bin/hw_fingerprint_test" "$REMOTE/"
+adb push "$BUILD/bin/device_benchmark_test" "$BUILD/bin/profiler_capability_test" "$BUILD/bin/profiler_workload_test" "$BUILD/bin/profiler_probe_test" "$REMOTE/"
+adb push "$BUILD/bin/profiler_advisor_test" "$BUILD/bin/hyperparam_advisor_test" "$BUILD/bin/profiler_memory_nohook_test" "$BUILD/bin/profiler_memory_test" "$REMOTE/"
+
+adb shell "chmod +x $REMOTE/gcntest $REMOTE/spmmtest $REMOTE/coratrain $REMOTE/algorithm_profiler_test $REMOTE/hw_fingerprint_test $REMOTE/memory_profiler_test"
+adb shell "chmod +x $REMOTE/device_benchmark_test $REMOTE/profiler_capability_test $REMOTE/profiler_workload_test $REMOTE/profiler_probe_test"
+adb shell "chmod +x $REMOTE/profiler_advisor_test $REMOTE/hyperparam_advisor_test $REMOTE/profiler_memory_nohook_test $REMOTE/profiler_memory_test"
 
 echo "=== spmmtest ==="; adb shell "$REMOTE/spmmtest"
 echo "=== gcntest ===";  adb shell "$REMOTE/gcntest"
@@ -39,6 +44,10 @@ echo "=== algorithm_profiler_test ===";  adb shell "$REMOTE/algorithm_profiler_t
 # echo "=== profiler_capability_test ===";  adb shell "$REMOTE/profiler_capability_test"
 echo "=== profiler_workload_test ==="; adb shell "$REMOTE/profiler_workload_test"
 echo "=== profiler_probe_test ==="; adb shell "$REMOTE/profiler_probe_test"
+echo "=== profiler_advisor_test ==="; adb shell "$REMOTE/profiler_advisor_test"
+echo "=== hyperparam_advisor_test ==="; adb shell "$REMOTE/hyperparam_advisor_test"
+echo "=== profiler_memory_test ==="; adb shell "$REMOTE/profiler_memory_test"
+echo "=== profiler_memory_nohook_test ==="; adb shell "$REMOTE/profiler_memory_nohook_test"
 
 # Real data: Cora (run ./scripts/download_cora.sh first). Set CORA=0 to skip, EPOCHS=n to change length.
 if [ "${CORA:-1}" = "1" ] && [ -s "$ROOT/Datasets/cora/cora.content" ]; then
@@ -49,3 +58,5 @@ if [ "${CORA:-1}" = "1" ] && [ -s "$ROOT/Datasets/cora/cora.content" ]; then
 else
   echo "(skipping Cora: run ./scripts/download_cora.sh to enable)"
 fi
+
+

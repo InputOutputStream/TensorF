@@ -257,6 +257,42 @@ $(BIN)/algorithm_profiler_test: tests/algorithm_profiler_test.cpp
 	@echo "[RUN] $(BIN)/algorithm_profiler_test"
 # 	$(BIN)/algorithm_profiler_test
 
+# ── hyperparam_advisor_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/hyperparam_advisor_test
+$(BIN)/hyperparam_advisor_test: tests/hyperparam_advisor_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/hyperparam_advisor_test"
+# 	$(BIN)/hyperparam_advisor_test
+
+# ── profiler_memory_nohook_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/profiler_memory_nohook_test
+$(BIN)/profiler_memory_nohook_test: tests/profiler_memory_nohook_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/profiler_memory_nohook_test"
+# 	$(BIN)/profiler_memory_nohook_test
+
+# ── profiler_memory_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/profiler_memory_test
+$(BIN)/profiler_memory_test: tests/profiler_memory_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/profiler_memory_test"
+# 	$(BIN)/profiler_memory_test
+
+# ── profiler_advisor_test  ───────────────────────────────────────────────────────────
+
+tests: $(BIN)/profiler_advisor_test
+$(BIN)/profiler_advisor_test: tests/profiler_advisor_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "[RUN] $(BIN)/profiler_advisor_test"
+# 	$(BIN)/profiler_advisor_test
+
 # ── Network  ───────────────────────────────────────────────────────────
 
 net: client server
