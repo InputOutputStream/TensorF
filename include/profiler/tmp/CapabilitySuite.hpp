@@ -7,7 +7,9 @@
  * THERMAL GUARD, and assembles the result into a CapabilityVector:
  *
  *     flop/s per precision and shape      bandwidth + latency per cache level
- *     DRAM saturation point (threads)     gather/scatter efficiency (GNN)
+ *     framework GEMM (Matrix::matmul,     DRAM saturation point (threads)
+ *       BLAS rate, thread curve, per      gather/scatter efficiency (GNN)
+ *       core class: FrameworkBench.hpp)
  *     conv, dependent-chain, n-body       fork-join / thread-spawn / tiny-op overheads
  *     thread scaling per core class       does mixing core classes hurt?
  *     sustained fraction (throttling)     noise estimate and per-group validity
@@ -42,6 +44,7 @@
 
 #include "CapabilityKernels.hpp"
 #include "DeviceFingerprint.hpp"
+#include "FrameworkBench.hpp"
 #include "ProfilerCommon.hpp"
 
 namespace tensorf::prof {
@@ -102,6 +105,19 @@ struct CapabilityVector {
     double conv_gflops = 0.0;
     double nbody_gflops = 0.0;
     double nbody_pairs_per_s = 0.0;
+
+    // --- the framework itself: Matrix::matmul through the BLAS it selected ---
+    // The portable gemm above depends on compile flags (SSE2 without -march=native) and can sit 20x below BLAS.
+    // Training runs Matrix::matmul, so GEMM-bound layers are priced with these numbers when `fw.usable()`.
+    fwbench::FwProfile fw;
+    // Scalar views of the framework rates (what the cost model reads; hand-built vectors can set them directly).
+    std::string blas_backend;                 // tensorf::blas::backend(): "openblas", "shim", "none"
+    double blas_f32_gflops = 0.0;             // Matrix::matmul, best square f32, one thread
+    double blas_f32_gflops_skinny = 0.0;      // M = 4: decode / small batch
+    double blas_f64_gflops = 0.0;
+    std::vector<fwbench::FwPoint> blas_gemm;  // every framework GEMM point measured
+    // Roof for the ridge point: the framework rate when measured, else the portable loop.
+    double compute_best_gflops() const { return blas_f32_gflops > 0 ? blas_f32_gflops : f32_gflops_best; }
 
     // --- memory ---
     LevelPlan levels;
@@ -264,6 +280,31 @@ public:
             note("gemm", cv.f32_gflops_best > 0);
         } else note("gemm", false, cv.stopped_reason);
 
+        // 2b. the framework's own GEMM (Matrix::matmul through BLAS) -----------
+        // Single-thread points on the fastest core class, the BLAS thread curve, and one pinned thread per class on
+        // big.LITTLE. Runs before any worker pool of this suite exists, and releases its pin before returning.
+        if (thermal_ok("blas_gemm")) {
+            fwbench::Options fo;
+            fo.window_s = win;
+            fo.budget_s = std::max(1.0, std::min(total.remaining() * 0.25, 5.0));
+            fo.max_bytes = cap;
+            fo.max_threads = std::min(n_all, cfg_.max_scaling_threads);
+            fo.scaling = n_all >= 2;
+            fo.should_stop = [&] { return !thermal_verdict(probe.read(), cv.temp_start_c, charging, cfg_).empty(); };
+            if (cfg_.pin_threads)
+                for (const auto& c : fp.clusters) if (!c.cpus.empty()) { fo.classes.push_back(c.cpus); fo.class_names.push_back(to_string(c.cls)); }
+            cv.fw = fwbench::run(fo);
+            cv.blas_backend = cv.fw.backend;
+            cv.blas_f32_gflops = cv.fw.best_f32();
+            cv.blas_f32_gflops_skinny = cv.fw.gflops("f32_skinny");
+            cv.blas_f64_gflops = cv.fw.gflops("f64_256");
+            for (const auto& p : cv.fw.points) if (p.ok) cv.blas_gemm.push_back(p);
+            if (cv.fw.usable() && cv.f32_gflops_best > 0 && cv.fw.best_f32() > 1.5 * cv.f32_gflops_best)
+                cv.fw.notes.push_back("the portable gemm loop is far below the framework's BLAS (flags-limited): GEMM layers are priced with the framework rate");
+            note("blas_gemm", cv.fw.usable(),
+                 cv.fw.usable() ? (cv.fw.threads_effective ? "" : "BLAS gained nothing from more threads here") : (cv.fw.notes.empty() ? "no framework GEMM measured" : cv.fw.notes.front()));
+        } else note("blas_gemm", false, cv.stopped_reason);
+
         // 3. latency ----------------------------------------------------------
         if (thermal_ok("latency")) {
             Deadline dl = total.slice(0.10, 3.0);
@@ -361,6 +402,9 @@ public:
                 cv.recommended_class = s0.cls;
             }
             note("scaling", !cv.scaling.empty(), n_all < 2 ? "single CPU: scaling cannot be measured" : "");
+            // The framework's own GEMM decides: if BLAS threads do not help, plan on one thread.
+            if (cv.fw.usable() && cv.fw.scaling.size() >= 2)
+                cv.recommended_threads = cv.fw.threads_effective ? cv.fw.best_threads : 1;
         } else note("scaling", false, cv.stopped_reason);
 
         // 9. sustained -----------------------------------------------------------
@@ -380,7 +424,7 @@ public:
         cv.temp_end_c = probe.hottest_c();
         if (cv.bw_dram_gbs > 0) {
             cv.gather_efficiency = cv.gather_gbs / cv.bw_dram_gbs;
-            cv.ridge_flop_per_byte = cv.f32_gflops_best / cv.bw_dram_gbs;
+            cv.ridge_flop_per_byte = cv.compute_best_gflops() / cv.bw_dram_gbs;
         }
         cv.noise = spreads.empty() ? 0.0 : max_of(spreads);
         cv.time_used_s = total.elapsed();
@@ -395,6 +439,19 @@ public:
                         c.max_freq_mhz, (unsigned long long)(c.l1d_bytes >> 10), (unsigned long long)(c.l2_bytes >> 10), (unsigned long long)(c.l3_bytes >> 10));
         std::printf("  compute  f32 %.1f  skinny %.1f  f64 %.1f  i8 %.1f  conv %.1f  nbody %.1f  (GFLOP/s)\n",
                     cv.f32_gflops_best, cv.f32_gflops_skinny, cv.f64_gflops, cv.i8_gops, cv.conv_gflops, cv.nbody_gflops);
+        if (cv.fw.usable()) {
+            std::printf("  framework (%s)  f32 %.1f  skinny %.1f  f64 %.1f GFLOP/s%s\n", cv.fw.backend.c_str(), cv.fw.best_f32(),
+                        cv.fw.gflops("f32_skinny"), cv.fw.gflops("f64_256"),
+                        cv.fw.single_thread_pinned ? (" [1t pinned to cpu " + std::to_string(cv.fw.single_thread_cpu) + "]").c_str() : "");
+            if (!cv.fw.scaling.empty()) {
+                std::printf("    BLAS threads:");
+                for (const auto& s : cv.fw.scaling) std::printf("  %dT %.1f (x%.2f; gnn-shape x%.2f, cpu %.1fx)", s.threads, s.gflops, s.speedup, s.small_speedup, s.cpu_ratio);
+                std::printf("%s\n", cv.fw.threads_effective ? "" : "  -> threads do not help, planning on 1");
+            }
+            for (const auto& c : cv.fw.classes) std::printf("    class %-8s cpu %d  %.1f GFLOP/s\n", c.name.c_str(), c.cpu, c.gflops_1t);
+        } else {
+            std::printf("  framework: not linked/measured (rates above are portable kernels, not Matrix::matmul)\n");
+        }
         std::printf("  read BW  L1 %.1f  L2 %.1f  L3 %.1f  DRAM %.1f GB/s | triad 1t %.1f max %.1f (saturates at %d threads)\n",
                     cv.bw_l1_gbs, cv.bw_l2_gbs, cv.bw_l3_gbs, cv.bw_dram_gbs, cv.triad_1t_gbs, cv.triad_max_gbs, cv.dram_saturation_threads);
         std::printf("  latency  L1 %.1f  L2 %.1f  L3 %.1f  DRAM %.1f ns\n", cv.lat_l1_ns, cv.lat_l2_ns, cv.lat_l3_ns, cv.lat_dram_ns);
@@ -417,7 +474,31 @@ inline void to_json(Json& j, const CapabilityVector& cv, const char* key = "capa
     j.begin_object(key);
     j.begin_object("compute")
         .num("f32_gflops", cv.f32_gflops_best).num("f32_skinny_gflops", cv.f32_gflops_skinny).num("f64_gflops", cv.f64_gflops)
-        .num("i8_gops", cv.i8_gops).num("conv_gflops", cv.conv_gflops).num("nbody_gflops", cv.nbody_gflops).end_object();
+        .str("blas_backend", cv.blas_backend).num("blas_f32_gflops", cv.blas_f32_gflops).num("blas_f32_gflops_skinny", cv.blas_f32_gflops_skinny)
+        .num("blas_f64_gflops", cv.blas_f64_gflops).num("i8_gops", cv.i8_gops).num("conv_gflops", cv.conv_gflops).num("nbody_gflops", cv.nbody_gflops).end_object();
+    j.begin_object("framework")
+        .boolean("available", cv.fw.available).str("backend", cv.fw.backend).boolean("usable", cv.fw.usable())
+        .num("f32_gflops", cv.fw.best_f32()).num("f32_skinny_gflops", cv.fw.gflops("f32_skinny")).num("f64_gflops", cv.fw.gflops("f64_256"))
+        .integer("best_threads", cv.fw.best_threads).boolean("threads_effective", cv.fw.threads_effective).boolean("small_threads_effective", cv.fw.small_threads_effective).num("max_speedup", cv.fw.max_speedup)
+        .integer("single_thread_cpu", cv.fw.single_thread_cpu).boolean("single_thread_pinned", cv.fw.single_thread_pinned);
+    j.begin_array("points");
+    for (const auto& p : cv.fw.points)
+        j.begin_object().str("key", p.key).integer("m", (int64_t)p.M).integer("n", (int64_t)p.N).integer("k", (int64_t)p.K)
+            .num("gflops", p.gflops).num("spread", p.spread).boolean("ok", p.ok).end_object();
+    j.end_array();
+    j.begin_array("scaling");
+    for (const auto& s : cv.fw.scaling)
+        j.begin_object().integer("threads", s.threads).num("gflops", s.gflops).num("speedup", s.speedup).num("efficiency", s.eff)
+            .num("gnn_gflops", s.small_gflops).num("gnn_speedup", s.small_speedup).num("cpu_ratio", s.cpu_ratio).end_object();
+    j.end_array();
+    j.begin_array("classes");
+    for (const auto& c : cv.fw.classes)
+        j.begin_object().str("name", c.name).integer("cpu", c.cpu).num("gflops_1t", c.gflops_1t).boolean("pinned", c.pinned).end_object();
+    j.end_array();
+    j.begin_array("notes");
+    for (const auto& n : cv.fw.notes) j.str(nullptr, n);
+    j.end_array();
+    j.end_object();
     j.begin_array("gemm");
     for (const auto& g : cv.gemm)
         j.begin_object().str("prec", kernels::to_string(g.prec)).str("shape", g.shape.tag).integer("m", (int64_t)g.shape.m)

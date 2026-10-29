@@ -53,8 +53,8 @@ endforeach()
 
 ## What the numbers mean
 
-- **Calibration** is per build and per device. `ProbeReport::blas` records which BLAS was measured (`shim` is the
-  portable loop in `include/tools/cblas.h`, not OpenBLAS).
+- **Calibration** is per build and per device. `ProbeReport::blas` records which BLAS was measured (`openblas`, `shim` = the
+  portable loop in `include/tools/cblas_shim.h`, or `none`). The probe pins OpenBLAS to one thread while it measures.
 - **Error range.** Uncalibrated predictions carry 60%. After validation each layer kind carries its measured
   leave-one-out error. The advised range is additionally floored at the device's measured run-to-run noise
   (`ProfilerSuite::noise_floor`: median probe spread / 2.56, one standard deviation of one step).
@@ -100,3 +100,42 @@ workload model describes TensorF as it is (`need_input_grad = true`).
   power-save, thermal status/headroom) and a foreground service; the Apple adapter needs `sysctl`/`ProcessInfo`
   reads and Apple's documentation did not render when the design was written. Shipping that code without a device
   to compile and run it on would be guesswork, so it is left out rather than faked.
+
+## Framework vs portable measurements (cross-platform: PC and Android)
+
+The profilers report two kinds of GEMM numbers:
+
+* **portable** – the profiler's own loops (`gemm`, `fma`, ...). They depend on compile flags
+  (an SSE2-only build gives ~4 GFLOP/s on a CPU whose BLAS reaches ~90). Useful as a hardware
+  probe, **not** what training gets.
+* **framework** (`FrameworkBench.hpp`, `tensorf::fwbench`) – times `Matrix<T>::matmul` itself,
+  i.e. the BLAS that is actually linked (OpenBLAS with runtime CPU dispatch, or the portable shim).
+  The cost models (`CostModel`, `wl::predict`), the ridge point and the sustained/throttling probe
+  use these numbers whenever they exist, and fall back to the portable ones (with a note) when not.
+
+What it measures: f32 GEMM at 16/64/256/512, tall, skinny (decode) and rectangular shapes, f64 256,
+the BLAS **thread-scaling curve**, and a one-thread pinned rate **per core class** (big.LITTLE).
+`threads_effective` is true only if more threads gave >= 1.25x; otherwise planners assign 1 thread.
+
+Platform behaviour:
+
+| Platform | Pinning | Notes |
+|---|---|---|
+| Linux x86 / ARM | raw `sched_setaffinity` syscall | single-thread numbers pinned to the fastest class |
+| Android (bionic) | same raw syscall (no `CPU_SET`/`_GNU_SOURCE` needed) | the scheduler may still migrate under thermal/battery limits: check `spread` |
+| macOS / iOS / Windows | skipped, recorded in `notes` | numbers are unpinned |
+
+Disable with `-DTENSORF_FWBENCH_DISABLE`; it is also off automatically when `DataStructures/Matrix.hpp`
+or `tools/tensorf_blas.h` cannot be included. JSON: `capability.framework` (schema `tensorf.profile/2`)
+and `framework` in the device-benchmark JSON.
+
+### The profile follows the build's BLAS choice
+
+`make BLAS=openblas|shim|none` selects the backend at compile time (`TENSORF_USE_OPENBLAS`, `MATRIX_NO_BLAS`).
+The framework stage times `Matrix::matmul`, so it measures exactly the backend that was compiled in and
+prints its name (`framework (openblas)` / `framework (shim)`). The *portable* GEMM rows do **not** change with
+`BLAS=`; compare the `fw` rows. Rebuild the profiler binaries after changing `BLAS=` (the Makefile stamp does this).
+
+Narrow GNN-shaped GEMMs (`f32_gnn`, `f32_gnn_t`, 2708x16x1433) are timed at every BLAS thread count with the
+process CPU/wall ratio. If threads give < 1.15x while burning > 1.5x the CPU, a note says BLAS is spinning and
+recommends `OPENBLAS_NUM_THREADS=1` / `tensorf::blas::ScopedThreads(1)` for small layers.

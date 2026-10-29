@@ -5,6 +5,7 @@
 #include "profiler/DeviceBenchmark.hpp"
 using namespace tensorf::profile;
 using namespace tensorf::profile::kernels;
+namespace fwbench = tensorf::fwbench;
 
 static int fails = 0, checks = 0;
 #define CHECK(c) do { ++checks; if (!(c)) { ++fails; std::printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, #c); } } while (0)
@@ -157,12 +158,12 @@ static void t_pool() {
 }
 
 static void t_measure() {
-    auto m = detail::measure([] { std::this_thread::sleep_for(std::chrono::milliseconds(1)); return 1.0; }, 0.05);
+    auto m = tensorf::profile::detail::measure([] { std::this_thread::sleep_for(std::chrono::milliseconds(1)); return 1.0; }, 0.05);
     CHECK(m.ok && m.windows >= 3);
     CHECK(m.median > 100 && m.median < 1001);              // ~1 call per ms at most
     CHECK(m.best >= m.median && m.rsd >= 0);
     double acc = 0;
-    auto m2 = detail::measure([&] { for (int i = 0; i < 1000; ++i) acc += i; kernels::keep(&acc); return 1000.0; }, 0.02);
+    auto m2 = tensorf::profile::detail::measure([&] { for (int i = 0; i < 1000; ++i) acc += i; kernels::keep(&acc); return 1000.0; }, 0.02);
     CHECK(m2.ok && m2.median > 1e6);
 }
 
@@ -190,7 +191,7 @@ static void t_full_quick() {
     for (auto& kv : P.gemm) CHECK(kv.second.ok && kv.second.median > 0.01 && kv.second.median < 1e5);
     CHECK(!P.latency.empty() && P.latency.size() == P.stream_1t.size());
     for (size_t i = 0; i + 1 < P.latency.size(); ++i) CHECK(P.latency[i].bytes < P.latency[i + 1].bytes);
-    CHECK(P.latency.back().bytes <= cfg.max_working_set_bytes);
+    CHECK(P.latency.empty() || P.latency.back().bytes <= cfg.max_working_set_bytes);   // never dereference an empty sweep: a slow device skips stages
     CHECK(P.gather_edges_per_s.ok && P.gather_gbps > 0 && P.gather_efficiency > 0);
     CHECK(P.conv_gflops.ok && P.md_ginteractions.ok && P.rnn_steps_per_s.ok && P.rnn_gflops > 0);
     CHECK(P.fork_join_us > 0 && P.fork_join_us < 5000 && P.call_overhead_ns > 0 && P.call_overhead_ns < 5000);
@@ -201,12 +202,23 @@ static void t_full_quick() {
     CHECK(P.sustained.ran && P.sustained.window_gflops.size() >= 3 && P.sustained.fraction > 0.2 && P.sustained.fraction < 3.0);
     CHECK(P.duration_s < cfg.budget_seconds + 1.0);
     CHECK(P.device_id == fp.id() && P.derived_ok());
+    // The framework stage times Matrix::matmul through the BLAS this build selected, next to the portable loops above.
+    if (fwbench::available()) {
+        CHECK(P.fw.usable() && P.fw.backend == fwbench::backend_name() && P.fw.best_f32() > 0.01);
+        CHECK(P.fw.gflops("f32_gnn") > 0 && P.fw.gflops("f32_skinny") > 0 && P.fw.gflops("f64_256") > 0);
+        CHECK(P.sustained_via_framework == (P.sustained.ran && P.fw.usable()));
+        CHECK(P.summary().find("fw gemm") != std::string::npos && P.to_json().find("\"framework\"") != std::string::npos);
+        if (!P.fw.threads_effective && P.fw.scaling.size() >= 2) {
+            bool said = false; for (auto& n : P.notes) said |= n.find("single-threaded") != std::string::npos;
+            CHECK(said);
+        }
+    } else CHECK(!P.fw.usable());
     if (kPerfChecks) {
         CHECK(P.build.optimized);
-        CHECK(P.latency.back().ns > 1.5 * P.latency.front().ns);       // DRAM is slower than L1
-        CHECK(P.stream_1t.front().gbps > P.stream_1t.back().gbps * 0.8); // cache-resident stream is not slower than DRAM
+        if (!P.latency.empty()) CHECK(P.latency.back().ns > 1.5 * P.latency.front().ns);       // DRAM is slower than L1
+        if (!P.stream_1t.empty()) CHECK(P.stream_1t.front().gbps > P.stream_1t.back().gbps * 0.8); // cache-resident stream is not slower than DRAM
         CHECK(P.fma_f32.median >= 0.9 * P.fma_f64.median);
-        if (fp.usable_threads >= 2) CHECK(P.scaling.back().gflops > 0.8 * P.scaling.front().gflops);   // more threads must not collapse throughput (vCPUs may share a core, so no speed-up is demanded)
+        if (fp.usable_threads >= 2 && !P.scaling.empty()) CHECK(P.scaling.back().gflops > 0.8 * P.scaling.front().gflops);   // more threads must not collapse throughput (vCPUs may share a core, so no speed-up is demanded)
     }
     std::ofstream("/tmp/bench_real.json") << P.to_json();
 }
@@ -219,6 +231,7 @@ static void t_controls() {
         auto P = run_device_benchmark(fp, cfg);
         double el = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         CHECK(P.stopped_early && !P.skipped.empty() && el < 0.5 && !P.fma_f32.ok);
+        CHECK(!P.fw.usable());                          // a stopped run claims no framework numbers
     }
     {   // stop mid-run: allow the first two stage checks, then refuse
         auto cfg = qcfg(); int calls = 0; cfg.should_stop = [&] { return ++calls > 3; };
@@ -236,7 +249,7 @@ static void t_controls() {
         auto cfg = qcfg(); cfg.max_working_set_bytes = 2ull << 20; cfg.sustained_seconds = 0;
         auto fp2 = fp; fp2.cpu.classes[0].caches.push_back(CacheInfo{3, "Unified", 32ull << 20, 64, 16, {}});
         auto P = run_device_benchmark(fp2, cfg);
-        CHECK(P.latency.back().bytes <= (2u << 20) && !P.dram_probe_valid);
+        CHECK(!P.latency.empty() && P.latency.back().bytes <= (2u << 20) && !P.dram_probe_valid);
         bool noted = false; for (auto& n : P.notes) noted |= n.find("optimistic") != std::string::npos;
         CHECK(noted && !P.sustained.ran);
     }
@@ -244,7 +257,7 @@ static void t_controls() {
         auto cfg = qcfg(); cfg.sustained_seconds = 0;
         auto fp3 = fp; fp3.memory.effective_available = 20ull << 20;      // 4 MB cap
         auto P = run_device_benchmark(fp3, cfg);
-        CHECK(P.latency.back().bytes <= (4u << 20));
+        CHECK(!P.latency.empty() && P.latency.back().bytes <= (4u << 20));
     }
     {   // temperature callback is used for the sustained probe
         auto cfg = qcfg(); double t = 40; cfg.read_temp_c = [&]() -> std::optional<double> { t += 5; return t; };

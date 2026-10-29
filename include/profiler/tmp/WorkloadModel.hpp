@@ -148,6 +148,7 @@ struct LayerCost {
     double working_set = 0;                  // bytes the layer wants hot at once (decides which cache level feeds it)
     double act_out_bytes = 0;                // size of the layer OUTPUT (used by activation checkpointing)
     double gemm_m = 0;                       // rows of the GEMM-like op (0 = not a GEMM); small values use the skinny rate
+    double gemm_frac = 0;                    // share of the flops that run as GEMM through the BLAS (dense 1; attention/recurrent mixed)
     Dtype  dtype = Dtype::F32;
     bool   once_per_step = false;            // optimizer-style: runs once per full step, not once per micro-step
     MemByCategory mem;
@@ -187,6 +188,7 @@ inline LayerCost dense(double M, double K, double N, const RunSpec& r, std::stri
     c.flops_fwd = 2.0 * M * K * N;
     c.bytes_fwd = (M * K + K * N + M * N) * e;
     c.gemm_m = M;
+    c.gemm_frac = 1.0;
     c.parallel_width = std::max(1.0, M);
     c.working_set = (K * N + M * K + M * N) * e;
     c.act_out_bytes = M * N * e;
@@ -256,6 +258,7 @@ inline LayerCost attention(double B, double heads, double q_len, double kv_len, 
     // 4*B*Tq*Tk*E = QK^T (2*..) + AV (2*..); softmax ~5 flop per score.
     const double scores = B * heads * q_len * kv_len;
     c.flops_fwd = 4.0 * B * q_len * kv_len * embed + 5.0 * scores;
+    c.gemm_frac = c.flops_fwd > 0 ? (4.0 * B * q_len * kv_len * embed) / c.flops_fwd : 0.0;     // QK^T and AV are GEMMs; softmax is not
     const double kv_b = 2.0 * B * kv_len * embed * e, q_b = B * q_len * embed * e, o_b = q_b;
     const double score_b = materialise_scores ? scores * e * 2.0 : 0.0;     // written then read back
     c.bytes_fwd = q_b + kv_b + o_b + score_b;
@@ -316,6 +319,7 @@ inline LayerCost recurrent_cell(double B, double in_dim, double hidden, double s
     const double per_step_macs = B * (in_dim + hidden) * gates * hidden;
     const double ew_flops = B * gates * hidden * 8.0;        // gate non-linearities + state update
     c.flops_fwd = steps * (2.0 * per_step_macs + ew_flops);
+    c.gemm_frac = c.flops_fwd > 0 ? (steps * 2.0 * per_step_macs) / c.flops_fwd : 0.0;           // gate matmuls vs non-linearities
     const double w_b = (in_dim + hidden) * gates * hidden * e;
     c.bytes_fwd = steps * (w_b + B * (in_dim + 2 * hidden) * e + B * gates * hidden * e * 2.0);   // weights re-read every step
     c.parallel_width = std::max(1.0, B * hidden);
@@ -572,6 +576,7 @@ struct Calibration {
     std::array<double, kOpKinds + 1> factor;
     std::array<double, kOpKinds + 1> error;
     std::array<int,    kOpKinds + 1> samples;
+    double op_overhead_s = 0;      // measured per-op framework dispatch cost (s); 0 = unmeasured. Never lowers the bare-call cost.
     static constexpr double kUncalibratedError = 0.60;     // honest default: analytic roofline is often 2x off on phones
     static constexpr double kMinFactor = 0.1, kMaxFactor = 10.0;
 
@@ -651,9 +656,11 @@ struct Prediction {
 
 // Parallel speed-up of independent work on `threads` threads, from the measured weak
 // scaling curve of the recommended core class. `assumed` is set when no curve exists.
-inline double parallel_speedup(const CapabilityVector& cv, int threads, double assumed_eff, bool* assumed = nullptr) {
+inline double parallel_speedup(const CapabilityVector& cv, int threads, double assumed_eff, bool* assumed = nullptr, bool gemm_bound = false) {
     if (assumed) *assumed = false;
     if (threads <= 1) return 1.0;
+    // GEMM-bound work runs through BLAS: use the speed-up BLAS actually delivered here.
+    if (gemm_bound && cv.fw.usable() && cv.fw.scaling.size() >= 2) return cv.fw.speedup(threads);
     const ClusterScaling* best = nullptr;
     for (const auto& s : cv.scaling) if (s.cls == cv.recommended_class && !s.independent.points.empty()) best = &s;
     if (!best) for (const auto& s : cv.scaling) if (!s.independent.points.empty()) { best = &s; break; }
@@ -698,13 +705,23 @@ inline double compute_rate(const CapabilityVector& cv, const LayerCost& l) {
         case OpKind::PARTICLE: g = cv.nbody_gflops; break;
         default: break;
     }
-    if (g <= 0) {
-        if (uses_int_pipeline(l.dtype) && cv.i8_gops > 0)        g = cv.i8_gops;
-        else if (l.dtype == Dtype::F64 && cv.f64_gflops > 0)     g = cv.f64_gflops;
-        else if (l.gemm_m > 0 && l.gemm_m <= 16 && cv.f32_gflops_skinny > 0) g = cv.f32_gflops_skinny;   // decode / small batch
-        else g = cv.f32_gflops_best;
+    if (g > 0) return g * 1e9;
+    if (uses_int_pipeline(l.dtype) && cv.i8_gops > 0) return cv.i8_gops * 1e9;          // int8 has no BLAS path
+    const bool f64 = l.dtype == Dtype::F64;
+    const bool skinny = l.gemm_m > 0 && l.gemm_m <= 16;
+    // the portable loops: what non-GEMM work (and any layer when BLAS was not measured) runs at
+    double loop = 0;
+    if (f64 && cv.f64_gflops > 0) loop = cv.f64_gflops;
+    else if (skinny && cv.f32_gflops_skinny > 0) loop = cv.f32_gflops_skinny;           // decode / small batch
+    else loop = cv.f32_gflops_best;
+    // the framework's BLAS: what Matrix::matmul gets for the GEMM share of the layer
+    double blas = f64 ? cv.blas_f64_gflops : (skinny && cv.blas_f32_gflops_skinny > 0 ? cv.blas_f32_gflops_skinny : cv.blas_f32_gflops);
+    const double frac = std::clamp(l.gemm_frac, 0.0, 1.0);
+    if (blas > 0 && frac > 0) {
+        if (!(loop > 0)) return blas * 1e9;
+        return 1e9 / (frac / blas + (1.0 - frac) / loop);                                // harmonic mix: time adds, rates do not
     }
-    return g * 1e9;
+    return loop * 1e9;
 }
 }  // namespace detail
 
@@ -720,18 +737,20 @@ inline Prediction predict(const Workload& w, const DeviceFingerprint& fp, const 
     } else {
         p.notes.push_back("memory budget unknown: fit not checked");
     }
-    if (!(cv.f32_gflops_best > 0)) {
+    if (!(cv.compute_best_gflops() > 0)) {
         p.notes.push_back("capability vector has no compute rate: prediction unavailable");
         return p;
     }
     const int threads = std::max(1, opt.threads);
     bool assumed = false;
     const double speedup = parallel_speedup(cv, threads, opt.assumed_thread_efficiency, &assumed);
+    if (cv.blas_f32_gflops <= 0 && [&] { for (const auto& l : w.layers) if (l.gemm_frac > 0) return true; return false; }())
+        p.notes.push_back("framework GEMM not measured: dense rates come from portable kernels and may differ from Matrix::matmul (BLAS)");
     if (assumed) p.notes.push_back("thread scaling not measured on this device: assumed efficiency " + std::to_string(opt.assumed_thread_efficiency));
     if (cv.bw_dram_gbs <= 0 && cv.triad_max_gbs <= 0) p.notes.push_back("no bandwidth measurement: memory time treated as zero");
     if (!cv.stopped_reason.empty()) p.notes.push_back("capability run was cut short (" + cv.stopped_reason + "): some rates may be missing");
 
-    const double tiny_s = cv.tiny_op_ns * 1e-9;
+    const double tiny_s = std::max(cv.tiny_op_ns * 1e-9, cal ? cal->op_overhead_s : 0.0);
     const double fork_s = threads > 1 ? cv.barrier_roundtrip_us * 1e-6 : 0.0;
     double step = 0, weighted_err = 0;
     double dom_t[4] = {0, 0, 0, 0};
@@ -742,7 +761,9 @@ inline Prediction predict(const Workload& w, const DeviceFingerprint& fp, const 
 
         // usable parallelism is limited by the layer's own width
         const double width_cap = std::max(1.0, std::min((double)threads, l.parallel_width));
-        const double sp_c = std::min(speedup, parallel_speedup(cv, (int)width_cap, opt.assumed_thread_efficiency, nullptr));
+        const bool gemm_b = l.gemm_frac > 0;
+        const double sp_c = std::min(gemm_b ? parallel_speedup(cv, threads, opt.assumed_thread_efficiency, nullptr, true) : speedup,
+                                     parallel_speedup(cv, (int)width_cap, opt.assumed_thread_efficiency, nullptr, gemm_b));
         const double rate = detail::compute_rate(cv, l) * sp_c;
         lp.t_compute = l.flops() / rate;
 

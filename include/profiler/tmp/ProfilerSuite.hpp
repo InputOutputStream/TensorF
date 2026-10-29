@@ -207,7 +207,7 @@ public:
                 SuiteConfig sc;
                 sc.time_budget_s = budget; sc.run_sustained = opt.capability_sustained; sc.sysroot = opt.sysroot; sc.verbose = false;
                 p.cv = CapabilitySuite(sc).run(p.fp);
-                p.have_capability = p.cv.f32_gflops_best > 0;
+                p.have_capability = p.cv.compute_best_gflops() > 0;
                 if (!p.cv.stopped_reason.empty()) {
                     const bool thermal = p.cv.stopped_reason.find("thermal") != std::string::npos;
                     record("capability", "stopped", sw.elapsed(), p.cv.stopped_reason);       // the guard working is a stop, not a failure
@@ -294,6 +294,9 @@ public:
             std::printf("\n[ Capability ]\n  f32 GEMM %.1f GFLOP/s (skinny %.1f), int8 %.1f GOP/s\n  bandwidth: L1 %.0f / L2 %.0f / L3 %.0f / DRAM %.1f GB/s\n  latency: L1 %.1f / L2 %.1f / L3 %.1f / DRAM %.0f ns\n  gather %.2f GB/s, per-op %.0f ns, noise %.0f%%\n",
                         p.cv.f32_gflops_best, p.cv.f32_gflops_skinny, p.cv.i8_gops, p.cv.bw_l1_gbs, p.cv.bw_l2_gbs, p.cv.bw_l3_gbs, p.cv.bw_dram_gbs,
                         p.cv.lat_l1_ns, p.cv.lat_l2_ns, p.cv.lat_l3_ns, p.cv.lat_dram_ns, p.cv.gather_gbs, p.cv.tiny_op_ns, p.cv.noise * 100);
+        if (p.have_capability && p.cv.fw.usable())
+            std::printf("  framework (%s): f32 %.1f, skinny %.1f GFLOP/s; BLAS threads %s (x%.2f)\n", p.cv.fw.backend.c_str(), p.cv.fw.best_f32(),
+                        p.cv.fw.gflops("f32_skinny"), p.cv.fw.threads_effective ? "help" : "do not help", p.cv.fw.max_speedup);
         if (p.have_probe) wl::print_report(p.probe);
         if (p.have_memory) std::printf("\n[ Memory ]\n  overhead factor %s%.2f   (tensor growth %.1f MB, RSS growth %.1f MB)\n", p.mem_factor_measured ? "" : "(default) ", p.mem_overhead_factor,
                                        p.memory.tensor_growth() / 1048576.0, p.memory.rss_growth() / 1048576.0);

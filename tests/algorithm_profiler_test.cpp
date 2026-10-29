@@ -2,6 +2,7 @@
 #include <fstream>
 #include "profiler/AlgorithmProfiler.hpp"
 using namespace tensorf::profile;
+namespace fwbench = tensorf::fwbench;
 
 static int fails = 0, checks = 0;
 #define CHECK(c) do { ++checks; if (!(c)) { ++fails; std::printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, #c); } } while (0)
@@ -70,6 +71,36 @@ static void t_device_view() {
     std::vector<std::string> miss;
     CHECK(!de.complete(&miss) && miss.size() == 7);
     CHECK(de.gemm_gflops(64, 64, 64) > 0 && de.bw_gbps(1e6) > 0 && de.latency_ns(1e6) > 0 && de.speedup_compute(4) == 4.0 && de.max_threads() == 1);
+}
+
+// The framework's own GEMM (Matrix::matmul through the selected BLAS) replaces the portable loop rate when measured.
+static void t_framework_view() {
+    auto P = synth();
+    DeviceView plain(P);
+    CHECK(!plain.has_framework());
+    P.fw.available = true;
+    auto add = [&](const char* k, double g, bool f64 = false) { fwbench::FwPoint p; p.key = k; p.gflops = g; p.f64 = f64; p.ok = true; P.fw.points.push_back(p); };
+    add("f32_16", 20); add("f32_64", 40); add("f32_256", 80); add("f32_512", 70); add("f32_tall", 60); add("f32_skinny", 30);
+    for (int t : {1, 2, 4}) { fwbench::FwScale s; s.threads = t; s.gflops = 80.0 * (t == 4 ? 3.0 : t); s.speedup = t == 4 ? 3.0 : t; s.eff = s.speedup / t; P.fw.scaling.push_back(s); }
+    DeviceView d(P);
+    CHECK(d.has_framework());
+    CHECK(d.gemm_gflops(200, 200, 200) == 80 && d.gemm_gflops(1000, 1000, 1000) == 70 && d.gemm_gflops(4, 1024, 1024) == 30);   // framework rates, not 8 / 7
+    CHECK(near(d.speedup_gemm(4), 3.0) && near(d.speedup_gemm(3), 2.5) && near(d.speedup_gemm(1), 1.0));
+    // a BLAS that does not scale: GEMM gets no speed-up while the loops-based compute curve is untouched
+    for (auto& s : P.fw.scaling) { s.speedup = 1.0; s.eff = 1.0 / s.threads; }
+    DeviceView flat(P);
+    CHECK(flat.speedup_gemm(4) == 1.0 && near(flat.speedup_compute(4), 3.0));
+    // the cost model prices a dense layer with the framework rate and says nothing about a missing measurement
+    auto P0 = synth();                                                               // DeviceView/CostModel keep a reference: no temporaries
+    CostModel cm(P), cm0(P0);
+    ExecPlan plan1; plan1.threads = 1; plan1.sustained = false;
+    auto dl = layers::dense("d", 256, 512, 512, Dtype::F32);
+    auto a = cm.predict(one(dl), plan1), b = cm0.predict(one(dl), plan1);
+    CHECK(a.compute_s < b.compute_s / 5.0);                                          // ~70 vs 7 GFLOP/s
+    bool warned = false; for (auto& n : a.notes) warned |= n.find("(BLAS) was not measured") != std::string::npos;
+    CHECK(!warned);
+    warned = false; for (auto& n : b.notes) warned |= n.find("(BLAS) was not measured") != std::string::npos;
+    CHECK(warned);                                                                   // portable-only prediction is flagged
 }
 
 static void t_builders() {
@@ -367,15 +398,21 @@ static void t_validate_against_kernels() {
     auto P = run_device_benchmark(fp, cfg);
     CostModel cm(P);
     ExecPlan plan; plan.threads = 1; plan.sustained = false;
-    auto measure = [&](auto&& unit) { return 1.0 / detail::measure(unit, 0.1).median; };    // seconds per call
+    auto measure = [&](auto&& unit) { return 1.0 / tensorf::profile::detail::measure(unit, 0.1).median; };    // seconds per call
     struct Row { const char* name; double pred, meas; };
     std::vector<Row> rows;
 
-    { kernels::GemmCase<float> g(192, 300, 500);
-      double m = measure([&] { g.run(); return 1.0; });
+    // GEMM layers are priced with the framework rate when it was measured, so they are checked against what the
+    // framework runs (Matrix::matmul through the selected BLAS, one thread), not against the portable loop.
+    const bool via_fw = P.fw.usable();
+    fwbench::BlasThreads one_thread(1);
+    auto gemm_time = [&](int M, int N, int K) {
+        if (via_fw) { fwbench::GemmRunner<float> g(M, N, K); return measure([&] { g.run(); return 1.0; }); }
+        kernels::GemmCase<float> g(M, N, K); return measure([&] { g.run(); return 1.0; });
+    };
+    { double m = gemm_time(192, 300, 500);
       rows.push_back({"gemm 192x300x500", cm.predict(one(layers::dense("d", 192, 500, 300, Dtype::F32, false)), plan).seconds, m}); }
-    { kernels::GemmCase<float> g(1000, 64, 64);
-      double m = measure([&] { g.run(); return 1.0; });
+    { double m = gemm_time(1000, 64, 64);
       rows.push_back({"gemm 1000x64x64", cm.predict(one(layers::dense("d", 1000, 64, 64, Dtype::F32, false)), plan).seconds, m}); }
     { kernels::ConvCase c(8, 48, 48);
       double m = measure([&] { c.run(); return 1.0; });
@@ -393,7 +430,7 @@ static void t_validate_against_kernels() {
       double m = measure([&] { pos = ct.walk(pos, 20000); kernels::keep(&pos); return 1.0; });
       rows.push_back({"chase 32MB x20000", cm.predict(one(layers::markov_walk("m", 1, 20000, 32.0 * MB)), plan).seconds, m}); }
 
-    std::printf("---- model vs real kernels (1 thread) ----\n");
+    std::printf("---- model vs real kernels (1 thread; gemm rows via %s) ----\n", via_fw ? P.fw.backend.c_str() : "portable loop");
     for (auto& r : rows) {
         std::printf("%-22s predicted %9.3f ms  measured %9.3f ms  ratio %.2f\n", r.name, r.pred * 1e3, r.meas * 1e3, r.pred / r.meas);
         CHECK(std::isfinite(r.pred) && r.pred > 0 && r.meas > 0);
@@ -404,7 +441,7 @@ static void t_validate_against_kernels() {
 }
 
 int main() {
-    t_device_view(); t_builders(); t_cost_exact(); t_models(); t_bounds(); t_profiler_and_calibration(); t_validate_against_kernels();
+    t_device_view(); t_framework_view(); t_builders(); t_cost_exact(); t_models(); t_bounds(); t_profiler_and_calibration(); t_validate_against_kernels();
     std::printf("%d/%d checks passed\n", checks - fails, checks);
     return fails ? 1 : 0;
 }

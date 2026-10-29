@@ -25,6 +25,10 @@
 //                        fit; calibrate against a real instrumented step
 //
 // What the cost model assumes (and what calibrate() corrects)
+//   * GEMM-bound layers (Kernel::Gemm) are priced with the FRAMEWORK rate (Matrix::matmul through BLAS,
+//     CapabilityProfile::fw) and its measured BLAS thread curve, not with the portable gemm loop, which is
+//     limited by compile flags and can be 20x slower than BLAS. Without framework numbers it falls back to
+//     the portable loop and says so in StepPrediction::notes.
 //   * Low-precision storage (F16/FP8/FP4) is dequantised on the fly and computed in
 //     f32: it changes bytes moved and memory, not the arithmetic rate.
 //   * Layers run one after another; each layer is parallel over its `width`.
@@ -368,7 +372,24 @@ public:
         return ok;
     }
 
+    // True when Matrix::matmul (BLAS) was measured: GEMM layers are priced with it.
+    bool has_framework() const { return P_.fw.usable(); }
+
     double gemm_gflops(double M, double N, double K) const {
+        if (P_.fw.usable()) {
+            // What the Tensor ops execute: pick the closest measured framework shape.
+            const double mn_fw = std::min(N, K);
+            const double c_fw = std::cbrt(std::max(1.0, M * N * K));
+            std::vector<const char*> fo;
+            if (M <= 16 && mn_fw >= 256) fo.push_back("f32_skinny");                  // decode / small batch
+            if (mn_fw > 0 && M >= 64.0 * mn_fw) fo.push_back("f32_tall");              // many rows, few columns
+            if (c_fw <= 24) fo.push_back("f32_16");
+            else if (c_fw <= 96) fo.push_back("f32_64");
+            else if (c_fw <= 384) fo.push_back("f32_256");
+            else { fo.push_back("f32_512"); fo.push_back("f32_256"); }
+            for (const char* k : {"f32_256", "f32_64", "f32_512", "f32_16", "f32_tall"}) fo.push_back(k);
+            for (const char* k : fo) { const double v = P_.fw.gflops(k); if (v > 0) return v; }
+        }
         const double mn = std::min(N, K);
         std::vector<const char*> order;
         if (mn > 0 && M >= 64.0 * mn) order.push_back("f32_tall");
@@ -413,11 +434,18 @@ public:
         }
         return scale_curve(T, false);
     }
+    // Speed-up of GEMM-bound layers on T threads: the measured BLAS curve when the framework was measured
+    // (flat = BLAS is single-threaded here, so the planner assigns one thread), else the portable FMA curve.
+    double speedup_gemm(int T) const {
+        T = std::max(1, T);
+        return P_.fw.usable() ? P_.fw.speedup(T) : speedup_compute(T);
+    }
     double speedup_bw(int T) const { return scale_curve(std::max(1, T), true); }
     int max_threads() const {
         int m = 1;
         for (const auto& s : P_.scaling) m = std::max(m, s.threads);
         m = std::max<int>(m, int(P_.all_cores.gflops.size()));
+        m = std::max<int>(m, P_.fw.max_threads());
         return m;
     }
     double sustained_fraction() const {
@@ -428,7 +456,11 @@ public:
 
 private:
     double gemm_key(const char* k) const { auto it = P_.gemm.find(k); return (it != P_.gemm.end() && it->second.ok) ? it->second.median : 0.0; }
-    double any_gemm() const { double m = 0; for (const auto& kv : P_.gemm) m = std::max(m, kv.second.median); return m; }
+    double any_gemm() const {
+        double m = P_.fw.best_f32();
+        for (const auto& kv : P_.gemm) m = std::max(m, kv.second.median);
+        return m;
+    }
     static double pos(double v, double floor) { return v > 0 ? v : floor; }
 
     // log-linear interpolation over working-set size
@@ -497,13 +529,17 @@ public:
             for (auto& s : missing) m += " " + s;
             out.notes.push_back(m + " (pessimistic floors used)");
         }
+        if (!dev_.has_framework())
+            out.notes.push_back("GEMM layers are priced with the portable gemm loop: Matrix::matmul (BLAS) was not measured, so compute time is "
+                                "likely overestimated (the portable loop depends on compile flags)");
         const double sus = plan.sustained ? dev_.sustained_fraction() : 1.0;
         double comp = 0, mem = 0, irr = 0, ovh = 0;
         for (const auto& l : sc.layers) {
             LayerTime lt;
             lt.name = l.name;
             const int Tw = int(std::max(1.0, std::min<double>(plan.threads, l.width)));
-            const double su_c = dev_.speedup_compute(Tw), su_m = dev_.speedup_bw(Tw);
+            const double su_c = l.kernel == Kernel::Gemm ? dev_.speedup_gemm(Tw) : dev_.speedup_compute(Tw);
+            const double su_m = dev_.speedup_bw(Tw);
             const double flops = l.flops_fwd + l.flops_bwd;
             const double bytes = l.bytes_fwd + l.bytes_bwd;
             const double gath = l.gather_bytes_fwd + l.gather_bytes_bwd;

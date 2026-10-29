@@ -515,7 +515,8 @@ static void test_real_machine(bool quick) {
         CHECK(cv.time_used_s < 1.0);
         CHECK(cv.f32_gflops_best == 0.0 && cv.bw_dram_gbs == 0.0);
         bool any_ran = false; for (const auto& g : cv.groups) any_ran |= g.ran;
-        CHECK(!any_ran && cv.groups.size() == 11);
+        CHECK(!any_ran && cv.groups.size() == 12);
+        CHECK(cv.blas_f32_gflops == 0.0 && cv.blas_gemm.empty() && !cv.group_ran("blas_gemm"));
     }
 
     SECTION("Suite: full run under a 9 s budget");
@@ -524,10 +525,24 @@ static void test_real_machine(bool quick) {
         Fx fx; c.sysroot = fx.str();                           // no sensors in the fixture: nothing to trip
         CapabilityVector cv = CapabilitySuite(c).run(fp);
         CHECK(cv.time_used_s <= c.time_budget_s + 1.0);       // budget respected (one in-flight window of slack)
-        CHECK(cv.groups.size() == 11);
+        CHECK(cv.groups.size() == 12);
         CHECK(cv.group_ran("gemm") && cv.group_ran("latency") && cv.group_ran("bandwidth") && cv.group_ran("sparse"));
         CHECK(cv.f32_gflops_best > 0 && cv.f64_gflops > 0 && cv.i8_gops > 0 && cv.conv_gflops > 0 && cv.nbody_gflops > 0);
         CHECK(cv.f32_gflops_skinny > 0);
+        // GEMM through the framework's own BLAS backend (what Matrix::gemm runs), measured next to the portable loops.
+        CHECK(cv.group_ran("blas_gemm"));
+        CHECK(cv.blas_backend == tensorf::blas::backend());
+        CHECK(cv.blas_f32_gflops > 0 && cv.blas_f32_gflops_skinny > 0 && cv.blas_f64_gflops > 0 && cv.blas_gemm.size() >= 4);
+        // the full framework profile behind those scalars: backend name, thread curve and the Cora-shaped GNN GEMMs
+        CHECK(cv.fw.usable() && cv.fw.backend == cv.blas_backend && cv.fw.best_f32() == cv.blas_f32_gflops);
+        CHECK(cv.fw.gflops("f32_gnn") > 0 && cv.fw.gflops("f32_gnn_t") > 0);
+        if (cv.fw.scaling.size() >= 2) {
+            CHECK(cv.recommended_threads == (cv.fw.threads_effective ? cv.fw.best_threads : 1));   // BLAS that does not scale: plan on one thread
+            for (const auto& s : cv.fw.scaling) CHECK(s.small_speedup > 0 && s.cpu_ratio > 0);
+        }
+        CHECK(cv.compute_best_gflops() == cv.blas_f32_gflops);
+        if (cv.build_is_optimised && cv.blas_backend == "openblas")           // a tuned BLAS is never slower than the portable loop
+            CHECK(cv.blas_f32_gflops >= cv.f32_gflops_best * 0.5);
         CHECK(cv.bw_dram_gbs > 0 && cv.triad_max_gbs >= cv.triad_1t_gbs && !cv.triad_sweep.empty());
         CHECK(cv.dram_saturation_threads >= 1 && cv.dram_saturation_threads <= (int)cv.triad_sweep.size());
         CHECK(cv.gather_gbs > 0 && cv.gather_efficiency > 0 && cv.gather_efficiency < 50);
@@ -542,7 +557,9 @@ static void test_real_machine(bool quick) {
         std::string js = suite_to_json(fp, cv);
         CHECK(json_balanced_and_clean(js));
         CHECK(js.find("\"profiler_version\":\"2.0\"") != std::string::npos);
-        std::printf("  (info) f32 %.1f GFLOP/s, DRAM read %.1f GB/s, noise %.0f%%, used %.1f s\n", cv.f32_gflops_best, cv.bw_dram_gbs, cv.noise * 100, cv.time_used_s);
+        CHECK(js.find("\"framework\":{") != std::string::npos && js.find("\"small_threads_effective\"") != std::string::npos);
+        CHECK(js.find("\"blas_backend\":\"" + cv.blas_backend + "\"") != std::string::npos && js.find("\"blas_f32_gflops\"") != std::string::npos);
+        std::printf("  (info) BLAS %s f32 %.1f GFLOP/s (loops %.1f); f32 %.1f GFLOP/s, DRAM read %.1f GB/s, noise %.0f%%, used %.1f s\n", cv.blas_backend.c_str(), cv.blas_f32_gflops, cv.f32_gflops_best, cv.f32_gflops_best, cv.bw_dram_gbs, cv.noise * 100, cv.time_used_s);
     }
 }
 

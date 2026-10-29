@@ -24,6 +24,7 @@
 
 using namespace tensorf::prof;
 using namespace tensorf::prof::wl;
+namespace fwbench = tensorf::fwbench;
 
 static int g_checks = 0, g_failed = 0;
 #define CHECK(cond) do { ++g_checks; if (!(cond)) { ++g_failed; std::printf("  FAIL %s:%d  %s\n", __FILE__, __LINE__, #cond); } } while (0)
@@ -378,6 +379,116 @@ static void test_predict_compute_bound() {
     CHECK_REL(ph.step_s / p.step_s, 1.0, 0.02);
 }
 
+static void test_predict_blas_rate() {
+    SECTION("predict: GEMM layers use the measured BLAS rate, other work keeps the loop rate");
+    CapabilityVector cv = make_cv(); DeviceFingerprint fp = make_fp();
+    const double n = 1024;
+    LayerCost big = dense(n, n, n, infer_spec(), "big", false);
+    LayerCost skinny = dense(8, n, n, infer_spec(), "skinny", false);
+
+    // No BLAS measurement (older vectors, hand-built ones): exactly the loop rates, as before.
+    CHECK_NEAR(cv.blas_f32_gflops, 0.0, 0.0);
+    CHECK_REL(predict(one_layer(big, n), fp, cv).layers[0].t_compute, big.flops() / 10e9, 1e-9);
+
+    cv.blas_f32_gflops = 100; cv.blas_f32_gflops_skinny = 40; cv.blas_f64_gflops = 50;       // a tuned BLAS: 10x the loops
+    CHECK_REL(predict(one_layer(big, n), fp, cv).layers[0].t_compute, big.flops() / 100e9, 1e-9);
+    CHECK_REL(predict(one_layer(skinny, 8), fp, cv).layers[0].t_compute, skinny.flops() / 40e9, 1e-9);   // M <= 16
+    RunSpec r64 = infer_spec(); r64.dtype = Dtype::F64;
+    LayerCost big64 = dense(n, n, n, r64, "f64", false);
+    CHECK_REL(predict(one_layer(big64, n), fp, cv).layers[0].t_compute, big64.flops() / 50e9, 1e-9);
+
+    // int8 has no BLAS path: still the int8 rate.
+    RunSpec r8 = infer_spec(); r8.dtype = Dtype::I8;
+    LayerCost big8 = dense(n, n, n, r8, "i8", false);
+    CHECK_REL(predict(one_layer(big8, n), fp, cv).layers[0].t_compute, big8.flops() / 20e9, 1e-9);
+
+    // Layers that are not GEMMs never see the BLAS rate: an element-wise layer is priced the same either way.
+    CapabilityVector loops_only = make_cv();
+    LayerCost ew = elementwise(1 << 20, 8.0, 3.0, infer_spec(), "ew");
+    CHECK_REL(predict(one_layer(ew), fp, cv).layers[0].t_compute, predict(one_layer(ew), fp, loops_only).layers[0].t_compute, 1e-12);
+
+    // A recurrent cell mixes GEMMs (BLAS rate) with gate non-linearities (loop rate).
+    LayerCost rc = recurrent_cell(64, 256, 256, 10, 1.0, infer_spec(), "rnn");
+    CHECK(rc.gemm_frac > 0.9 && rc.gemm_frac < 1.0);
+    const double expect = rc.flops() * rc.gemm_frac / 100e9 + rc.flops() * (1.0 - rc.gemm_frac) / 10e9;
+    CHECK_REL(predict(one_layer(rc), fp, cv).layers[0].t_compute, expect, 1e-9);
+    // ... and the element-wise share is NOT sped up: a 10x faster BLAS makes the layer strictly less than 10x faster,
+    // by exactly 1 / (frac/10 + (1 - frac)) relative to the loop-only prediction (a tiny hidden size has a bigger share).
+    const double t_loop = predict(one_layer(rc), fp, loops_only).layers[0].t_compute;
+    const double speedup = t_loop / predict(one_layer(rc), fp, cv).layers[0].t_compute;
+    CHECK_REL(speedup, 1.0 / (rc.gemm_frac / 10.0 + (1.0 - rc.gemm_frac)), 1e-9);
+    CHECK(speedup < 10.0);
+    LayerCost rc_small = recurrent_cell(8, 16, 16, 10, 1.0, infer_spec(), "rnn_small");
+    CHECK(t_loop > 0 && predict(one_layer(rc_small), fp, loops_only).layers[0].t_compute /
+                        predict(one_layer(rc_small), fp, cv).layers[0].t_compute < speedup);     // smaller cell: more element-wise share
+
+    // Same split for attention (softmax is element-wise).
+    LayerCost at = attention(1, 8, 256, 256, 512, infer_spec());
+    CHECK(at.gemm_frac > 0.9 && at.gemm_frac < 1.0);
+    CHECK_REL(predict(one_layer(at), fp, cv).layers[0].t_compute,
+              at.flops() * at.gemm_frac / 100e9 + at.flops() * (1.0 - at.gemm_frac) / 10e9, 1e-9);
+}
+
+static void test_framework_scaling_and_frac() {
+    SECTION("predict: gemm_frac, framework thread curve, BLAS that does not scale");
+    DeviceFingerprint fp = make_fp();
+    RunSpec r = infer_spec();
+    CHECK(dense(64, 64, 64, r).gemm_frac == 1.0);
+    CHECK(elementwise(1e6, 1, 3, r).gemm_frac == 0.0 && spmm_aggregate(1000, 8000, 32, r).gemm_frac == 0.0);
+    CHECK(conv2d(4, 3, 8, 16, 16, 3, 1, 1, r).gemm_frac == 0.0);                       // conv keeps its own measured rate
+
+    // A BLAS that does not scale (shim, OPENBLAS_NUM_THREADS=1): GEMM layers get no speed-up from threads,
+    // element-wise layers still follow the measured loop scaling.
+    CapabilityVector cv = make_cv();
+    cv.blas_f32_gflops = 50; cv.blas_f32_gflops_skinny = 20;
+    cv.fw.available = true; cv.fw.points.push_back([] { fwbench::FwPoint p; p.key = "f32_256"; p.gflops = 50; p.ok = true; return p; }());
+    for (int t : {1, 2, 4}) { fwbench::FwScale s; s.threads = t; s.gflops = 50; s.speedup = 1.0; s.eff = 1.0 / t; cv.fw.scaling.push_back(s); }
+    LayerCost d = dense(1024, 1024, 1024, r, "big", false);
+    PredictOptions o1, o4; o1.threads = 1; o4.threads = 4;
+    CHECK_REL(predict(one_layer(d, 1024), fp, cv, o4).layers[0].t_compute, predict(one_layer(d, 1024), fp, cv, o1).layers[0].t_compute, 0.01);
+    LayerCost ew = elementwise(1 << 22, 8.0, 3.0, r, "ew");
+    CHECK(predict(one_layer(ew), fp, cv, o4).layers[0].t_compute < predict(one_layer(ew), fp, cv, o1).layers[0].t_compute * 0.6);
+
+    // The same BLAS scaling 3x: the dense layer follows the framework curve.
+    for (auto& s : cv.fw.scaling) { s.speedup = s.threads == 1 ? 1.0 : (s.threads == 2 ? 1.9 : 3.4); s.eff = s.speedup / s.threads; }
+    CHECK_REL(predict(one_layer(d, 1024), fp, cv, o1).layers[0].t_compute / predict(one_layer(d, 1024), fp, cv, o4).layers[0].t_compute, 3.4, 0.03);
+
+    // Without any framework number the prediction says so (a GEMM layer priced on the portable loop may be 10x off).
+    CapabilityVector loops = make_cv();
+    bool said = false; for (const auto& n : predict(one_layer(d, 1024), fp, loops).notes) said |= n.find("framework GEMM not measured") != std::string::npos;
+    CHECK(said);
+    said = false; for (const auto& n : predict(one_layer(ew), fp, loops).notes) said |= n.find("framework GEMM not measured") != std::string::npos;
+    CHECK(!said);                                                                       // no GEMM in the workload: nothing to warn about
+    // ridge point and best rate follow the framework once it is measured
+    CHECK_REL(cv.compute_best_gflops(), 50.0, 1e-12);
+    CHECK_REL(loops.compute_best_gflops(), 10.0, 1e-12);
+}
+
+static void test_predict_op_overhead() {
+    SECTION("predict: measured per-op dispatch cost replaces the bare-call estimate");
+    CapabilityVector cv = make_cv(); DeviceFingerprint fp = make_fp();         // tiny op = 10 ns
+    LayerCost tiny = dense(2, 4, 4, infer_spec(), "tiny", false);
+    const double calls = tiny.op_calls;
+    CHECK(calls >= 1);
+
+    CHECK_REL(predict(one_layer(tiny), fp, cv).layers[0].t_overhead, calls * 10e-9, 1e-9);        // no calibration: tiny_op_ns
+    Calibration cal;
+    CHECK_NEAR(cal.op_overhead_s, 0.0, 0.0);                                                        // default: not measured
+    CHECK_REL(predict(one_layer(tiny), fp, cv, {}, &cal).layers[0].t_overhead, calls * 10e-9, 1e-9);
+    cal.op_overhead_s = 2e-6;                                                                       // measured: 2 us per op
+    Prediction p = predict(one_layer(tiny), fp, cv, {}, &cal);
+    CHECK_REL(p.layers[0].t_overhead, calls * 2e-6, 1e-9);
+    CHECK(p.layers[0].bound == Bound::OVERHEAD);                                                    // a 2x4x4 GEMM is all dispatch
+    cal.op_overhead_s = 3e-9;                                                                       // below the bare call: never lowers it
+    CHECK_REL(predict(one_layer(tiny), fp, cv, {}, &cal).layers[0].t_overhead, calls * 10e-9, 1e-9);
+
+    // A big layer barely notices it (overhead is additive, not a multiplier on the whole layer).
+    LayerCost big = dense(1024, 1024, 1024, infer_spec(), "big", false);
+    cal.op_overhead_s = 2e-6;
+    const double a = predict(one_layer(big), fp, cv).step_s, b = predict(one_layer(big), fp, cv, {}, &cal).step_s;
+    CHECK_REL(b / a, 1.0, 1e-3);
+}
+
 static void test_predict_memory_bound() {
     SECTION("predict: memory-bound elementwise");
     CapabilityVector cv = make_cv(); DeviceFingerprint fp = make_fp();
@@ -730,6 +841,9 @@ int main(int argc, char** argv) {
     test_totals_and_micro_steps();
     test_calibration();
     test_predict_compute_bound();
+    test_predict_blas_rate();
+    test_framework_scaling_and_frac();
+    test_predict_op_overhead();
     test_predict_memory_bound();
     test_predict_irregular();
     test_predict_threads();

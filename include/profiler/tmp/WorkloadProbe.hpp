@@ -29,10 +29,11 @@
  *     ProbeReport::threads_validated says 1.
  *   - conv2d and particle_interaction have no framework op to measure, so they are NOT
  *     covered. Their predictions keep the uncalibrated error until an op exists.
- *   - BLAS: Matrix::matmul calls whatever cblas the build links. When that is the portable
- *     shim in include/tools/cblas.h (a plain i-k-j loop), the probe is validating the model
- *     against the shim, not OpenBLAS. ProbeReport::blas records which one it was, and a
- *     calibration is only valid for the build + device it was measured on.
+ *   - BLAS: Matrix::matmul calls whichever backend tools/tensorf_blas.h selected. When that is the
+ *     portable shim (tools/cblas_shim.h, a plain i-k-j loop), the probe is validating the model
+ *     against the shim, not OpenBLAS. ProbeReport::blas records which one it was ("openblas",
+ *     "shim" or "none"), and a calibration is only valid for the build + device it was measured on.
+ *     With OpenBLAS the probe pins BLAS to one thread while it measures, then restores it.
  *
  * Build: needs the framework on the include path as well as the profiler headers:
  *   g++ -std=c++20 -O2 -Iinclude -Iinclude/core -Iinclude/tools ... -pthread
@@ -50,6 +51,7 @@
 
 #include "Types/types.hpp"
 #include "DataStructures/Matrix.hpp"
+#include "tools/tensorf_blas.h"
 #include "DataStructures/Tensor.hpp"
 #include "DataStructures/Graph.hpp"
 
@@ -110,26 +112,19 @@ struct ProbeReport {
     std::vector<ProbeResult> results;
     std::vector<KindError>   kinds;
     Calibration calibration;                     // fitted on every usable case; hand this to predict()
+    double op_overhead_s = 0;                    // measured cost of one framework op (also in calibration.op_overhead_s); 0 = not measured
     double overall_loo_error = Calibration::kUncalibratedError;   // median over all usable cases
     double overall_raw_error = 0;
     double global_factor = 1.0;                  // median measured/predicted over all cases: what kinds with no probe (conv ...) get
     int    usable = 0;
     int    threads_validated = 1;
-    std::string blas;                            // "shim", "external" or "none"
+    std::string blas;                            // "openblas", "shim" or "none"
     std::string stopped_reason;
     double time_used_s = 0;
     std::vector<std::string> not_covered;        // layer kinds with no probe: their error stays uncalibrated
 };
 
-inline const char* blas_name() {
-#if defined(MATRIX_NO_BLAS)
-    return "none";
-#elif defined(TENSORF_CBLAS_SHIM_H)
-    return "shim";
-#else
-    return "external";
-#endif
-}
+inline const char* blas_name() { return tensorf::blas::backend(); }
 
 // ─── Generic measurement loop ────────────────────────────────────────────────
 
@@ -212,11 +207,15 @@ inline void fit_report(ProbeReport& rep) {
         if (ke.cases >= 2) rep.calibration.error[(size_t)ke.kind] = std::max(rep.calibration.error[(size_t)ke.kind], ke.loo_median_error);
 }
 
+// op_overhead_s: measured cost of one framework op dispatch (see measure_op_overhead). When > 0 every case is
+// predicted with it as the per-op overhead, so ProbeResult::predicted_s is "analytic model + measured dispatch cost,
+// before any per-kind factor". 0 keeps the capability suite's tiny_op_ns (the old behaviour).
 inline ProbeReport measure_cases(std::vector<ProbeCase> cases, const DeviceFingerprint& fp, const CapabilityVector& cv,
-                                 const ProbeConfig& cfg = {}) {
+                                 const ProbeConfig& cfg = {}, double op_overhead_s = 0.0) {
     ProbeReport rep;
     rep.blas = blas_name();
     rep.threads_validated = 1;
+    tensorf::blas::ScopedThreads one_blas_thread(1);   // OpenBLAS is multithreaded by default; the probe validates ONE thread
     Stopwatch total;
     const Deadline overall(cfg.time_budget_s);
 
@@ -225,6 +224,8 @@ inline ProbeReport measure_cases(std::vector<ProbeCase> cases, const DeviceFinge
     const bool charging = fp.battery.charging();
 
     PredictOptions po; po.threads = std::max(1, cfg.threads);
+    Calibration dispatch_only;                                  // factors stay 1, no samples: only the measured op cost
+    dispatch_only.op_overhead_s = op_overhead_s;
 
     for (auto& c : cases) {
         ProbeResult r; r.name = c.name; r.kind = c.kind;
@@ -247,7 +248,7 @@ inline ProbeReport measure_cases(std::vector<ProbeCase> cases, const DeviceFinge
             rep.results.push_back(std::move(r)); continue;
         }
 
-        const Prediction p = predict(c.workload, fp, cv, po, nullptr);
+        const Prediction p = predict(c.workload, fp, cv, po, op_overhead_s > 0 ? &dispatch_only : nullptr);
         if (!p.valid) { r.note = "skipped: no prediction (capability vector incomplete)"; rep.results.push_back(std::move(r)); continue; }
         r.predicted_s = p.step_s;
         for (const auto& lp : p.layers) r.kind_s[(size_t)lp.kind] += lp.seconds;
@@ -273,6 +274,8 @@ inline ProbeReport measure_cases(std::vector<ProbeCase> cases, const DeviceFinge
     }
 
     fit_report(rep);
+    rep.op_overhead_s = op_overhead_s;
+    rep.calibration.op_overhead_s = op_overhead_s;      // fit_report starts from a fresh Calibration
     rep.time_used_s = total.elapsed();
     return rep;
 }
@@ -400,6 +403,30 @@ inline ProbeCase mlp_case(const char* name, size_t B, size_t I, size_t H, size_t
     return c;
 }
 
+// Cost of ONE framework op on near-empty data: allocate the result Matrix, build the autograd node, make the
+// (tiny) BLAS call. Runs the same op mix the recurrent / MLP reference cases run (matmul, add, sigmoid) on 2x4
+// tensors, so arithmetic is negligible and what is left is dispatch. Returns seconds per op, 0 if unusable.
+inline double measure_op_overhead(const ProbeConfig& cfg, const Deadline& overall) {
+    try {
+        constexpr int kIters = 32, kOpsPerIter = 4;           // matmul, matmul, add, sigmoid
+        struct S { Tensor_t<float> x, W, h0; };
+        S s;
+        s.x  = make_tensor<float>(rnd(2, 4, -0.1f, 0.1f));  s.x->requires_grad = false;
+        s.W  = make_tensor<float>(rnd(4, 4, -0.1f, 0.1f));  s.W->requires_grad = false;
+        s.h0 = make_tensor<float>(rnd(2, 4, -0.1f, 0.1f));  s.h0->requires_grad = false;
+        std::function<void()> step = [&s] {
+            auto h = s.h0;
+            for (int i = 0; i < kIters; ++i) h = (s.x->matmul(s.W) + h->matmul(s.W))->sigmoid();
+            do_not_optimize(h->val.data[0]);
+        };
+        double med = 0, spread = 0; int n = 0;
+        if (!time_step(step, cfg, overall, med, spread, n)) return 0.0;
+        return med / (double)(kIters * kOpsPerIter);
+    } catch (...) {
+        return 0.0;
+    }
+}
+
 }  // namespace detail
 
 inline std::vector<ProbeCase> reference_cases(const ProbeConfig& cfg = {}) {
@@ -429,7 +456,10 @@ inline std::vector<ProbeCase> reference_cases(const ProbeConfig& cfg = {}) {
 }
 
 inline ProbeReport run_probe(const DeviceFingerprint& fp, const CapabilityVector& cv, const ProbeConfig& cfg = {}) {
-    ProbeReport rep = measure_cases(reference_cases(cfg), fp, cv, cfg);
+    // Per-op dispatch cost first (short, outside the per-case budget accounting): it is part of every prediction below.
+    ProbeConfig quick = cfg; quick.per_case_s = std::min(cfg.per_case_s, 0.25);
+    const double op_s = detail::measure_op_overhead(quick, Deadline(std::min(1.0, cfg.time_budget_s * 0.1)));
+    ProbeReport rep = measure_cases(reference_cases(cfg), fp, cv, cfg, op_s);
     rep.not_covered = {"conv2d", "attention", "norm", "embedding", "particle", "optimizer"};   // no framework op measured here
     return rep;
 }
@@ -439,7 +469,7 @@ inline ProbeReport run_probe(const DeviceFingerprint& fp, const CapabilityVector
 inline void to_json(Json& j, const ProbeReport& r, const char* key = "validation") {
     j.begin_object(key);
     j.str("blas", r.blas).integer("threads_validated", r.threads_validated).integer("usable_cases", r.usable)
-     .num("global_factor", r.global_factor).num("overall_loo_error", r.overall_loo_error).num("overall_raw_error", r.overall_raw_error)
+     .num("op_overhead_us", r.op_overhead_s * 1e6).num("global_factor", r.global_factor).num("overall_loo_error", r.overall_loo_error).num("overall_raw_error", r.overall_raw_error)
      .num("time_used_s", r.time_used_s).str("stopped_reason", r.stopped_reason);
     j.begin_array("kinds");
     for (const auto& k : r.kinds)
@@ -460,6 +490,7 @@ inline void to_json(Json& j, const ProbeReport& r, const char* key = "validation
 
 inline void print_report(const ProbeReport& r) {
     std::printf("\nWorkload model validation  (blas: %s, threads validated: %d, %.1f s)\n", r.blas.c_str(), r.threads_validated, r.time_used_s);
+    if (r.op_overhead_s > 0) std::printf("  measured framework op dispatch: %.2f us/op (replaces the capability suite's tiny-op estimate in predictions)\n", r.op_overhead_s * 1e6);
     std::printf("  %-26s %10s %10s %7s %6s %8s\n", "case", "predicted", "measured", "ratio", "noise", "LOO err");
     for (const auto& c : r.results) {
         if (c.ok) std::printf("  %-26s %8.2f ms %8.2f ms %6.2fx %5.0f%% %7.0f%%\n", c.name.c_str(), c.predicted_s * 1e3, c.measured_s * 1e3, c.ratio, c.spread * 100, c.loo_error * 100);

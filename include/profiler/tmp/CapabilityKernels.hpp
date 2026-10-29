@@ -51,6 +51,7 @@
 #endif
 
 #include "ProfilerCommon.hpp"
+#include "tools/tensorf_blas.h"      // the framework's BLAS backend (OpenBLAS / shim); see framework_gemm below
 
 namespace tensorf::prof::kernels {
 
@@ -292,6 +293,68 @@ inline GemmPoint gemm(Precision p, GemmShape sh, int threads, const std::vector<
         case Precision::F32: return gemm_typed<float,  float  >(p, sh, threads, cpus, window_s, samples, dl, max_bytes);
         case Precision::F64: return gemm_typed<double, double >(p, sh, threads, cpus, window_s, samples, dl, max_bytes);
         case Precision::I8:  return gemm_typed<int8_t, int32_t>(p, sh, threads, cpus, window_s, samples, dl, max_bytes);
+    }
+    return {};
+}
+
+// ─── 1b. GEMM through the framework's own BLAS backend ────────────────────────
+//
+// The loops above are a portable-code baseline. They say nothing about what a layer costs once Matrix::gemm
+// dispatches to a tuned BLAS: a real OpenBLAS runs 20-30x faster than gemm_blocked on a modern x86 core. A model
+// that prices dense / attention / recurrent layers from the loop rate is therefore only right when the build
+// uses the portable shim (whose own loop is about as fast as gemm_blocked), and wrong by that factor with OpenBLAS.
+//
+// framework_gemm measures what Matrix::gemm really executes in THIS build, with the same call shape:
+//   OpenBLAS / shim   cblas_sgemm / cblas_dgemm, row-major, NoTrans x NoTrans, alpha 1, beta 0
+//   MATRIX_NO_BLAS    the plain i-j-k loop of mxd::gemm_loops
+// tensorf::blas::backend() names which one it was. Always one thread (OpenBLAS is pinned for the measurement).
+
+template <class T>
+inline void framework_gemm_call(const T* A, const T* B, T* C, size_t M, size_t N, size_t K) {
+#if defined(MATRIX_NO_BLAS)
+    for (size_t i = 0; i < M; ++i)
+        for (size_t j = 0; j < N; ++j) {
+            T acc = 0;
+            for (size_t k = 0; k < K; ++k) acc += A[i * K + k] * B[k * N + j];
+            C[i * N + j] = acc;
+        }
+#else
+    if constexpr (std::is_same_v<T, float>)
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, (int)M, (int)N, (int)K, 1.0f, A, (int)K, B, (int)N, 0.0f, C, (int)N);
+    else
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, (int)M, (int)N, (int)K, 1.0, A, (int)K, B, (int)N, 0.0, C, (int)N);
+#endif
+}
+
+template <class T>
+inline GemmPoint framework_gemm_typed(Precision p, GemmShape sh, double window_s, int samples, const Deadline& dl, size_t max_bytes) {
+    GemmPoint pt; pt.prec = p; pt.shape = sh; pt.threads = 1;
+    const size_t bytes = (sh.m * sh.k + sh.k * sh.n + sh.m * sh.n) * sizeof(T);
+    if (bytes > max_bytes) return pt;
+    const double work = 2.0 * (double)sh.m * (double)sh.n * (double)sh.k;
+    tensorf::blas::ScopedThreads one_thread(1);          // no-op for the shim; pins OpenBLAS's pool while we measure
+    {   // First call of a BLAS builds its buffers / kernels' dispatch state: keep that out of the timed windows.
+        std::vector<T> a(16 * 16, T(1)), b(16 * 16, T(1)), c(16 * 16);
+        framework_gemm_call<T>(a.data(), b.data(), c.data(), 16, 16, 16);
+        do_not_optimize(c[0]);
+    }
+    Measured m = measure_rate(1, {}, window_s, samples, dl,
+        [&](int t) { return detail::make_gemm_state<T, T>(sh.m, sh.n, sh.k, 4321u + (uint64_t)t); },
+        [&](detail::GemmState<T, T>& s) {
+            framework_gemm_call<T>(s.A.data(), s.B.data(), s.C.data(), s.M, s.N, s.K);
+            do_not_optimize(s.C[0]);
+            return work;
+        });
+    pt.ok = m.ok; pt.gops = m.value / 1e9; pt.spread = m.spread;
+    pt.arithmetic_intensity = work / (double)bytes;
+    return pt;
+}
+
+inline GemmPoint framework_gemm(Precision p, GemmShape sh, double window_s, int samples, const Deadline& dl, size_t max_bytes) {
+    switch (p) {
+        case Precision::F32: return framework_gemm_typed<float >(p, sh, window_s, samples, dl, max_bytes);
+        case Precision::F64: return framework_gemm_typed<double>(p, sh, window_s, samples, dl, max_bytes);
+        case Precision::I8:  break;                       // the framework has no int8 GEMM path to measure
     }
     return {};
 }

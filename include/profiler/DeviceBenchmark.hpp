@@ -21,10 +21,20 @@
 //                       when every core runs at once (big.LITTLE aware)
 //   sustained           a throttling probe: all cores busy for a while, windowed
 //
+//   framework           Matrix::matmul through the BLAS the framework selected (FrameworkBench.hpp):
+//                       single-thread GEMM per shape, BLAS thread scaling, per-core-class rates.
+//                       THIS is what training gets; the cost model prefers it over the portable gemm.
+//
 // Rules the suite follows
+//   * Two kinds of GEMM numbers, never mixed up. `gemm` = a portable loop compiled with the flags this
+//     binary got (a build without -march=native runs it as SSE2). `fw` = Matrix::matmul, which dispatches
+//     on the CPU at run time (OpenBLAS DYNAMIC_ARCH) and is what the Tensor ops execute.
 //   * Self-contained kernels, compiled with the same flags as the library, so
 //     the numbers are what OUR code gets on this device (including a build that
 //     forgot -O2 or -march; `build` records that).
+//   * Single-threaded stages run pinned to the fastest core class on big.LITTLE / hybrid devices (a phone
+//     scheduler may otherwise park the benchmark on a little core). The pin is released before any worker
+//     thread is created, because new threads inherit the mask.
 //   * Time-boxed. A hard budget, a per-measurement window, a stop callback the
 //     governor can use (thermal, battery, user activity), and a memory cap for
 //     working sets. Nothing allocates more than `max_working_set_bytes`.
@@ -60,6 +70,7 @@
 #include <vector>
 
 #include "HardwareFingerprint.hpp"
+#include "FrameworkBench.hpp"
 
 #if defined(_WIN32)
   // windows.h already included through HardwareFingerprint.hpp
@@ -179,6 +190,10 @@ struct CapabilityProfile {
     ThreadRates all_cores;
     std::vector<ClassPerf> classes;
     SustainedResult sustained;
+
+    // What Matrix::matmul gets (BLAS), as opposed to `gemm` above (a portable loop). See FrameworkBench.hpp.
+    fwbench::FwProfile fw;
+    bool sustained_via_framework = false;           // the sustained probe ran Matrix::matmul instead of the portable loop
 
     // Convenience values the advisor reads.
     double l1_latency_ns = 0;
@@ -647,7 +662,9 @@ public:
             const auto& s = fp_.cpu.simd;
             if ((P.build.simd == "sse2" && (s.avx2 || s.avx)) || (P.build.simd == "avx2" && s.avx512f) ||
                 (P.build.simd == "scalar" && s.neon))
-                P.notes.push_back("binary compiled for " + P.build.simd + " but the cpu supports wider vectors: build flags decide the speed");
+                P.notes.push_back("binary compiled for " + P.build.simd + " but the cpu supports wider vectors: the PORTABLE kernels (fma, gemm, "
+                                  "conv, md, rnn) are limited by build flags (x86 PC: add -march=native; Android arm64 NEON is already baseline). "
+                                  "The framework (BLAS) numbers dispatch at run time and are not affected");
         }
         t_start_ = Clock::now();
         threads_ = cfg_.max_threads > 0 ? cfg_.max_threads : fp_.usable_threads;
@@ -657,12 +674,26 @@ public:
             working_cap_ = std::min<uint64_t>(working_cap_, fp_.memory.effective_available / 5);   // never more than 20% of what is free
         working_cap_ = std::max<uint64_t>(working_cap_, 1ull << 20);
 
-        stage(P, "compute_fma", [&] { stage_fma(P); });
-        stage(P, "memory_latency", [&] { stage_latency(P); });
-        stage(P, "memory_stream", [&] { stage_stream(P); });
-        stage(P, "gemm", [&] { stage_gemm(P); });
-        stage(P, "gather", [&] { stage_gather(P); });
-        stage(P, "conv_md_rnn", [&] { stage_apps(P); });
+        {   // Single-threaded stages: on a big.LITTLE / hybrid device run them on the fastest core class, not wherever
+            // the scheduler happened to put us. Released at the end of this block, BEFORE any pool is created
+            // (threads inherit the creator's affinity mask).
+            std::unique_ptr<fwbench::PinGuard> pin;
+            if (fp_.cpu.classes.size() >= 2 && fwbench::pinning_supported()) {
+                const std::vector<int> order = cpu_order();
+                if (!order.empty()) {
+                    pin = std::make_unique<fwbench::PinGuard>(order.front());
+                    if (!pin->ok()) P.notes.push_back("could not pin the benchmark to the fastest core class: single-thread numbers are whatever core the scheduler chose");
+                    else P.notes.push_back("single-thread portable kernels ran pinned to cpu " + std::to_string(order.front()) + " (fastest core class)");
+                }
+            }
+            stage(P, "compute_fma", [&] { stage_fma(P); });
+            stage(P, "memory_latency", [&] { stage_latency(P); });
+            stage(P, "memory_stream", [&] { stage_stream(P); });
+            stage(P, "gemm", [&] { stage_gemm(P); });
+            stage(P, "gather", [&] { stage_gather(P); });
+            stage(P, "conv_md_rnn", [&] { stage_apps(P); });
+        }
+        stage(P, "framework_gemm", [&] { stage_framework(P); }, 1.0);
         stage(P, "overhead", [&] { stage_overhead(P); });
         stage(P, "thread_scaling", [&] { stage_scaling(P); });
         stage(P, "core_classes", [&] { stage_classes(P); });
@@ -746,6 +777,41 @@ private:
         { kernels::GemmCase<float> g(8192, 32, 32);  run("f32_tall", g); }     // feature transform: many rows, few columns
         { kernels::GemmCase<double> g(256, 256, 256); run("f64_256", g); }
         if (working_cap_ >= (16u << 20)) { kernels::GemmCase<float> g(512, 512, 512); run("f32_512", g); }
+    }
+
+    // Matrix::matmul through the framework's BLAS: the rate training actually gets (see FrameworkBench.hpp).
+    void stage_framework(CapabilityProfile& P) {
+        fwbench::Options o;
+        o.window_s = cfg_.window_seconds;
+        o.budget_s = std::max(1.0, std::min(cfg_.budget_seconds - elapsed(), cfg_.budget_seconds * 0.35));
+        o.max_bytes = working_cap_;
+        o.max_threads = threads_;
+        o.should_stop = cfg_.should_stop;
+        for (auto it = fp_.cpu.classes.rbegin(); it != fp_.cpu.classes.rend(); ++it) {      // fastest class first
+            std::vector<int> cpus;
+            for (int id : it->cpus) {
+                bool online = true;
+                for (const auto& c : fp_.cpu.cores) if (c.id == id) online = c.online;
+                if (online) cpus.push_back(id);
+            }
+            if (cpus.empty()) continue;
+            o.classes.push_back(std::move(cpus));
+            o.class_names.push_back(it->name);
+        }
+        P.fw = fwbench::run(o);
+        for (const auto& n : P.fw.notes) P.notes.push_back(n);
+        for (const auto& s : P.fw.skipped) P.skipped.push_back(s);
+        if (P.fw.usable()) {
+            double portable = 0;
+            for (const char* k : {"f32_64", "f32_256", "f32_512"}) { auto it = P.gemm.find(k); if (it != P.gemm.end() && it->second.ok) portable = std::max(portable, it->second.median); }
+            if (portable > 0 && P.fw.best_f32() > 1.5 * portable) {
+                char b[224];
+                std::snprintf(b, sizeof b, "portable gemm loop reaches %.0f%% of the framework's BLAS rate (%.1f vs %.1f GFLOP/s, backend %s): "
+                              "layers that run Matrix::matmul are priced with the framework rate", 100.0 * portable / P.fw.best_f32(), portable,
+                              P.fw.best_f32(), P.fw.backend.c_str());
+                P.notes.push_back(b);
+            }
+        }
     }
 
     void stage_gather(CapabilityProfile& P) {
@@ -909,23 +975,36 @@ private:
         if (!cfg_.read_temp_c) { RealFs fs; t0 = detail::read_max_temp_c(fs); }
 #endif
         S.temp_start_c = t0;
-        // GEMM-128 per thread: compute heavy with a real working set, so it heats the chip like training does
-        std::vector<std::unique_ptr<kernels::GemmCase<float>>> gcs;
-        for (int i = 0; i < threads_; ++i) gcs.push_back(std::make_unique<kernels::GemmCase<float>>(128, 128, 128));
-        BenchPool pool(std::vector<int>(size_t(threads_), -1));
-        auto start = detail::Clock::now();
-        while (detail::seconds_since(start) < dur) {
-            if (cfg_.should_stop && cfg_.should_stop()) { P.stopped_early = true; stop_ = true; break; }
-            std::vector<double> rate(size_t(threads_), 0.0);
-            std::function<void(int)> fn = [&](int t) {
-                rate[t] = detail::timed_rate([&] { return gcs[t]->run(); }, cfg_.sustained_window_seconds);
-            };
-            pool.run(fn);
-            double total = 0;
-            for (double r : rate) total += r;
-            S.window_gflops.push_back(total * 1e-9);
+        if (P.fw.usable()) {
+            // The load training actually puts on the chip: Matrix::matmul through BLAS, on as many threads as it uses.
+            // (A portable loop is ~20x slower on a PC, so it would under-heat the device and under-report the clock drop.)
+            const int T = P.fw.threads_effective ? std::max(1, P.fw.max_threads()) : 1;
+            S.threads = T;
+            P.sustained_via_framework = true;
+            double el = 0;
+            S.window_gflops = fwbench::sustained_windows(T, dur, cfg_.sustained_window_seconds, working_cap_,
+                [&] { if (cfg_.should_stop && cfg_.should_stop()) { P.stopped_early = true; stop_ = true; return true; } return false; }, &el);
+            S.duration_s = el;
+            if (S.window_gflops.empty()) P.notes.push_back("framework sustained probe produced no windows");
+        } else {
+            // GEMM-128 per thread: compute heavy with a real working set, so it heats the chip like training does
+            std::vector<std::unique_ptr<kernels::GemmCase<float>>> gcs;
+            for (int i = 0; i < threads_; ++i) gcs.push_back(std::make_unique<kernels::GemmCase<float>>(128, 128, 128));
+            BenchPool pool(std::vector<int>(size_t(threads_), -1));
+            auto start = detail::Clock::now();
+            while (detail::seconds_since(start) < dur) {
+                if (cfg_.should_stop && cfg_.should_stop()) { P.stopped_early = true; stop_ = true; break; }
+                std::vector<double> rate(size_t(threads_), 0.0);
+                std::function<void(int)> fn = [&](int t) {
+                    rate[t] = detail::timed_rate([&] { return gcs[t]->run(); }, cfg_.sustained_window_seconds);
+                };
+                pool.run(fn);
+                double total = 0;
+                for (double r : rate) total += r;
+                S.window_gflops.push_back(total * 1e-9);
+            }
+            S.duration_s = detail::seconds_since(start);
         }
-        S.duration_s = detail::seconds_since(start);
         std::optional<double> t1 = cfg_.read_temp_c ? cfg_.read_temp_c() : std::nullopt;
 #if !defined(_WIN32) && !defined(__APPLE__)
         if (!cfg_.read_temp_c) { RealFs fs; t1 = detail::read_max_temp_c(fs); }
@@ -1027,6 +1106,24 @@ inline std::string CapabilityProfile::to_json() const {
     j.kv("temp_start_c", sustained.temp_start_c); j.kv("temp_end_c", sustained.temp_end_c);
     j.key("window_gflops"); j.begin_arr(); for (double g : sustained.window_gflops) j.num(g); j.end_arr();
     j.end_obj();
+    j.key("framework"); j.begin_obj();
+    j.kv("available", fw.available); j.kv("backend", fw.backend);
+    j.kv("single_thread_cpu", fw.single_thread_cpu); j.kv("single_thread_pinned", fw.single_thread_pinned);
+    j.kv("best_threads", fw.best_threads); j.kv("threads_effective", fw.threads_effective); j.kv("max_speedup", fw.max_speedup);
+    j.kv("sustained_via_framework", sustained_via_framework); j.kv("seconds", fw.seconds);
+    j.key("gemm_gflops"); j.begin_arr();
+    for (const auto& p : fw.points) {
+        j.begin_obj(); j.kv("key", p.key); j.kv("m", p.M); j.kv("n", p.N); j.kv("k", p.K);
+        j.kv("gflops", p.gflops); j.kv("rsd", p.spread); j.kv("ok", p.ok); j.end_obj();
+    }
+    j.end_arr();
+    j.key("scaling"); j.begin_arr();
+    for (const auto& s : fw.scaling) { j.begin_obj(); j.kv("threads", s.threads); j.kv("gflops", s.gflops); j.kv("speedup", s.speedup); j.kv("eff", s.eff); j.end_obj(); }
+    j.end_arr();
+    j.key("classes"); j.begin_arr();
+    for (const auto& c : fw.classes) { j.begin_obj(); j.kv("index", c.index); j.kv("name", c.name); j.kv("cpu", c.cpu); j.kv("gflops_1t", c.gflops_1t); j.kv("pinned", c.pinned); j.end_obj(); }
+    j.end_arr();
+    j.end_obj();
     j.key("derived"); j.begin_obj();
     j.kv("l1_latency_ns", l1_latency_ns); j.kv("dram_latency_ns", dram_latency_ns);
     j.kv("dram_gbps_1t", dram_gbps_1t); j.kv("dram_gbps_all", dram_gbps_all);
@@ -1042,10 +1139,23 @@ inline std::string CapabilityProfile::to_json() const {
 inline std::string CapabilityProfile::summary() const {
     char b[256];
     std::string o;
-    auto line = [&](const char* fmt, auto... args) { std::snprintf(b, sizeof b, fmt, args...); o += b; o += '\n'; };
+    auto line = [&](const char* fmt, auto... args) {
+        if constexpr (sizeof...(args) == 0) std::snprintf(b, sizeof b, "%s", fmt);       // no arguments: never use fmt as a format
+        else std::snprintf(b, sizeof b, fmt, args...);
+        o += b; o += '\n';
+    };
     line("build: %s, simd=%s", build.optimized ? "optimized" : "NOT optimized", build.simd.c_str());
     line("fma f32 %.1f GFLOP/s (1 thread), f64 %.1f", fma_f32.median, fma_f64.median);
-    for (const auto& kv : gemm) line("gemm %-8s %.2f GFLOP/s (rsd %.2f)", kv.first.c_str(), kv.second.median, kv.second.rsd);
+    for (const auto& kv : gemm) line("gemm(portable) %-8s %.2f GFLOP/s (rsd %.2f)", kv.first.c_str(), kv.second.median, kv.second.rsd);
+    if (fw.available) {
+        line("framework Matrix::matmul, BLAS backend '%s', 1 thread%s:", fw.backend.c_str(), fw.single_thread_pinned ? " (pinned to the fastest core class)" : "");
+        for (const auto& p : fw.points) if (p.ok) line("  fw gemm %-10s %.2f GFLOP/s (rsd %.2f)", p.key.c_str(), p.gflops, p.spread);
+        for (const auto& s : fw.scaling) line("  fw threads %2d: %.1f GFLOP/s (x%.2f, eff %.2f) | gnn-shape %.1f GFLOP/s (x%.2f), cpu/wall %.1f", s.threads, s.gflops, s.speedup, s.eff, s.small_gflops, s.small_speedup, s.cpu_ratio);
+        for (const auto& c : fw.classes) line("  fw class %-7s cpu %d: %.1f GFLOP/s 1 thread%s", c.name.c_str(), c.cpu, c.gflops_1t, c.pinned ? "" : " (not pinned)");
+        line("  fw best threads %d, more threads %s", fw.best_threads, fw.threads_effective ? "help" : "do NOT help");
+    } else {
+        line("framework: not linked, no Matrix::matmul numbers (see notes)");
+    }
     for (size_t i = 0; i < latency.size(); ++i)
         line("working set %7llu KB: latency %7.2f ns, stream %7.2f GB/s", (unsigned long long)(latency[i].bytes >> 10), latency[i].ns,
              i < stream_1t.size() ? stream_1t[i].gbps : 0.0);

@@ -16,7 +16,7 @@
  *           within a few percent, a hot device must stop the probe before anything runs.
  *
  *   REAL    The reference cases run on real Matrix / Tensor ops. Their accuracy depends on the
- *           machine (a shared VM is noisy and the portable cblas shim is not OpenBLAS), so these
+ *           machine (a shared VM is noisy and the portable cblas shim is not OpenBLAS (see ProbeReport::blas)), so these
  *           assert only that everything RUNS, is measured, and lands in a sane range. They do
  *           not assert that the model is accurate on this hardware: that is what the printed
  *           report is for.
@@ -142,7 +142,7 @@ static void test_recovers_known_factor() {
     CHECK(r.overall_loo_error < 0.15);
     CHECK(r.overall_raw_error > 0.4);                                    // uncalibrated it was ~50% off (predicted half the truth)
     CHECK(r.overall_loo_error < r.overall_raw_error * 0.5);              // calibration visibly helped
-    CHECK(r.blas == "shim" || r.blas == "external" || r.blas == "none");
+    CHECK(r.blas == "shim" || r.blas == "openblas" || r.blas == "none");
     CHECK(r.threads_validated == 1);
 
     // Using the fitted calibration in predict() closes the gap on a layer it was fitted for.
@@ -444,7 +444,7 @@ static void test_real_probe_mechanics() {
         CHECK(std::isfinite(x.loo_error));
     }
     CHECK(!r.not_covered.empty());
-    CHECK(r.blas == "shim" || r.blas == "external" || r.blas == "none");
+    CHECK(r.blas == "shim" || r.blas == "openblas" || r.blas == "none");
     Json j; j.begin_object(); to_json(j, r); j.end_object();
     CHECK(balanced_clean(j.finish()));
 }

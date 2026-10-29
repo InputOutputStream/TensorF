@@ -75,10 +75,12 @@ int main(int argc, char** argv) {
     for (auto p : l1.parameters()) params.push_back(p);
     for (auto p : l2.parameters()) params.push_back(p);
     Optimizer<float> opt(params, LR, ADAM, true);
+    std::vector<float> Stopping; 
 
     double best_val = -1, test_at_best = 0, train_ms = 0;
     int best_epoch = 0;
     double last_val = 0, last_test = 0;
+    int counter=0;
     for (int epoch = 1; epoch <= epochs; epoch++) {
         auto te = Clock::now();
         // ---- train step (dropout on input features and on hidden layer) ----
@@ -110,8 +112,20 @@ int main(int argc, char** argv) {
             best_val = va; 
             test_at_best = ts; 
             best_epoch = epoch; 
+            counter=0; 
+        } else {
+            counter++; 
         }
-        if (epoch == 1 || epoch % 20 == 0)
+
+        if (counter >= 20) {
+             std::cout << "\nfinal epoch:        val " << last_val << "%  test " << last_test << "%\n"
+              << "best val (epoch " << best_epoch << "): val " << best_val << "%  test " << test_at_best << "%\n"
+              << "avg train step: " << train_ms / epoch << " ms\n";
+            return 0; 
+        }
+
+
+        if (epoch == 1 || epoch % 10 == 0)
             std::cout << "epoch " << epoch << "  loss " << loss_v << "  train " << tr << "%  val " << va
                       << "%  (" << ms_since(te) << " ms/epoch)\n";
     }

@@ -111,11 +111,15 @@ Every combination (resume, local-only, FedDistill with mixed clients, smoke test
 
 ## Current state
 
-- **`server` and `client` do not compile right now.** `tests/GPT/Server.cpp` and `Client.cpp` still include `Profiler/Profiler.hpp` and `Profiler/HyperparamAdvisor.hpp` from the old profiler, and `DataLoader/DataLoading.hpp`; `Trainner.hpp` includes `DataLoader/Quantizer.hpp` (those files are now directly under `include/data/`). They must be moved to the new profiler API (`collect()`, `run_device_benchmark`, `plan_budget`, `HyperparamAdvisor`) before `make server client` works. The networking classes in `include/net/Network/` are fine. The profiler wire protocol in `include/net/Protocol/` has the same problem.
+- **`server` and `client` do not compile right now.** `tests/GPT/Server.cpp` and `Client.cpp` still include `Profiler/Profiler.hpp` and `Profiler/HyperparamAdvisor.hpp` from the old profiler, and `DataLoader/DataLoading.hpp`; `Trainner.hpp` includes `DataLoader/Quantizer.hpp` (those files are now directly under `include/data/`). They must be moved to the new profiler API before `make server client` works: either `tensorf::profile` (`collect()`, `run_device_benchmark`, `plan_budget`, `HyperparamAdvisor`) or `tensorf::prof` (`ProfilerSuite::run`, `advise`, `to_json`, see [PROFILER.md](PROFILER.md)). Both now measure the BLAS the binary was built with, so a client's reported GFLOP/s are its real `Matrix::matmul` rate. `make all` leaves `server client` out for this reason. The networking classes in `include/net/Network/` are fine. The profiler wire protocol in `include/net/Protocol/` has the same problem.
 - `Llama` attention does not implement grouped-query attention with a separate KV head count; check a checkpoint's K/V shapes before loading it.
 - `Llama::generate` stops on EOS (`id 2`) only for the first batch element.
 - `GPT::train` and `Llama::train` hard-code AdamW at lr 1e-4, and `Optimizer::step` clips gradients to norm 1.0.
 - GGUF reading supports F32, F16, Q8_0 and Q4_0; other quantization types (e.g. Q4_K) are not loaded as such.
+
+## Speed
+
+Inference and training time is mostly GEMM. Check which BLAS you got with `make blas-check` (OpenBLAS is about 25x faster than the portable shim on a desktop CPU). Build for your own machine (`ARCH=native`, the default) when you run on the machine that built it. To use the library from your own program, `make install` and link with `-ltensorf` (see [README.md](README.md)).
 
 ## On a phone
 

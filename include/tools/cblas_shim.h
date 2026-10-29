@@ -2,7 +2,11 @@
 // Implements exactly what TensorF calls: saxpy/daxpy, sscal/dscal, sdot/ddot, sgemm/dgemm,
 // row-major only. Plain loops written so clang/gcc can auto-vectorise them (NEON on arm64).
 // This is a portability shim, not a fast BLAS. For speed, build with OpenBLAS
-// (-DTENSORF_USE_OPENBLAS=ON) or replace gemm below with a tiled/NEON kernel.
+// (make BLAS=openblas / cmake -DTENSORF_BLAS=OPENBLAS) or replace gemm below with a tiled/NEON kernel.
+//
+// NOTE: this file is deliberately NOT named cblas.h. When it was, `#include <cblas.h>` resolved
+// to it through -Iinclude/tools even with OpenBLAS installed, so OpenBLAS was never called.
+// Include "tools/tensorf_blas.h" instead; it picks the shim or the real OpenBLAS header.
 #ifndef TENSORF_CBLAS_SHIM_H
 #define TENSORF_CBLAS_SHIM_H
 

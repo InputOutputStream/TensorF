@@ -9,7 +9,7 @@
     #include <iostream>
     #include <vector>
     #include <cmath>
-    #include <cblas.h>
+    #include "tools/tensorf_blas.h"
 
     enum Optimizer_t{
         SGD,

@@ -1,0 +1,736 @@
+
+➜  TensorF git:(main) ✗ BLAS=shim ./scripts/run_android.sh -DTENSORF_OPENBLAS_DYNAMIC_ARCH=ON
+
+-- TensorF BLAS backend: SHIM
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a
+[100%] Built target blas_check
+[100%] Built target gcntest
+[100%] Built target spmmtest
+[100%] Built target coratrain
+[100%] Built target algorithm_profiler_test
+[100%] Built target memory_profiler_test
+[100%] Built target device_benchmark_test
+[100%] Built target hw_fingerprint_test
+[100%] Built target profiler_capability_test
+[100%] Built target profiler_workload_test
+[100%] Built target profiler_probe_test
+[100%] Built target profiler_advisor_test
+[100%] Built target hyperparam_advisor_test
+[100%] Built target profiler_memory_nohook_test
+[100%] Built target profiler_memory_test
+device ABI: arm64-v8a
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/blas_check: 1 file pushed, 0 skipped. 79.9 MB/s (2553680 bytes in 0.030s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/gcntest: 1 file pushed, 0 skipped. 178.3 MB/s (7757312 bytes in 0.041s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/spmmtest: 1 file pushed, 0 skipped. 162.4 MB/s (8950464 bytes in 0.053s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/coratrain: 1 file pushed, 0 skipped. 197.1 MB/s (8284024 bytes in 0.040s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/algorithm_profiler_test: 1 file pushed, 0 skipped. 200.9 MB/s (12484848 bytes in 0.059s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/memory_profiler_test: 1 file pushed, 0 skipped. 175.1 MB/s (7424384 bytes in 0.040s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/hw_fingerprint_test: 1 file pushed, 0 skipped. 203.8 MB/s (9163040 bytes in 0.043s)
+7 files pushed, 0 skipped. 129.5 MB/s (56617752 bytes in 0.417s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/device_benchmark_test: 1 file pushed, 0 skipped. 125.3 MB/s (11083688 bytes in 0.084s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_capability_test: 1 file pushed, 0 skipped. 122.4 MB/s (12043736 bytes in 0.094s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_workload_test: 1 file pushed, 0 skipped. 148.0 MB/s (11732520 bytes in 0.076s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_probe_test: 1 file pushed, 0 skipped. 195.3 MB/s (14775824 bytes in 0.072s)
+4 files pushed, 0 skipped. 114.7 MB/s (49635768 bytes in 0.413s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_advisor_test: 1 file pushed, 0 skipped. 70.0 MB/s (9139208 bytes in 0.125s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/hyperparam_advisor_test: 1 file pushed, 0 skipped. 200.3 MB/s (13890328 bytes in 0.066s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_memory_nohook_test: 1 file pushed, 0 skipped. 207.4 MB/s (6406928 bytes in 0.029s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_memory_test: 1 file pushed, 0 skipped. 217.2 MB/s (9818392 bytes in 0.043s)
+4 files pushed, 0 skipped. 67.3 MB/s (39254856 bytes in 0.557s)
+=== blas_check (expect: shim) ===
+BLAS backend : shim
+target arch  : aarch64
+correctness  : ok
+sgemm 512^3  :    2.32 GFLOP/s
+dgemm 512^3  :    1.12 GFLOP/s
+=== spmmtest ===
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss 0.000000, accuracy 100.000000%
+N=3000 nnz=14982  dense: 568.126 ms/iter (34.3323 MB for A)   sparse: 23.2799 ms/iter (117.047 KB for A)
+all passed, failures=0
+=== gcntest ===
+nodes=60 similarity edges=838 csr nnz=1736
+max |A - A^T| = 0
+epoch 0 loss 0.0554264 acc(all) 100%
+epoch 30 loss 2.53724e-06 acc(all) 100%
+epoch 60 loss 1.26562e-06 acc(all) 100%
+epoch 90 loss 1.15833e-06 acc(all) 100%
+epoch 120 loss 1.09078e-06 acc(all) 100%
+epoch 150 loss 1.02918e-06 acc(all) 100%
+=== algorithm_profiler_test ===
+---- model vs real kernels (1 thread; gemm rows via shim) ----
+gemm 192x300x500       predicted    22.838 ms  measured    23.262 ms  ratio 0.98
+gemm 1000x64x64        predicted     3.248 ms  measured     2.535 ms  ratio 1.28
+conv 8ch 48x48         predicted     0.786 ms  measured     0.799 ms  ratio 0.98
+gather 50k nodes       predicted   121.825 ms  measured   125.454 ms  ratio 0.97
+rnn H=128 step         predicted     0.013 ms  measured     0.009 ms  ratio 1.41
+md 2048 brute          predicted    28.642 ms  measured    28.602 ms  ratio 1.00
+chase 32MB x20000      predicted     5.312 ms  measured     5.114 ms  ratio 1.04
+237/237 checks passed
+=== profiler_workload_test ===
+[dense: flops, bytes, memory]
+[a transformer layer is ~12*E^2 parameters (the old advisor assumed 2*E^2)]
+[attention: quadratic scores, flash-style, cached decode]
+[spmm: gather is irregular]
+[recurrent: dependent chain]
+[particles: all pairs vs neighbour list]
+[embedding, norm, elementwise, optimizer]
+[memory: categories add, scratch is the max]
+[checkpointing: less activation memory, more flops]
+[totals: micro-steps repeat layers, not the optimizer]
+[calibration]
+[predict: compute-bound dense]
+[predict: GEMM layers use the measured BLAS rate, other work keeps the loop rate]
+[predict: gemm_frac, framework thread curve, BLAS that does not scale]
+[predict: measured per-op dispatch cost replaces the bare-call estimate]
+[predict: memory-bound elementwise]
+[predict: irregular access uses the gather rate]
+[predict: threads, width cap, assumed scaling]
+[predict: dependent chains pay a barrier per step]
+[predict: memory fit]
+[predict: calibration and micro-steps]
+[predict: degenerate inputs]
+[parallel_speedup]
+[Algorithm: tunables and rebuild per config]
+[same predictor, different algorithms, different bottlenecks]
+[prediction JSON]
+[live: real capability vector]
+  (info) mlp batch 64 on this device: 14.52 ms/step predicted (+/- 60%), dominant compute
+
+231 checks, 0 failed
+=== profiler_probe_test ===
+[fit: a known 2x miss is recovered and held-out cases are priced within a few percent]
+[fit: factors are per kind; unprobed kinds fall back to the global median]
+[fit: a composite step is held out and priced layer by layer]
+[guards: memory, exceptions, budget, thermal, bad prediction]
+[measure: a slow case still gets min_samples, never a single noisy sample]
+[fit_report: leave-one-out on hand-made results (no timing)]
+[output: JSON and printed report]
+
+Workload model validation  (blas: shim, threads validated: 1, 0.0 s)
+  case                        predicted   measured   ratio  noise  LOO err
+  d1                             0.42 ms     0.63 ms   1.50x     0%       0%
+  d2                             1.42 ms     2.12 ms   1.50x     0%       0%
+  skipped "quoted"            exception: bad "thing"
+
+  per kind (factor = measured/predicted; LOO = error on a held-out case):
+    dense        cases 2  factor 1.50  raw miss  33% -> LOO miss   0% (max 0%)
+    fallback     factor 1.50  (applied to kinds with no probe)
+  overall: raw median miss 33%, leave-one-out median miss 0%
+  not validated (no op to measure): conv2d particle
+
+Workload model validation  (blas: , threads validated: 1, 0.0 s)
+  case                        predicted   measured   ratio  noise  LOO err
+  per kind (factor = measured/predicted; LOO = error on a held-out case):
+    fallback     factor 1.00  (applied to kinds with no probe)
+  overall: raw median miss 0%, leave-one-out median miss 60%
+[reference cases: definitions]
+[reference cases: every step runs on real ops (tiny scale)]
+[real probe with a synthetic capability vector: mechanics, not accuracy]
+[real probe with a REAL capability vector]
+
+Workload model validation  (blas: shim, threads validated: 1, 8.5 s)
+  measured framework op dispatch: 6.03 us/op (replaces the capability suite's tiny-op estimate in predictions)
+  case                        predicted   measured   ratio  noise  LOO err
+  dense_sq 128x128x128           1.10 ms     0.88 ms   0.80x   108%      53%
+  dense_sq 256x256x256           8.76 ms    11.98 ms   1.37x    24%      20%
+  dense_sq 512x512x512          70.01 ms    88.45 ms   1.26x     7%      13%
+  dense_skinny 4x1024x1024       3.07 ms     3.08 ms   1.00x    41%      22%
+  dense_rect 64x784x256          6.71 ms     8.00 ms   1.19x    15%       6%
+  add_small n=16384              0.03 ms     0.04 ms   1.31x     2%     244%
+  add_large n=4194304            5.64 ms    25.36 ms   4.49x     8%      71%
+  spmm n=5000 F=16               1.11 ms     1.64 ms   1.47x    87%      78%
+  spmm n=20000 F=64             17.25 ms    38.69 ms   2.24x    24%       5%
+  spmm n=50000 F=32             21.73 ms    66.50 ms   3.06x    13%      41%
+  rnn B=8 h=64 T=50              3.16 ms     5.88 ms   1.86x    91%      35%
+  rnn B=32 h=128 T=25           11.42 ms    28.76 ms   2.52x    66%      26%
+  mlp_train B=32 H=128           5.17 ms    12.71 ms   2.46x    43%      51%
+  mlp_train B=128 H=256         40.85 ms    53.43 ms   1.31x    34%       9%
+  per kind (factor = measured/predicted; LOO = error on a held-out case):
+    dense        cases 5  factor 1.19  raw miss  21% -> LOO miss  20% (max 53%)
+    spmm         cases 3  factor 2.24  raw miss  55% -> LOO miss  41% (max 78%)
+    recurrent    cases 2  factor 2.17  raw miss  53% -> LOO miss  31% (max 35%)
+    elementwise  cases 2  factor 2.42  raw miss  51% -> LOO miss 158% (max 244%)
+    composite    cases 2  factor 1.42  raw miss  41% -> LOO miss  30% (max 51%)
+    fallback     factor 1.42  (applied to kinds with no probe)
+  overall: raw median miss 30%, leave-one-out median miss 31%
+  not validated (no op to measure): conv2d attention norm embedding particle optimizer
+
+249 checks, 0 failed
+=== profiler_advisor_test ===
+[search: finds the same optimum as an independent brute force]
+[result-changing tunables are held at the base config unless allowed]
+[binding constraint: lift each in turn, report the one that matters]
+[memory: when nothing fits, say so and say by how much]
+[large spaces: coordinate ascent, deterministic and sound]
+  (info) budget 4096 MB: coordinate ascent reached 100.0% of the exhaustive optimum in 16 of 45 evaluations
+  (info) budget 40 MB: coordinate ascent reached 100.0% of the exhaustive optimum in 20 of 45 evaluations
+[trials: measurement overrules the model]
+[factory: invalid combinations are infeasible, not fatal]
+[inputs: missing base values, threads convention, degenerate devices]
+[error range and what the model cannot vouch for]
+[error floor: the range is never tighter than the measured noise]
+[output: JSON and text]
+
+Advice  (exhaustive search, 45 configs evaluated)
+  config   : batch=128 ckpt=1 micro_batch=128 precision_bits=32 threads=4
+  speed    : 4831.3 /s  (range 3019.6 - 7730.1, error basis: model 60%)
+  memory   : 28.2 MB estimated (fits)
+  limited by: hardware: compute-bound
+  - result-changing tunables could raise throughput by about +2% (not searched: allow_altering is off)
+  - model is uncalibrated: no measurement backs the time prediction (error range 60%)
+  - framework GEMM not measured: dense rates come from portable kernels and may differ from Matrix::matmul (BLAS)
+  - the top candidates differ by less than the model's error: the ranking among them is not reliable (supply a trial to settle it)
+
+Advice: none (memory)
+  - no configuration fits: the smallest needs about 23 MB but the allowed budget is 7 MB (60% of the device's safe memory)
+
+Advice  (exhaustive search, 45 configs evaluated, confirmed by trial)
+  config   : batch=128 ckpt=1 micro_batch=128 precision_bits=32 threads=4
+  speed    : 6400.0 /s  (range 4821.8 - 8494.8, error basis: trials 33%)
+  memory   : 28.2 MB estimated (fits)
+  limited by: hardware: compute-bound
+  - result-changing tunables could raise throughput by about +2% (not searched: allow_altering is off)
+  - model is uncalibrated: no measurement backs the time prediction (error range 60%)
+  - framework GEMM not measured: dense rates come from portable kernels and may differ from Matrix::matmul (BLAS)
+
+161 checks, 0 failed
+=== hyperparam_advisor_test ===
+---- end to end on this machine: budget 767 MB of tensors ----
+[mlp] advice: batch=64 checkpoint=0 dtype=3 microbatch=64 threads=1
+  predicted 896.175 units/s, step 71.4147 ms, bound compute, tensors 8 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[cnn] advice: batch=16 checkpoint=0 dtype=3 microbatch=1 threads=2
+  predicted 119.241 units/s, step 134.182 ms, bound compute, tensors 1 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[gnn] advice: batch=64 checkpoint=0 dtype=3 fanout=5 microbatch=8 threads=2
+  predicted 9381.42 units/s, step 6.82199 ms, bound compute, tensors 0 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[rnn] advice: batch=128 bptt=16 dtype=1 microbatch=128 threads=2
+  predicted 2792.46 units/s, step 733.404 ms, bound compute, tensors 12 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[transformer] advice: batch=1 checkpoint=0 dtype=3 microbatch=1 seq=64 threads=1
+  predicted 88.1058 units/s, step 726.4 ms, bound compute, tensors 114 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[markov] advice: batch=256 microbatch=256 steps=1024 threads=2
+  predicted 1.08377e+07 units/s, step 24.1882 ms, bound irregular, tensors 61 MB, error +/-100% (uncalibrated)
+  limited by: irregular
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[particles] advice: batch=20000 dtype=1 microbatch=20000 neighbors=16 threads=2
+  predicted 1.71436e+07 units/s, step 1.16662 ms, bound compute, tensors 1 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+115/115 checks passed
+=== profiler_memory_nohook_test ===
+TensorF profiler step 3: no-hook behaviour
+12 checks, 0 failed
+/home/thot/Tensor_Flow_Project/TensorF/Datasets/cora/cora.content: 1 file pushed, 0 skipped. 249.3 MB/s (7823427 bytes in 0.030s)
+/home/thot/Tensor_Flow_Project/TensorF/Datasets/cora/cora.cites: 1 file pushed, 0 skipped. 43.4 MB/s (69928 bytes in 0.002s)
+2 files pushed, 0 skipped. 74.5 MB/s (7893355 bytes in 0.101s)
+=== coratrain (Cora) ===
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [495.042 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94645  train 34.2857%  val 30%  (506.907 ms/epoch)
+epoch 10  loss 1.88278  train 72.8571%  val 50.2%  (703.368 ms/epoch)
+epoch 20  loss 1.7763  train 85%  val 56.8%  (858.908 ms/epoch)
+epoch 30  loss 1.63627  train 87.1429%  val 61.6%  (612.126 ms/epoch)
+epoch 40  loss 1.47082  train 89.2857%  val 67.2%  (646.325 ms/epoch)
+epoch 50  loss 1.30114  train 90.7143%  val 70.6%  (609.917 ms/epoch)
+epoch 60  loss 1.12457  train 92.8571%  val 74.2%  (459.876 ms/epoch)
+epoch 70  loss 0.984268  train 94.2857%  val 76%  (664.973 ms/epoch)
+epoch 80  loss 0.844872  train 95%  val 76.8%  (650.959 ms/epoch)
+epoch 90  loss 0.697801  train 97.1429%  val 77.6%  (597.47 ms/epoch)
+epoch 100  loss 0.626127  train 98.5714%  val 77.8%  (601.9 ms/epoch)
+epoch 110  loss 0.6675  train 97.8571%  val 78.2%  (453.49 ms/epoch)
+epoch 120  loss 0.583262  train 97.8571%  val 78.4%  (457.974 ms/epoch)
+
+final epoch:        val 78.4%  test 79.7%
+best val (epoch 102): val 78.4%  test 78.8%
+avg train step: 375.424 ms
+➜  TensorF git:(main) ✗ 
+
+➜  TensorF git:(main) ✗ BLAS=openblas ./scripts/run_android.sh -DTENSORF_OPENBLAS_TARGET=CORTEXA75
+
+Unknown TENSORF_OPENBLAS_TARGET='CORTEXA75'.
+This phone is 2x A75 + 6x A55; use -DTENSORF_OPENBLAS_DYNAMIC_ARCH=ON, or TARGET=CORTEXA55.
+➜  TensorF git:(main) ✗ BLAS=openblas ./scripts/run_android.sh -DTENSORF_OPENBLAS_DYNAMIC_ARCH=ON -DTENSORF_OPENBLAS_TARGET=CORTEXA55
+
+-- TensorF BLAS backend: OPENBLAS
+-- Configuring done (0.0s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a
+[ 10%] Performing build step for 'tensorf_openblas_build'
+gmake[4]: warning: -j4 forced in submake: resetting jobserver mode.
+gmake[4]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+OpenBLAS: Detecting fortran compiler failed. Can only compile BLAS and f2c-converted LAPACK.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+gmake[5]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+
+ OpenBLAS build complete. (CBLAS)
+
+  OS               ... Android             
+  Architecture     ... arm64               
+  BINARY           ... 64bit                 
+  C compiler       ... CLANG  (cmd & version : Android (13989888, +pgo, +bolt, +lto, +mlgo, based on r563880c) clang version 21.0.0 (https://android.googlesource.com/toolchain/llvm-project 5e96669f06077099aa41290cdb4c5e6fa0f59349))
+  Library Name     ... libopenblasp-r0.3.30.a (Multi-threading; Max num-threads is 8)
+  Supporting multiple arm64 cpu models with minimum requirement for the common code being CORTEXA55
+
+To install the library, you can run "make PREFIX=/path/to/your/installation install".
+
+Note that any flags passed to make during build should also be passed to make install
+to circumvent any install errors.
+
+[ 20%] Performing install step for 'tensorf_openblas_build'
+gmake[4]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[4]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+gmake[5]: warning: -j4 forced in makefile: resetting jobserver mode.
+Generating openblas_config.h in /home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/openblas-arm64-v8a/install/include
+Generating f77blas.h in /home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/openblas-arm64-v8a/install/include
+Generating cblas.h in /home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/openblas-arm64-v8a/install/include
+Copying the static library to /home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/openblas-arm64-v8a/install/lib
+Generating openblas.pc in /home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/openblas-arm64-v8a/install/lib/pkgconfig
+Generating OpenBLASConfig.cmake in /home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/openblas-arm64-v8a/install/lib/cmake/openblas
+Generating OpenBLASConfigVersion.cmake in /home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/openblas-arm64-v8a/install/lib/cmake/openblas
+Install OK!
+[ 30%] Completed 'tensorf_openblas_build'
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/blas_check.dir/tests/blas_check.cpp.o
+[100%] Linking CXX executable bin/blas_check
+[100%] Built target blas_check
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/gcntest.dir/tests/gcntest.cpp.o
+[100%] Linking CXX executable bin/gcntest
+[100%] Built target gcntest
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/spmmtest.dir/tests/spmmtest.cpp.o
+[100%] Linking CXX executable bin/spmmtest
+[100%] Built target spmmtest
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/coratrain.dir/tests/coratrain.cpp.o
+[100%] Linking CXX executable bin/coratrain
+[100%] Built target coratrain
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/algorithm_profiler_test.dir/tests/algorithm_profiler_test.cpp.o
+[100%] Linking CXX executable bin/algorithm_profiler_test
+[100%] Built target algorithm_profiler_test
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/memory_profiler_test.dir/tests/memory_profiler_test.cpp.o
+[100%] Linking CXX executable bin/memory_profiler_test
+[100%] Built target memory_profiler_test
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/device_benchmark_test.dir/tests/device_benchmark_test.cpp.o
+[100%] Linking CXX executable bin/device_benchmark_test
+[100%] Built target device_benchmark_test
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/hw_fingerprint_test.dir/tests/hw_fingerprint_test.cpp.o
+[100%] Linking CXX executable bin/hw_fingerprint_test
+[100%] Built target hw_fingerprint_test
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/profiler_capability_test.dir/tests/profiler_capability_test.cpp.o
+[100%] Linking CXX executable bin/profiler_capability_test
+[100%] Built target profiler_capability_test
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/profiler_workload_test.dir/tests/profiler_workload_test.cpp.o
+[100%] Linking CXX executable bin/profiler_workload_test
+[100%] Built target profiler_workload_test
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/profiler_probe_test.dir/tests/profiler_probe_test.cpp.o
+[100%] Linking CXX executable bin/profiler_probe_test
+[100%] Built target profiler_probe_test
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/profiler_advisor_test.dir/tests/profiler_advisor_test.cpp.o
+[100%] Linking CXX executable bin/profiler_advisor_test
+[100%] Built target profiler_advisor_test
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/hyperparam_advisor_test.dir/tests/hyperparam_advisor_test.cpp.o
+[100%] Linking CXX executable bin/hyperparam_advisor_test
+[100%] Built target hyperparam_advisor_test
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/profiler_memory_nohook_test.dir/tests/profiler_memory_nohook_test.cpp.o
+[100%] Linking CXX executable bin/profiler_memory_nohook_test
+[100%] Built target profiler_memory_nohook_test
+[ 80%] Built target tensorf_openblas_build
+[ 90%] Building CXX object CMakeFiles/profiler_memory_test.dir/tests/profiler_memory_test.cpp.o
+[100%] Linking CXX executable bin/profiler_memory_test
+[100%] Built target profiler_memory_test
+device ABI: arm64-v8a
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/blas_check: 1 file pushed, 0 skipped. 196.8 MB/s (15963600 bytes in 0.077s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/gcntest: 1 file pushed, 0 skipped. 144.4 MB/s (21115152 bytes in 0.139s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/spmmtest: 1 file pushed, 0 skipped. 110.3 MB/s (22308176 bytes in 0.193s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/coratrain: 1 file pushed, 0 skipped. 112.4 MB/s (21641240 bytes in 0.184s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/algorithm_profiler_test: 1 file pushed, 0 skipped. 118.9 MB/s (25880088 bytes in 0.208s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/memory_profiler_test: 1 file pushed, 0 skipped. 120.2 MB/s (7424384 bytes in 0.059s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/hw_fingerprint_test: 1 file pushed, 0 skipped. 127.8 MB/s (9163040 bytes in 0.068s)
+7 files pushed, 0 skipped. 110.7 MB/s (123495680 bytes in 1.064s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/device_benchmark_test: 1 file pushed, 0 skipped. 120.5 MB/s (24477216 bytes in 0.194s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_capability_test: 1 file pushed, 0 skipped. 191.0 MB/s (25435912 bytes in 0.127s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_workload_test: 1 file pushed, 0 skipped. 98.4 MB/s (25124656 bytes in 0.244s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_probe_test: 1 file pushed, 0 skipped. 114.4 MB/s (28168928 bytes in 0.235s)
+4 files pushed, 0 skipped. 87.8 MB/s (103206712 bytes in 1.121s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_advisor_test: 1 file pushed, 0 skipped. 84.0 MB/s (9139208 bytes in 0.104s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/hyperparam_advisor_test: 1 file pushed, 0 skipped. 189.6 MB/s (27283336 bytes in 0.137s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_memory_nohook_test: 1 file pushed, 0 skipped. 196.5 MB/s (6406928 bytes in 0.031s)
+/home/thot/Tensor_Flow_Project/TensorF/build-android-arm64-v8a/bin/profiler_memory_test: 1 file pushed, 0 skipped. 121.4 MB/s (23187920 bytes in 0.182s)
+4 files pushed, 0 skipped. 83.8 MB/s (66017392 bytes in 0.752s)
+=== blas_check (expect: openblas) ===
+BLAS backend : openblas [OpenBLAS 0.3.30 NO_LAPACK NO_LAPACKE DYNAMIC_ARCH NO_AFFINITY armv8 MAX_THREADS=8, core=armv8, threads=8]
+target arch  : aarch64
+correctness  : ok
+sgemm 512^3  :   17.64 GFLOP/s
+dgemm 512^3  :   10.33 GFLOP/s
+=== spmmtest ===
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss 0.000000, accuracy 100.000000%
+N=3000 nnz=14982  dense: 611.705 ms/iter (34.3323 MB for A)   sparse: 26.4005 ms/iter (117.047 KB for A)
+all passed, failures=0
+=== gcntest ===
+nodes=60 similarity edges=838 csr nnz=1736
+max |A - A^T| = 0
+epoch 0 loss 0.0327541 acc(all) 100%
+epoch 30 loss 9.93411e-09 acc(all) 100%
+epoch 60 loss 1.98682e-09 acc(all) 100%
+epoch 90 loss 1.98682e-09 acc(all) 100%
+epoch 120 loss 1.98682e-09 acc(all) 100%
+epoch 150 loss 1.98682e-09 acc(all) 100%
+=== algorithm_profiler_test ===
+---- model vs real kernels (1 thread; gemm rows via openblas) ----
+gemm 192x300x500       predicted     7.375 ms  measured    11.146 ms  ratio 0.66
+gemm 1000x64x64        predicted     1.049 ms  measured     1.690 ms  ratio 0.62
+conv 8ch 48x48         predicted     0.806 ms  measured     0.798 ms  ratio 1.01
+gather 50k nodes       predicted   110.568 ms  measured   111.888 ms  ratio 0.99
+rnn H=128 step         predicted     0.013 ms  measured     0.009 ms  ratio 1.41
+md 2048 brute          predicted    28.695 ms  measured    28.607 ms  ratio 1.00
+chase 32MB x20000      predicted     4.716 ms  measured     4.641 ms  ratio 1.02
+237/237 checks passed
+=== profiler_workload_test ===
+[dense: flops, bytes, memory]
+[a transformer layer is ~12*E^2 parameters (the old advisor assumed 2*E^2)]
+[attention: quadratic scores, flash-style, cached decode]
+[spmm: gather is irregular]
+[recurrent: dependent chain]
+[particles: all pairs vs neighbour list]
+[embedding, norm, elementwise, optimizer]
+[memory: categories add, scratch is the max]
+[checkpointing: less activation memory, more flops]
+[totals: micro-steps repeat layers, not the optimizer]
+[calibration]
+[predict: compute-bound dense]
+[predict: GEMM layers use the measured BLAS rate, other work keeps the loop rate]
+[predict: gemm_frac, framework thread curve, BLAS that does not scale]
+[predict: measured per-op dispatch cost replaces the bare-call estimate]
+[predict: memory-bound elementwise]
+[predict: irregular access uses the gather rate]
+[predict: threads, width cap, assumed scaling]
+[predict: dependent chains pay a barrier per step]
+[predict: memory fit]
+[predict: calibration and micro-steps]
+[predict: degenerate inputs]
+[parallel_speedup]
+[Algorithm: tunables and rebuild per config]
+[same predictor, different algorithms, different bottlenecks]
+[prediction JSON]
+[live: real capability vector]
+  (info) mlp batch 64 on this device: 6.78 ms/step predicted (+/- 60%), dominant compute
+
+231 checks, 0 failed
+=== profiler_probe_test ===
+[fit: a known 2x miss is recovered and held-out cases are priced within a few percent]
+[fit: factors are per kind; unprobed kinds fall back to the global median]
+[fit: a composite step is held out and priced layer by layer]
+[guards: memory, exceptions, budget, thermal, bad prediction]
+[measure: a slow case still gets min_samples, never a single noisy sample]
+[fit_report: leave-one-out on hand-made results (no timing)]
+[output: JSON and printed report]
+
+Workload model validation  (blas: openblas, threads validated: 1, 0.0 s)
+  case                        predicted   measured   ratio  noise  LOO err
+  d1                             0.42 ms     0.63 ms   1.50x     0%       0%
+  d2                             1.42 ms     2.12 ms   1.50x     3%       0%
+  skipped "quoted"            exception: bad "thing"
+
+  per kind (factor = measured/predicted; LOO = error on a held-out case):
+    dense        cases 2  factor 1.50  raw miss  33% -> LOO miss   0% (max 0%)
+    fallback     factor 1.50  (applied to kinds with no probe)
+  overall: raw median miss 33%, leave-one-out median miss 0%
+  not validated (no op to measure): conv2d particle
+
+Workload model validation  (blas: , threads validated: 1, 0.0 s)
+  case                        predicted   measured   ratio  noise  LOO err
+  per kind (factor = measured/predicted; LOO = error on a held-out case):
+    fallback     factor 1.00  (applied to kinds with no probe)
+  overall: raw median miss 0%, leave-one-out median miss 60%
+[reference cases: definitions]
+[reference cases: every step runs on real ops (tiny scale)]
+[real probe with a synthetic capability vector: mechanics, not accuracy]
+[real probe with a REAL capability vector]
+
+Workload model validation  (blas: openblas, threads validated: 1, 6.7 s)
+  measured framework op dispatch: 7.13 us/op (replaces the capability suite's tiny-op estimate in predictions)
+  case                        predicted   measured   ratio  noise  LOO err
+  dense_sq 128x128x128           0.49 ms     0.45 ms   0.91x     9%      13%
+  dense_sq 256x256x256           3.89 ms     4.24 ms   1.09x     5%      13%
+  dense_sq 512x512x512          31.07 ms    31.07 ms   1.00x     1%       2%
+  dense_skinny 4x1024x1024       3.06 ms     2.74 ms   0.90x    20%      15%
+  dense_rect 64x784x256          2.98 ms     3.16 ms   1.06x     8%      10%
+  add_small n=16384              0.03 ms     0.05 ms   1.36x     1%     218%
+  add_large n=4194304            7.04 ms    30.52 ms   4.34x     7%      69%
+  spmm n=5000 F=16               1.49 ms     2.38 ms   1.60x    13%      51%
+  spmm n=20000 F=64             23.23 ms    45.62 ms   1.96x     4%      10%
+  spmm n=50000 F=32             29.24 ms    86.05 ms   2.94x     2%      40%
+  rnn B=8 h=64 T=50              2.77 ms     3.63 ms   1.31x     4%     116%
+  rnn B=32 h=128 T=25            5.87 ms    16.64 ms   2.84x     6%      54%
+  mlp_train B=32 H=128           2.35 ms     8.40 ms   3.57x    21%      71%
+  mlp_train B=128 H=256         18.22 ms    34.52 ms   1.89x    18%      47%
+  per kind (factor = measured/predicted; LOO = error on a held-out case):
+    dense        cases 5  factor 1.00  raw miss   8% -> LOO miss  13% (max 15%)
+    spmm         cases 3  factor 1.96  raw miss  49% -> LOO miss  40% (max 51%)
+    recurrent    cases 2  factor 1.93  raw miss  44% -> LOO miss  85% (max 116%)
+    elementwise  cases 2  factor 2.43  raw miss  52% -> LOO miss 143% (max 218%)
+    composite    cases 2  factor 1.48  raw miss  60% -> LOO miss  59% (max 71%)
+    fallback     factor 1.48  (applied to kinds with no probe)
+  overall: raw median miss 32%, leave-one-out median miss 43%
+  not validated (no op to measure): conv2d attention norm embedding particle optimizer
+
+249 checks, 0 failed
+=== profiler_advisor_test ===
+[search: finds the same optimum as an independent brute force]
+[result-changing tunables are held at the base config unless allowed]
+[binding constraint: lift each in turn, report the one that matters]
+[memory: when nothing fits, say so and say by how much]
+[large spaces: coordinate ascent, deterministic and sound]
+  (info) budget 4096 MB: coordinate ascent reached 100.0% of the exhaustive optimum in 16 of 45 evaluations
+  (info) budget 40 MB: coordinate ascent reached 100.0% of the exhaustive optimum in 20 of 45 evaluations
+[trials: measurement overrules the model]
+[factory: invalid combinations are infeasible, not fatal]
+[inputs: missing base values, threads convention, degenerate devices]
+[error range and what the model cannot vouch for]
+[error floor: the range is never tighter than the measured noise]
+[output: JSON and text]
+
+Advice  (exhaustive search, 45 configs evaluated)
+  config   : batch=128 ckpt=1 micro_batch=128 precision_bits=32 threads=4
+  speed    : 4831.3 /s  (range 3019.6 - 7730.1, error basis: model 60%)
+  memory   : 28.2 MB estimated (fits)
+  limited by: hardware: compute-bound
+  - result-changing tunables could raise throughput by about +2% (not searched: allow_altering is off)
+  - model is uncalibrated: no measurement backs the time prediction (error range 60%)
+  - framework GEMM not measured: dense rates come from portable kernels and may differ from Matrix::matmul (BLAS)
+  - the top candidates differ by less than the model's error: the ranking among them is not reliable (supply a trial to settle it)
+
+Advice: none (memory)
+  - no configuration fits: the smallest needs about 23 MB but the allowed budget is 7 MB (60% of the device's safe memory)
+
+Advice  (exhaustive search, 45 configs evaluated, confirmed by trial)
+  config   : batch=128 ckpt=1 micro_batch=128 precision_bits=32 threads=4
+  speed    : 6400.0 /s  (range 4821.8 - 8494.8, error basis: trials 33%)
+  memory   : 28.2 MB estimated (fits)
+  limited by: hardware: compute-bound
+  - result-changing tunables could raise throughput by about +2% (not searched: allow_altering is off)
+  - model is uncalibrated: no measurement backs the time prediction (error range 60%)
+  - framework GEMM not measured: dense rates come from portable kernels and may differ from Matrix::matmul (BLAS)
+
+161 checks, 0 failed
+=== hyperparam_advisor_test ===
+---- end to end on this machine: budget 736 MB of tensors ----
+[mlp] advice: batch=512 checkpoint=0 dtype=3 microbatch=512 threads=8
+  predicted 7539.48 units/s, step 67.9092 ms, bound compute, tensors 12 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[cnn] advice: batch=16 checkpoint=0 dtype=3 microbatch=8 threads=8
+  predicted 394.229 units/s, step 40.5856 ms, bound compute, tensors 3 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[gnn] advice: batch=64 checkpoint=0 dtype=3 fanout=5 microbatch=8 threads=8
+  predicted 46190 units/s, step 1.38558 ms, bound compute, tensors 0 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[rnn] advice: batch=32 bptt=16 dtype=1 microbatch=32 threads=8
+  predicted 30844.2 units/s, step 16.5996 ms, bound compute, tensors 7 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[transformer] advice: batch=4 checkpoint=0 dtype=3 microbatch=4 seq=64 threads=8
+  predicted 758.337 units/s, step 337.581 ms, bound compute, tensors 125 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[markov] advice: batch=256 microbatch=256 steps=1024 threads=8
+  predicted 3.36596e+07 units/s, step 7.78809 ms, bound irregular, tensors 61 MB, error +/-100% (uncalibrated)
+  limited by: irregular
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+[particles] advice: batch=20000 dtype=1 microbatch=20000 neighbors=16 threads=8
+  predicted 7.27191e+07 units/s, step 0.275031 ms, bound compute, tensors 1 MB, error +/-100% (uncalibrated)
+  limited by: compute
+  note: prediction is uncalibrated: expect errors up to the reported spread until a real run is measured
+115/115 checks passed
+=== profiler_memory_nohook_test ===
+TensorF profiler step 3: no-hook behaviour
+12 checks, 0 failed
+/home/thot/Tensor_Flow_Project/TensorF/Datasets/cora/cora.content: 1 file pushed, 0 skipped. 403.3 MB/s (7823427 bytes in 0.019s)
+/home/thot/Tensor_Flow_Project/TensorF/Datasets/cora/cora.cites: 1 file pushed, 0 skipped. 82.8 MB/s (69928 bytes in 0.001s)
+2 files pushed, 0 skipped. 94.6 MB/s (7893355 bytes in 0.080s)
+=== coratrain (Cora) ===
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [484.258 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94639  train 25%  val 13%  (603.184 ms/epoch)
+epoch 10  loss 1.88191  train 63.5714%  val 37%  (597.076 ms/epoch)
+epoch 20  loss 1.78298  train 72.8571%  val 48%  (617.704 ms/epoch)
+epoch 30  loss 1.64094  train 80.7143%  val 56.2%  (613.287 ms/epoch)
+epoch 40  loss 1.4733  train 87.1429%  val 63.4%  (602.743 ms/epoch)
+epoch 50  loss 1.31707  train 91.4286%  val 69.2%  (602.007 ms/epoch)
+epoch 60  loss 1.15338  train 94.2857%  val 72%  (601.795 ms/epoch)
+epoch 70  loss 1.01093  train 95.7143%  val 73%  (600.401 ms/epoch)
+epoch 80  loss 0.89058  train 97.1429%  val 75.2%  (617.322 ms/epoch)
+epoch 90  loss 0.740314  train 98.5714%  val 75.8%  (614.036 ms/epoch)
+epoch 100  loss 0.678374  train 97.8571%  val 76%  (612.572 ms/epoch)
+epoch 110  loss 0.616234  train 98.5714%  val 77.2%  (614.955 ms/epoch)
+epoch 120  loss 0.592322  train 97.8571%  val 76.6%  (609.654 ms/epoch)
+
+final epoch:        val 76.8%  test 79.2%
+best val (epoch 110): val 77.2%  test 77.6%
+avg train step: 380.734 ms
+➜  TensorF git:(main) ✗ 
+
+➜  TensorF git:(main) ✗ ./bin/coratrain 
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [237.342 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94629  train 30%  val 17.4%  (298.669 ms/epoch)
+epoch 10  loss 1.87588  train 67.1429%  val 44.2%  (336.5 ms/epoch)
+epoch 20  loss 1.76407  train 72.8571%  val 49.2%  (336.076 ms/epoch)
+epoch 30  loss 1.61751  train 78.5714%  val 51.6%  (350.131 ms/epoch)
+epoch 40  loss 1.44985  train 84.2857%  val 56.4%  (349.597 ms/epoch)
+epoch 50  loss 1.3283  train 89.2857%  val 62.2%  (388.122 ms/epoch)
+epoch 60  loss 1.11817  train 92.8571%  val 68%  (356.664 ms/epoch)
+epoch 70  loss 1.00873  train 95.7143%  val 72.2%  (349.641 ms/epoch)
+epoch 80  loss 0.907226  train 97.1429%  val 78.2%  (330.871 ms/epoch)
+epoch 90  loss 0.719824  train 97.1429%  val 80%  (335.985 ms/epoch)
+epoch 100  loss 0.648414  train 97.1429%  val 80.4%  (383.798 ms/epoch)
+epoch 110  loss 0.632806  train 96.4286%  val 80%  (383.95 ms/epoch)
+epoch 120  loss 0.515549  train 97.1429%  val 79.4%  (385.678 ms/epoch)
+
+final epoch:        val 80.2%  test 77%
+best val (epoch 104): val 80.6%  test 77.8%
+avg train step: 212.582 ms
+➜  TensorF git:(main) ✗ 
+
+➜  Projet M2 ls
+cora  coratrain.cpp  Datasets  gcn  gcntest.cpp
+➜  Projet M2 g++ -std=c++20 prog.cpp $(pkg-config --cflags --libs tensorf) -o prog
+cc1plus: fatal error: prog.cpp: No such file or directory
+compilation terminated.
+➜  Projet M2 g++ -std=c++20 coratrain.cpp $(pkg-config --cflags --libs tensorf) -o cora 
+➜  Projet M2 ./cora 
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [268.441 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94577  train 23.5714%  val 23%  (313.132 ms/epoch)
+epoch 10  loss 1.88715  train 52.1429%  val 33.6%  (335.576 ms/epoch)
+epoch 20  loss 1.78399  train 60%  val 37.2%  (365.337 ms/epoch)
+epoch 30  loss 1.6449  train 61.4286%  val 41.8%  (372.035 ms/epoch)
+epoch 40  loss 1.48738  train 72.8571%  val 51%  (358.181 ms/epoch)
+epoch 50  loss 1.32916  train 87.8571%  val 64.8%  (382.386 ms/epoch)
+epoch 60  loss 1.13109  train 90.7143%  val 70.6%  (345.467 ms/epoch)
+epoch 70  loss 1.05519  train 94.2857%  val 75%  (327.911 ms/epoch)
+epoch 80  loss 0.947562  train 95.7143%  val 79.4%  (354.593 ms/epoch)
+epoch 90  loss 0.804341  train 95.7143%  val 80.8%  (366.346 ms/epoch)
+epoch 100  loss 0.723684  train 96.4286%  val 81.2%  (367.03 ms/epoch)
+epoch 110  loss 0.639292  train 96.4286%  val 82%  (338.166 ms/epoch)
+epoch 120  loss 0.589441  train 96.4286%  val 82.2%  (350.017 ms/epoch)
+epoch 130  loss 0.566845  train 96.4286%  val 82%  (378.586 ms/epoch)
+
+final epoch:        val 82%  test 78.8%
+best val (epoch 111): val 82.2%  test 79.3%
+avg train step: 227 ms
+➜  Projet M2 g++ -std=c++20 coratrain.cpp $(pkg-config --cflags --libs tensorf OPENBLAS_NUM_THREADS=1 ) -o cora
+Package OPENBLAS_NUM_THREADS=1 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `OPENBLAS_NUM_THREADS=1.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'OPENBLAS_NUM_THREADS=1', required by 'virtual:world', not found
+coratrain.cpp:5:10: fatal error: DataStructures/Graph.hpp: No such file or directory
+    5 | #include "DataStructures/Graph.hpp"
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~
+compilation terminated.
+➜  Projet M2 OPENBLAS_NUM_THREADS=1 g++ -std=c++20 coratrain.cpp $(pkg-config --cflags --libs tensorf) -o cora
+➜  Projet M2 ./bin/coratrain                                                                                   
+zsh: no such file or directory: ./bin/coratrain
+➜  Projet M2 ./cora                                                                                           
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [229.669 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94529  train 47.8571%  val 32.8%  (301.62 ms/epoch)
+epoch 10  loss 1.87805  train 93.5714%  val 68%  (445.516 ms/epoch)
+epoch 20  loss 1.76559  train 94.2857%  val 72.6%  (345.16 ms/epoch)
+epoch 30  loss 1.60429  train 95.7143%  val 76.2%  (334.481 ms/epoch)
+epoch 40  loss 1.43386  train 96.4286%  val 78%  (349.08 ms/epoch)
+epoch 50  loss 1.24351  train 96.4286%  val 81%  (361.083 ms/epoch)
+epoch 60  loss 1.04861  train 96.4286%  val 81.8%  (334.357 ms/epoch)
+epoch 70  loss 0.933885  train 95%  val 81.4%  (331.934 ms/epoch)
+
+final epoch:        val 81.6%  test 79.6%
+best val (epoch 58): val 82%  test 80.3%
+avg train step: 131.488 ms
+➜  Projet M2 ./cora
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [250.34 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94564  train 38.5714%  val 28.8%  (299.07 ms/epoch)
+epoch 10  loss 1.87722  train 77.8571%  val 44.8%  (343.629 ms/epoch)
+epoch 20  loss 1.7746  train 82.8571%  val 48.8%  (332.457 ms/epoch)
+epoch 30  loss 1.61021  train 86.4286%  val 58%  (333.337 ms/epoch)
+epoch 40  loss 1.48522  train 91.4286%  val 64.8%  (333.902 ms/epoch)
+epoch 50  loss 1.30155  train 92.8571%  val 71.8%  (337.307 ms/epoch)
+epoch 60  loss 1.07856  train 93.5714%  val 74%  (365.266 ms/epoch)
+epoch 70  loss 0.981108  train 96.4286%  val 75.8%  (327.223 ms/epoch)
+epoch 80  loss 0.866777  train 96.4286%  val 77.6%  (338.077 ms/epoch)
+epoch 90  loss 0.693019  train 96.4286%  val 77.8%  (334.51 ms/epoch)
+epoch 100  loss 0.640148  train 97.1429%  val 78.4%  (343.396 ms/epoch)
+epoch 110  loss 0.593714  train 97.8571%  val 78.6%  (333.575 ms/epoch)
+epoch 120  loss 0.524603  train 97.8571%  val 79%  (346.062 ms/epoch)
+
+final epoch:        val 78.8%  test 77.1%
+best val (epoch 101): val 79%  test 76.8%
+avg train step: 202.564 ms
+➜  Projet M2 
+
+

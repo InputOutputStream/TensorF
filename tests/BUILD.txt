@@ -1,5 +1,8 @@
 
-Tests: g++ -std=c++20 -Wall -Wextra -Wshadow -fsanitize=address,undefined -Iinclude tests/matrix_tests.cpp -lopenblas
+Tests: g++ -std=c++20 -Wall -Wextra -Wshadow -fsanitize=address,undefined -Iinclude $(pkg-config --cflags openblas) -DTENSORF_USE_OPENBLAS tests/matrix_tests.cpp $(pkg-config --libs openblas)
+  without -DTENSORF_USE_OPENBLAS you get the portable shim (tools/cblas_shim.h) and no library is needed;
+  -lopenblas alone does NOT select OpenBLAS. Prefer `make` / cmake, which set this for you.
   add -DMATRIX_NO_BLAS to build without cblas
+  tests/blas_check.cpp: prints which BLAS is linked, verifies it, prints GFLOP/s (`make blas-check`, `--expect=openblas`)
   tests/contract.cpp: every Matrix call form used by Tensor.hpp / tensor_overloads.hpp / Graph.hpp (add -pthread)
   tests/diff_ops.cpp: compile once with -DORIG against your old Matrix.hpp, once against the new one, diff the outputs

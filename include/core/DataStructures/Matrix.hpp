@@ -37,11 +37,11 @@
 #include "Broadcast.hpp"
 
 #if !defined(MATRIX_USE_BLAS) && !defined(MATRIX_NO_BLAS)
-    #define MATRIX_USE_BLAS 0
+    #define MATRIX_USE_BLAS 1
 #endif
-#ifdef MATRIX_USE_BLAS
-    #include <cblas.h>
-#endif
+// Real OpenBLAS (-DTENSORF_USE_OPENBLAS) or the portable shim; see tools/tensorf_blas.h.
+// Always included: the optimizer's level-1 calls need cblas_* even under MATRIX_NO_BLAS.
+#include "tools/tensorf_blas.h"
 
 namespace mxd {
 
