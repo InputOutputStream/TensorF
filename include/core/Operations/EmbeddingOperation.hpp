@@ -39,6 +39,8 @@ class EmbeddingOperation : public Operation<T>
     template <typename T>
     void EmbeddingOperation<T>::backward(Matrix<T> grad)
     {
+        if (!this->t1->requires_grad ) return;
+        
         // grad has shape {len(idx), embed_dim}
         // scatter each grad row back to the corresponding row in t1
 

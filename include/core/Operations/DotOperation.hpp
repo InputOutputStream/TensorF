@@ -42,22 +42,25 @@ class DotOperation : public Operation<T>
     template <typename T>
     void DotOperation<T>::backward(Matrix<T> grad)
     {
+        if (!this->t1->requires_grad && !this->t2->requires_grad) return;
+
         const Matrix<T>& A = this->t1->val;
         const Matrix<T>& B = this->t2->val;
         const size_t ra = A.shape.size(), rb = B.shape.size();
-        if (ra == 1 && rb == 1) {                       // inner product
+
+        if (ra == 1 && rb == 1) {
             T g = grad.data.at(0);
-            this->t1->accumulate(B * g);
-            this->t2->accumulate(A * g);
+            if (this->t1->requires_grad) this->t1->accumulate(B * g);
+            if (this->t2->requires_grad) this->t2->accumulate(A * g);
             return;
         }
-        if (rb == 1 || (ra == 2 && rb == 2)) {          // identical to matmul (incl. N-D @ 1-D)
+        if (rb == 1 || (ra == 2 && rb == 2)) {
             auto gr = MatmulOperation<T>::matmul_grads(A, B, grad);
-            this->t1->accumulate(gr.first);
-            this->t2->accumulate(gr.second);
+            if (this->t1->requires_grad) this->t1->accumulate(gr.first);
+            if (this->t2->requires_grad) this->t2->accumulate(gr.second);
             return;
         }
-        // general numpy dot: contract A's last axis with B's second-to-last
+        // general numpy dot
         const size_t K = A.shape.back();
         const size_t M = K ? A.data.size() / K : 0, N = K ? B.data.size() / K : 0;
         const shape_t perm = Matrix<T>::dot_rhs_perm(rb);
@@ -67,11 +70,17 @@ class DotOperation : public Operation<T>
         Matrix<T> A2 = A.reshape(shape_t{M, K});
         Matrix<T> Bp = B.transpose(perm);
         Matrix<T> B2 = Bp.reshape(shape_t{K, N});
-        Matrix<T> gA = G2.matmul(B2.transpose()).reshape(A.shape);
-        Matrix<T> gB = A2.transpose().matmul(G2).reshape(Bp.shape).transpose(inv);
-        this->t1->accumulate(gA);
-        this->t2->accumulate(gB);
+
+        if (this->t1->requires_grad) {
+            Matrix<T> gA = G2.matmul(B2.transpose()).reshape(A.shape);
+            this->t1->accumulate(std::move(gA));
+        }
+        if (this->t2->requires_grad) {
+            Matrix<T> gB = A2.transpose().matmul(G2).reshape(Bp.shape).transpose(inv);
+            this->t2->accumulate(std::move(gB));
+        }
     }
+
 
     template<typename T>
     Tensor_t<T> DotOperation<T>::forward()

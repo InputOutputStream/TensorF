@@ -45,8 +45,7 @@ class IndexOperation : public Operation<T>
         // forward is a same-shape, zero-filled selection => d/dx = grad (.) mask
         if (grad.get_size() != this->mask.get_size())
             throw std::invalid_argument("IndexOperation::backward: gradient size does not match mask");
-        Matrix<T> t1_grad = grad * this->mask;
-        this->t1->accumulate(t1_grad);
+        if (this->t1->requires_grad) this->t1->accumulate(grad * this->mask);
     }
 
     template <typename T>

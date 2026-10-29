@@ -6,3 +6,10 @@ Tests: g++ -std=c++20 -Wall -Wextra -Wshadow -fsanitize=address,undefined -Iincl
   tests/blas_check.cpp: prints which BLAS is linked, verifies it, prints GFLOP/s (`make blas-check`, `--expect=openblas`)
   tests/contract.cpp: every Matrix call form used by Tensor.hpp / tensor_overloads.hpp / Graph.hpp (add -pthread)
   tests/diff_ops.cpp: compile once with -DORIG against your old Matrix.hpp, once against the new one, diff the outputs
+
+g++ -std=c++20 -O2 -march=native -Wall -Wextra -Wno-unused-parameter \
+    -I. -Iinclude -Iinclude/core -Iinclude/nn -Iinclude/data \
+    -Iinclude/net -Iinclude/profiler -Iinclude/parallel -Iinclude/tools \
+    -DTENSORF_USE_OPENBLAS \
+    mynn.cpp -o mynn \
+    -lpthread -lopenblas

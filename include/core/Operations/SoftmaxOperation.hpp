@@ -87,6 +87,7 @@ Tensor_t<T> SoftmaxOperation<T>::forward()
 template <typename T>
 void SoftmaxOperation<T>::backward(Matrix<T> grad)
 {
+    if (!this->t1->requires_grad) return;
     const Matrix<T>& S = this->output;
     size_t ndims = S.shape.size();
 

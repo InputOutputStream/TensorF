@@ -38,7 +38,7 @@ class ExponentOperation : public Operation<T>
     template <typename T>
     void ExponentOperation<T>::backward(Matrix<T> grad)
     {
-        this->t1->accumulate(grad * this->tmp->val); 
+       if (this->t1->requires_grad) this->t1->accumulate(grad * this->tmp->val); 
     }
 
     template <typename T>

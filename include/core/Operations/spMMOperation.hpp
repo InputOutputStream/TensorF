@@ -93,6 +93,7 @@ public:
     template<typename T>
     void SpMMOperation<T>::backward(Matrix<T> grad)
     {
+        if (!this->t1->requires_grad) return;
         const size_t N = A->n, F = grad.shape[1];
         std::vector<T> g(N * F, T(0));
         if (A->symmetric) {

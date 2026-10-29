@@ -44,7 +44,7 @@ Tensor_t<T> ReshapeOperation<T>::forward()
 template <typename T>
 void ReshapeOperation<T>::backward(Matrix<T> grad)
 {
-    this->t1->accumulate(Matrix<T>(grad.data, this->orig_shape));
+    if (this->t1->requires_grad) this->t1->accumulate(Matrix<T>(grad.data, this->orig_shape));
 }
 
 template <typename T>

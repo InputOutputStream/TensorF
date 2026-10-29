@@ -61,6 +61,7 @@ Tensor_t<T> SumAxisOperation<T>::forward()
 template <typename T>
 void SumAxisOperation<T>::backward(Matrix<T> grad)
 {
+    if (!this->t1->requires_grad) return;
     // Build the shape grad *would* have if we kept the axis dim as 1
     shape_t kept_shape = this->input_shape;
     kept_shape[this->axis] = 1;          // e.g. {N,1} when axis=1

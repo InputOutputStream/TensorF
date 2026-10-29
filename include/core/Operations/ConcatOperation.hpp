@@ -49,9 +49,10 @@ void ConcatOperation<T>::backward(Matrix<T> grad)
         // split grad along axis at the recorded boundaries
         size_t offset = 0;
         for (size_t i = 0; i < in_tensors.size(); ++i) {
-            // slice grad from offset to offset+split_sizes[i] along axis
-            Matrix<T> g = grad.slice_axis(offset, offset + split_sizes[i], axis);
-            in_tensors[i]->accumulate(g);
+            if (in_tensors[i]->requires_grad) {
+                Matrix<T> g = grad.slice_axis(offset, offset + split_sizes[i], axis);
+                in_tensors[i]->accumulate(std::move(g));
+            }
             offset += split_sizes[i];
         }
     }

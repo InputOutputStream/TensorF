@@ -40,13 +40,9 @@ class MultiplyOperation : public Operation<T>
     template <typename T>
     void MultiplyOperation<T>::backward(Matrix<T> grad)
     {
-        // Switching Gradients when carrying out product
-        
-        Matrix<T> grad1 = sumGradForBroadcast(grad * this->t2->val, t1->val.shape);
-        Matrix<T> grad2 = sumGradForBroadcast(grad * this->t1->val, t2->val.shape);
-
-        this->t1->accumulate(grad1);         
-        this->t2->accumulate(grad2);        
+        // Switching Gradients when carrying out product        
+        if (t1->requires_grad) t1->accumulate(sumGradForBroadcast(grad * t2->val, t1->val.shape));
+        if (t2->requires_grad) t2->accumulate(sumGradForBroadcast(grad * t1->val, t2->val.shape));        
     }
 
     template <typename T>

@@ -102,6 +102,8 @@ namespace mxd {
 template <typename T>
 Matrix<T> sumGradForBroadcast(const Matrix<T>& grad, const std::vector<size_t>& originalShape)
 {
+    if (grad.shape == originalShape) return grad;
+
     Matrix<T> res = grad;
     if (res.shape.size() < originalShape.size())
         throw std::runtime_error("sumGradForBroadcast: gradient rank is lower than the original rank");

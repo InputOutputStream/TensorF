@@ -23,19 +23,13 @@ class MatmulOperation : public Operation<T>
     void backward(Matrix<T> grad) override;
 
     // Gradients of C = A.matmul(B) for any rank (1D promotion, batch broadcasting, last-two-axes transpose).
-    static std::pair<Matrix<T>, Matrix<T>> matmul_grads(const Matrix<T>& A, const Matrix<T>& B, const Matrix<T>& G)
-    {
-        Matrix<T> A2 = A, B2 = B;
-        if (A.shape.size() == 1) A2 = A.reshape({1, A.shape[0]});
-        if (B.shape.size() == 1) B2 = B.reshape({B.shape[0], 1});
-        // restore the (possibly squeezed) output axes to rank-2+ form
-        shape_t gs = G.shape;
-        if (A.shape.size() == 1) gs.insert(gs.end() - (B.shape.size() == 1 ? 0 : 1), 1);
-        if (B.shape.size() == 1) gs.push_back(1);
-        Matrix<T> G2 = G.reshape(gs);
-        Matrix<T> gA = sumGradForBroadcast(G2.matmul(mxd::swap_last2(B2)), A2.shape);
-        Matrix<T> gB = sumGradForBroadcast(mxd::swap_last2(A2).matmul(G2), B2.shape);
-        return { gA.reshape(A.shape), gB.reshape(B.shape) };
+
+     static Matrix<T> matmul_grad_a(const Matrix<T>& A, const Matrix<T>& B, const Matrix<T>& G);
+    // Gradient w.r.t. B only: dB = Aᵀ @ G
+    static Matrix<T> matmul_grad_b(const Matrix<T>& A, const Matrix<T>& B, const Matrix<T>& G);
+
+    static std::pair<Matrix<T>, Matrix<T>> matmul_grads(const Matrix<T>& A, const Matrix<T>& B, const Matrix<T>& G) {
+        return { matmul_grad_a(A, B, G), matmul_grad_b(A, B, G) };
     }
 
     Tensor_t<T> forward() override;
@@ -56,11 +50,65 @@ class MatmulOperation : public Operation<T>
 */
 
     template <typename T>
+    Matrix<T> MatmulOperation<T>::matmul_grad_a(const Matrix<T>& A, const Matrix<T>& B, const Matrix<T>& G)
+    {
+        // promote 1-D inputs and restore the (possibly squeezed) output rank
+        const Matrix<T>* A2 = &A;
+        Matrix<T> A2_buf;
+        if (A.shape.size() == 1) { A2_buf = A.reshape({1, A.shape[0]}); A2 = &A2_buf; }
+
+        const Matrix<T>* B2 = &B;
+        Matrix<T> B2_buf;
+        if (B.shape.size() == 1) { B2_buf = B.reshape({B.shape[0], 1}); B2 = &B2_buf; }
+
+        const Matrix<T>* G2 = &G;
+        Matrix<T> G2_buf;
+        if (A.shape.size() == 1 || B.shape.size() == 1) {
+            shape_t gs = G.shape;
+            if (A.shape.size() == 1) gs.insert(gs.end() - (B.shape.size() == 1 ? 0 : 1), 1);
+            if (B.shape.size() == 1) gs.push_back(1);
+            G2_buf = G.reshape(gs);
+            G2 = &G2_buf;
+        }
+
+        Matrix<T> gA = sumGradForBroadcast(G2->matmul(mxd::swap_last2(*B2)), A2->shape);
+        return gA.reshape(A.shape);
+    }
+
+
+    template <typename T>
+    Matrix<T> MatmulOperation<T>::matmul_grad_b(const Matrix<T>& A, const Matrix<T>& B, const Matrix<T>& G)
+    {
+        const Matrix<T>* A2 = &A;
+        Matrix<T> A2_buf;
+        if (A.shape.size() == 1) { A2_buf = A.reshape({1, A.shape[0]}); A2 = &A2_buf; }
+
+        const Matrix<T>* B2 = &B;
+        Matrix<T> B2_buf;
+        if (B.shape.size() == 1) { B2_buf = B.reshape({B.shape[0], 1}); B2 = &B2_buf; }
+
+        const Matrix<T>* G2 = &G;
+        Matrix<T> G2_buf;
+        if (A.shape.size() == 1 || B.shape.size() == 1) {
+            shape_t gs = G.shape;
+            if (A.shape.size() == 1) gs.insert(gs.end() - (B.shape.size() == 1 ? 0 : 1), 1);
+            if (B.shape.size() == 1) gs.push_back(1);
+            G2_buf = G.reshape(gs);
+            G2 = &G2_buf;
+        }
+
+        Matrix<T> gB = sumGradForBroadcast(mxd::swap_last2(*A2).matmul(*G2), B2->shape);
+        return gB.reshape(B.shape);
+    }
+
+    template <typename T>
     void MatmulOperation<T>::backward(Matrix<T> grad)
     {
-        auto g = matmul_grads(this->t1->val, this->t2->val, grad);
-        this->t1->accumulate(g.first);
-        this->t2->accumulate(g.second);
+        if (!this->t1->requires_grad && !this->t2->requires_grad) return;
+        if (this->t1->requires_grad)
+            this->t1->accumulate(matmul_grad_a(this->t1->val, this->t2->val, grad));
+        if (this->t2->requires_grad)
+            this->t2->accumulate(matmul_grad_b(this->t1->val, this->t2->val, grad));
     }
 
     template<typename T>

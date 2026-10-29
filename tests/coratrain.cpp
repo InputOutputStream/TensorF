@@ -7,29 +7,13 @@
 #include "Modules/GCNLayer.hpp"
 #include "Modules/Optimizer.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <random>
 
 using Clock = std::chrono::steady_clock;
 static double ms_since(Clock::time_point t0) { return std::chrono::duration<double, std::milli>(Clock::now() - t0).count(); }
-
-// Inverted dropout: multiply by a constant 0 / 1/(1-p) mask 
-static Tensor_t<float> dropout(Tensor_t<float> x, float p, std::mt19937& rng) {
-    std::vector<float> m(x->val.get_size());
-    std::bernoulli_distribution keep(1.0 - p);
-    const float scale = 1.0f / (1.0f - p);
-    for (auto& v : m) v = keep(rng) ? scale : 0.0f;
-    auto M = make_tensor<float>(Matrix<float>(m, x->val.shape));
-    M->requires_grad = false;
-    return x * M;
-}
-
-// Mean cross-entropy over the labelled (training) nodes only. Rows of Y that are all zero add nothing.
-static Tensor_t<float> masked_cross_entropy(Tensor_t<float> Y, Tensor_t<float> prob, size_t n_labelled) {
-    auto safe = prob + make_tensor<float>(1e-8f);
-    return -(Y * safe->ln())->sum() / make_tensor<float>((float)n_labelled);
-}
 
 static double accuracy(const Tensor_t<float>& logits, const std::vector<int>& labels, const std::vector<char>& mask) {
     const size_t C = logits->val.shape[1];
@@ -67,7 +51,18 @@ int main(int argc, char** argv) {
 
     auto X   = features_tensor(g);
     auto adj = g.adjacency_shared();
-    auto Y   = onehot_targets(g, C, sp.train);
+    X->requires_grad = false;
+
+    // Integer labels as a constant tensor (class indices, no grad).
+    std::vector<float> labels_f(g.labels().begin(), g.labels().end());
+    auto labels_t = make_tensor<float>(labels_f);
+    labels_t->requires_grad = false;
+
+    // Training mask as a constant tensor (1.0 on train nodes, 0.0 elsewhere).
+    std::vector<float> mask_f(N, 0.0f);
+    for (size_t i = 0; i < N; ++i) if (sp.train[i]) mask_f[i] = 1.0f;
+    auto mask_t = make_tensor<float>(mask_f);
+    mask_t->requires_grad = false;
 
     std::mt19937 rng(seed);
     GCNLayer<float> l1(F, HIDDEN, false), l2(HIDDEN, C, false);
@@ -75,22 +70,23 @@ int main(int argc, char** argv) {
     for (auto p : l1.parameters()) params.push_back(p);
     for (auto p : l2.parameters()) params.push_back(p);
     Optimizer<float> opt(params, LR, ADAM, true);
-    std::vector<float> Stopping; 
 
     double best_val = -1, test_at_best = 0, train_ms = 0;
-    int best_epoch = 0;
+    int best_epoch = 0, epoch_run = 0;
     double last_val = 0, last_test = 0;
-    int counter=0;
+    int counter = 0;
     for (int epoch = 1; epoch <= epochs; epoch++) {
         auto te = Clock::now();
+        epoch_run = epoch;
         // ---- train step (dropout on input features and on hidden layer) ----
+
         opt.zero_grad();
-        auto h    = l1.forward(adj, dropout(X, DROPOUT, rng))->relu();
-        auto out  = l2.forward(adj, dropout(h, DROPOUT, rng))->softmax();
-        auto loss = masked_cross_entropy(Y, out, sp.n_train);
+        auto h          = l1.forward(adj, X->dropout(DROPOUT, rng))->relu();
+        auto out_logits = l2.forward(adj, h->dropout(DROPOUT, rng));    // no softmax
+        auto loss       = Tensor<float>::masked_cross_entropy_from_logits(out_logits, labels_t, mask_t, sp.n_train);
 
         // L2 penalty on the first layer only, as in the paper: wd * sum(W^2) / 2
-        auto pen  = (l1.weight * l1.weight)->sum() * make_tensor<float>(WEIGHT_DECAY / 2);
+        auto pen   = (l1.weight * l1.weight)->sum() * make_tensor<float>(WEIGHT_DECAY / 2);
         auto total = loss + pen;
         total->backward(make_tensor<float>(1.0f));
         opt.step();
@@ -98,32 +94,33 @@ int main(int argc, char** argv) {
         total->reset_graph();
         train_ms += ms_since(te);
 
-        // ---- evaluation (no dropout) ----
-        auto ev = l2.forward(adj, l1.forward(adj, X)->relu());
+        // ---- evaluation (no dropout, no autograd) ----
+        Tensor_t<float> ev;
+        {
+            mxd::NoGrad guard;
+            ev = l2.forward(adj, l1.forward(adj, X)->relu());
+        }
         double tr = accuracy(ev, g.labels(), sp.train);
         double va = accuracy(ev, g.labels(), sp.val);
         double ts = accuracy(ev, g.labels(), sp.test);
 
-        ev->reset_graph();
-        last_val = va; 
+        last_val  = va;
         last_test = ts;
-        if (va > best_val) 
-        { 
-            best_val = va; 
-            test_at_best = ts; 
-            best_epoch = epoch; 
-            counter=0; 
+        if (va > best_val) {
+            best_val     = va;
+            test_at_best = ts;
+            best_epoch   = epoch;
+            counter      = 0;
         } else {
-            counter++; 
+            counter++;
         }
 
         if (counter >= 20) {
-             std::cout << "\nfinal epoch:        val " << last_val << "%  test " << last_test << "%\n"
-              << "best val (epoch " << best_epoch << "): val " << best_val << "%  test " << test_at_best << "%\n"
-              << "avg train step: " << train_ms / epoch << " ms\n";
-            return 0; 
+            std::cout << "\nfinal epoch:        val " << last_val << "%  test " << last_test << "%\n"
+                      << "best val (epoch " << best_epoch << "): val " << best_val << "%  test " << test_at_best << "%\n"
+                      << "avg train step: " << train_ms / epoch_run << " ms\n";
+            return 0;
         }
-
 
         if (epoch == 1 || epoch % 10 == 0)
             std::cout << "epoch " << epoch << "  loss " << loss_v << "  train " << tr << "%  val " << va
@@ -131,6 +128,6 @@ int main(int argc, char** argv) {
     }
     std::cout << "\nfinal epoch:        val " << last_val << "%  test " << last_test << "%\n"
               << "best val (epoch " << best_epoch << "): val " << best_val << "%  test " << test_at_best << "%\n"
-              << "avg train step: " << train_ms / epochs << " ms\n";
+              << "avg train step: " << train_ms / epoch_run << " ms\n";
     return 0;
 }

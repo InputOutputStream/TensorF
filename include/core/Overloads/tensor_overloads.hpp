@@ -28,6 +28,10 @@
 #include "Operations/EmbeddingOperation.hpp"
 #include "Operations/IndexOperation.hpp"
 #include "Operations/spMMOperation.hpp"
+#include "core/Operations/MaxAxisOperation.hpp"
+#include "core/Operations/LogSoftmaxOperation.hpp"
+#include "core/Operations/GatherOperation.hpp"
+#include "core/Operations/DroupoutOperation.hpp"
 
 template <typename T>
 class Tensor;

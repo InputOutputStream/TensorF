@@ -43,8 +43,7 @@ class SigmoidOperation : public Operation<T>
     template <typename T>
     void SigmoidOperation<T>::backward(Matrix<T> grad)
     {
-        Matrix<T> temp = this->tmp->val * (Matrix<T>(1) + (Matrix<T>(-1)*this->tmp->val));
-        this->t1->accumulate(grad * temp);
+        if (this->t1->requires_grad) this->t1->accumulate(grad * (this->tmp->val * (Matrix<T>(1) + (Matrix<T>(-1)*this->tmp->val))));
     }
 
     template<typename T>

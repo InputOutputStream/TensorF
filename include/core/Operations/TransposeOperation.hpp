@@ -41,6 +41,7 @@ class TransposeOperation : public Operation<T>
     template <typename T>
     void TransposeOperation<T>::backward(Matrix<T> grad)
     {
+        if (!this->t1->requires_grad) return;
         Matrix<T> g;
         if (this->inperm.size() > 0) {
             shape_t inv(this->inperm.size());

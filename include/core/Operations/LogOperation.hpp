@@ -38,6 +38,8 @@ class LogOperation : public Operation<T>
     template <typename T>
     void LogOperation<T>::backward(Matrix<T> grad)
     {
+        if (!this->t1->requires_grad) return;
+
         // forward clamps x to >= 1e-9 for float-like T, so the derivative there is 0 (not 1/x)
         const auto& x = this->t1->val;
         using A = scalar::acc_t<T>;

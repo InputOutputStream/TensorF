@@ -11,7 +11,7 @@ STD   := -std=c++20
 # ARCH: -march value. native = fastest on THIS machine (binaries will not run on older CPUs). ARCH= (empty) = portable build.
 # Cross-compiling for Android? Use the NDK toolchain (CXX=aarch64-linux-android24-clang++ ARCH=) rather than this g++.
 ARCH  ?= native
-OPT   := -O2 $(if $(ARCH),-march=$(ARCH))
+OPT   := -O3 $(if $(ARCH),-march=$(ARCH)) -Ofast
 WARN  := -Wall -Wextra -Wno-unused-parameter
 DEBUG ?= 0
 
@@ -95,23 +95,23 @@ $(shell mkdir -p $(BIN))
 all: check-deps gpt2 smollm transformer benchmark tests gateway # server client
 
 
-# ── GPT-GPT-2 inference ───────────────────────────────────────────────────────────
-gpt2: $(BIN)/gpt2
-$(BIN)/gpt2: examples/GPT2.cpp
-	@echo "[CXX] $< → $@"
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+# # ── GPT-GPT-2 inference ───────────────────────────────────────────────────────────
+# gpt2: $(BIN)/gpt2
+# $(BIN)/gpt2: examples/GPT2.cpp
+# 	@echo "[CXX] $< → $@"
+# 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 
-# ── LLAMA-SmolLM2 inference ─────────────────────────────────────────────────────────
-smollm: $(BIN)/smollm
-$(BIN)/smollm: examples/SmollLLM.cpp
-	@echo "[CXX] $< → $@"
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+# # ── LLAMA-SmolLM2 inference ─────────────────────────────────────────────────────────
+# smollm: $(BIN)/smollm
+# $(BIN)/smollm: examples/SmollLLM.cpp
+# 	@echo "[CXX] $< → $@"
+# 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 
-# ── Character-level Llama training ───────────────────────────────────────────
-transformer: $(BIN)/transformer
-$(BIN)/transformer: examples/transformer.cpp
-	@echo "[CXX] $< → $@"
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+# # ── Character-level Llama training ───────────────────────────────────────────
+# transformer: $(BIN)/transformer
+# $(BIN)/transformer: examples/transformer.cpp
+# 	@echo "[CXX] $< → $@"
+# 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 
 # ── Federated learning — server ───────────────────────────────────────────────
 

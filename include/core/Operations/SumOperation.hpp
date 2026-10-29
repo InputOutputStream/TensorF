@@ -41,8 +41,7 @@ class SumOperation : public Operation<T>
     template <typename T>
     void SumOperation<T>::backward(Matrix<T> grad)
     {
-        Matrix<T> ones = Matrix<T>::ones(this->t1->val.shape); 
-        this->t1->accumulate(grad.data[0] * ones);
+        if (this->t1->requires_grad) this->t1->accumulate(grad.data[0] * Matrix<T>::ones(this->t1->val.shape));
     }
 
     template<typename T>

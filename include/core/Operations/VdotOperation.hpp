@@ -44,8 +44,8 @@ class VdotOperation : public Operation<T>
         const Matrix<T>& A = this->t1->val;
         const Matrix<T>& B = this->t2->val;
         T g = grad.data.at(0);
-        this->t1->accumulate((B * g).reshape(A.shape));
-        this->t2->accumulate((A * g).reshape(B.shape));
+        if (this->t1->requires_grad)  this->t1->accumulate((B * g).reshape(A.shape));
+        if (this->t2->requires_grad)  this->t2->accumulate((A * g).reshape(B.shape));
     }
 
     template<typename T>

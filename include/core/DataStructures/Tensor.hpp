@@ -27,10 +27,44 @@
 #include "core/Operations/EmbeddingOperation.hpp"
 #include "core/Operations/IndexOperation.hpp"
 #include "core/Operations/spMMOperation.hpp"
+#include "core/Operations/MaxAxisOperation.hpp"
+#include "core/Operations/LogSoftmaxOperation.hpp"
+#include "core/Operations/GatherOperation.hpp"
+#include "core/Operations/DroupoutOperation.hpp"
 
 #include "core/Types/types.hpp"
 #include "core/Overloads/tensor_overloads.hpp"
 #include "core/Overloads/Overload.hpp"
+
+
+
+// ────────────────────────────────────────────────────────────────────────────
+// NoGrad scope — suppresses autograd graph construction in Tensor<T>.
+//
+//   {
+//       mxd::NoGrad guard;
+//       auto ev = l2.forward(adj, l1.forward(adj, X)->relu());   // no graph
+//       double acc = accuracy(ev, ...);
+//   }   // ~NoGrad restores the previous state (nestable)
+//
+// While active:
+//   * Tensor(Matrix, Operation_t) sets backOp = nullptr, requires_grad = false
+//   * Tensor(Matrix)        (leaves) sets requires_grad = false
+//   * Tensor::backward()    short-circuits
+// The val matrices are still computed — only the bookkeeping is skipped.
+// ────────────────────────────────────────────────────────────────────────────
+namespace mxd {
+inline thread_local bool g_no_grad = false;
+
+class NoGrad {
+    bool prev_;
+public:
+    NoGrad() noexcept : prev_(g_no_grad) { g_no_grad = true; }
+    ~NoGrad() { g_no_grad = prev_; }
+    NoGrad(const NoGrad&) = delete;
+    NoGrad& operator=(const NoGrad&) = delete;
+};
+} // namespace mxd
 
 template <typename T>
 class Tensor : public std::enable_shared_from_this<Tensor<T>>
@@ -65,12 +99,22 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         this->grad = Matrix<T>();
         this->shape = this->val.shape;
         this->ndims = this->val.get_ndims();
+        if (mxd::g_no_grad) this->requires_grad = false;   // ← new
     }
 
     Tensor(Matrix<T> val, Operation_t<T> op)
     {
         this->val.copy_from(val);
-        this->backOp = op;
+        if (mxd::g_no_grad) {
+            this->backOp = nullptr;
+            this->requires_grad = false;
+        } else {
+            this->backOp = op;
+            bool any_req = false;
+            for (auto& in : op->inputs())
+                if (in && in->requires_grad) { any_req = true; break; }
+            this->requires_grad = any_req;          // ← new
+        }
         this->shape = this->val.shape;
         this->ndims = this->val.get_ndims();
         this->grad = Matrix<T>();
@@ -122,6 +166,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     // Reverse-mode driver: each node runs exactly once, after all of its consumers.
     void backward(Matrix<T> seed)
     {
+        if (mxd::g_no_grad) return;              // ← new
         auto order = topo_order();
         // Gradients of computed (non-leaf) tensors are per-call scratch; only leaves accumulate across calls,
         // so a second backward() without zero_grad() adds exactly one more contribution to each leaf.
@@ -173,6 +218,10 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     size_t size(){
         return this->val.get_size();
+    }
+
+    Tensor_t<T> max() {
+        return make_tensor<T>(this->val.max());
     }
 
     // Functions In graph...........................................................................
@@ -273,10 +322,30 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return op->forward(inshape);
     }
 
+    Tensor_t<T> dropout(float p, std::mt19937& rng) {
+        auto op = std::make_shared<DropoutOperation<T>>(this->shared_from_this(), p, rng);
+        return op->forward();
+    }
+
     Tensor_t<T> cbrt()
     {
         auto p = make_tensor<T>((T)1/(T)3);
         auto op = std::make_shared<PowerOperation<T>>(this->shared_from_this(), p);
+        return op->forward();
+    }
+
+    Tensor_t<T> max(size_t axis) {
+        auto op = std::make_shared<MaxAxisOperation<T>>(this->shared_from_this(), axis);
+        return op->forward();
+    }
+
+    Tensor_t<T> log_softmax() {
+        auto op = std::make_shared<LogSoftmaxOperation<T>>(this->shared_from_this());
+        return op->forward();
+    }
+
+    Tensor_t<T> gather(Tensor_t<T> labels) {
+        auto op = std::make_shared<GatherOperation<T>>(this->shared_from_this(), labels);
         return op->forward();
     }
 
@@ -306,12 +375,17 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
         return this->var(axis)->sqrt();
     }
 
+    // Static functions ********************************************************
+
+    static Tensor_t<float> dropout(Tensor_t<float> x, float p, std::mt19937& rng) {
+        auto op = std::make_shared<DropoutOperation<float>>(x, p, rng);
+        return op->forward();
+    }
+
     static Tensor_t<T> concat(std::vector<Tensor_t<T>> tens, size_t axis){
         auto concat_op = std::make_shared<ConcatOperation<T>>(tens, axis);
         return concat_op->forward();
     }
-
-    // Static functions ********************************************************
 
     static Tensor_t<T> cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred, T eps = 1e-8) {
         size_t N = ypred->val.shape[0];
@@ -321,15 +395,53 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
     }
 
     static Tensor_t<T> masked_cross_entropy(Tensor_t<T> Y, Tensor_t<T> prob, size_t n_labelled) {
-        auto safe = prob + make_tensor<T>(1e-8f);
-        return -(Y * safe->ln())->sum() / make_tensor<T>((T)n_labelled);
+        return -(Y * prob->ln())->sum() / make_tensor<T>((T)n_labelled);
     }
 
-    static Tensor_t<T> binary_cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred)
+    // Sum reduction by default would break every downstream caller;
+    // F.binary_cross_entropy uses reduction='mean'.
+    static Tensor_t<T> binary_cross_entropy(Tensor_t<T> ytrue, Tensor_t<T> ypred, bool mean = true)
     {
-        auto lhs = ytrue * ypred->ln();
-        auto rhs = (make_tensor<T>((T)1) - ytrue) * (make_tensor<T>((T)1) - ypred)->ln();
-        return -(lhs + rhs)->sum();
+        auto one  = make_tensor<T>((T)1);
+        auto lhs  = ytrue * ypred->ln();
+        auto rhs  = (one - ytrue) * (one - ypred)->ln();
+        auto total = -(lhs + rhs)->sum();
+        if (mean) return total / make_tensor<T>((T)ytrue->val.data.size());
+        return total;
+    }
+
+    static Tensor_t<T> cross_entropy_from_logits(Tensor_t<T> logits, Tensor_t<T> labels) {
+        return -logits->log_softmax()->gather(labels);
+    }
+
+    // Mean of the per-element loss over the positions where `mask[i] > 0`.
+    // n_labelled is passed explicitly so an empty mask is well-defined.
+    static Tensor_t<T> masked_cross_entropy_from_logits(
+        Tensor_t<T> logits, Tensor_t<T> labels, Tensor_t<T> mask, size_t n_labelled)
+    {
+        auto per_elem = cross_entropy_from_logits(logits, labels);   // [N]
+        return (per_elem * mask)->sum() / make_tensor<T>((T)n_labelled);
+    }
+
+    // Numerically stable BCE from raw logits:
+    //   loss(x, z) = max(x, 0) - x·z + log(1 + exp(-|x|))
+    // Never overflows, never logs zero, well-defined for any z ∈ [0, 1] and any x.
+    static Tensor_t<T> binary_cross_entropy_with_logits(Tensor_t<T> ytrue, Tensor_t<T> logits, bool mean = true)
+    {
+        auto one = make_tensor<T>((T)1);
+
+        // |x| = relu(x) + relu(-x) — subgradient at 0 is 0 (safe, no NaN)
+        auto abs_x    = logits->relu() + (-logits)->relu();
+
+        // softplus(-|x|) = log(1 + exp(-|x|)), always in [0, log 2]
+        auto softplus = (one + (-abs_x)->exp())->ln();
+
+        // per-element loss
+        auto per_elem = logits->relu() - logits * ytrue + softplus;
+
+        auto total = per_elem->sum();
+        if (mean) return total / make_tensor<T>((T)ytrue->val.data.size());
+        return total;
     }
 
     static Tensor_t<T> mse(Tensor_t<T> ytrue, Tensor_t<T> ypred)

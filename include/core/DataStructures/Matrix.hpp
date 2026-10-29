@@ -500,6 +500,42 @@ public:
         return Matrix<T>(std::move(res), std::move(rs));
     }
 
+    T max() const
+    {
+        if (data.empty()) throw std::runtime_error("max: empty matrix\n");
+        T m = data[0];
+        for (size_t i = 1; i < data.size(); i++) if (data[i] > m) m = data[i];
+        return m;
+    }
+
+    // Max over `axis`; the axis dimension is removed (like sum(axis)).
+    Matrix<T> max(size_t axis) const
+    {
+        size_t outer, n, inner;
+        axisDims(axis, outer, n, inner, "max");
+        shape_t rs;
+        for (size_t i = 0; i < shape.size(); i++) if (i != axis) rs.push_back(shape[i]);
+        std::vector<T> acc(outer * inner);
+        if (inner == 1) {
+            for (size_t o = 0; o < outer; o++) {
+                T m = data[o * n];
+                for (size_t k = 1; k < n; k++) if (data[o * n + k] > m) m = data[o * n + k];
+                acc[o] = m;
+            }
+        } else {
+            for (size_t o = 0; o < outer; o++)
+                for (size_t i = 0; i < inner; i++)
+                    acc[o * inner + i] = data[(o * n) * inner + i];
+            for (size_t o = 0; o < outer; o++)
+                for (size_t k = 1; k < n; k++)
+                    for (size_t i = 0; i < inner; i++) {
+                        const T v = data[(o * n + k) * inner + i];
+                        if (v > acc[o * inner + i]) acc[o * inner + i] = v;
+                    }
+        }
+        return Matrix<T>(std::move(acc), std::move(rs));
+    }
+
     Matrix<T> mean() const
     {
         if (data.empty()) throw std::runtime_error("mean: empty matrix\n");

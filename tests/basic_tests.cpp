@@ -5,7 +5,7 @@
 #include "nn/Modules/FeedForward.hpp"
 #include "nn/Modules/Optimizer.hpp"
 #include "nn/Modules/Relu.hpp"
-#include "data/GGUF.hpp"
+#include "tools/GGUF.hpp"
 
 #include "data/DataLoading.hpp"
 
