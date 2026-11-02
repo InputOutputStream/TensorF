@@ -104,7 +104,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     Tensor(Matrix<T> val, Operation_t<T> op)
     {
-        this->val.copy_from(val);
+        this->val = std::move(val);
         if (mxd::g_no_grad) {
             this->backOp = nullptr;
             this->requires_grad = false;
@@ -122,7 +122,7 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
 
     Tensor(const Tensor_t<T> two)
     {
-        this->val.copy_from(two->val);
+        this->val = copy_from(two->val);
         this->backOp = nullptr;
         this->grad.copy_from(two->grad);
         this->shape = this->val.shape;
@@ -161,6 +161,17 @@ class Tensor : public std::enable_shared_from_this<Tensor<T>>
                 throw std::runtime_error("Gradient shape mismatch in Tensor::accumulate");
             grad += g;
         } else grad.copy_from(g);
+    }
+
+    // Same, taking ownership: a temporary gradient (the usual case) becomes this tensor's gradient with no copy.
+    void accumulate(Matrix<T>&& g)
+    {
+        if (!requires_grad) return;
+        if (grad.get_size() > 0) {
+            if (grad.shape != g.shape)
+                throw std::runtime_error("Gradient shape mismatch in Tensor::accumulate");
+            grad += g;
+        } else grad = std::move(g);
     }
  
     // Reverse-mode driver: each node runs exactly once, after all of its consumers.

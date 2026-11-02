@@ -75,8 +75,9 @@ Tensor_t<T> SoftmaxOperation<T>::forward()
 
         // 3. normalise
         for (size_t j = 0; j < C; ++j)
-            out[i * C + j] = scalar::from_acc<T>(std::exp(scalar::to_acc<T>(x.data[i * C + j]) - scalar::to_acc<T>(max_val)) / sum);
-    }
+            out[i * C + j] = scalar::from_acc<T>(
+                scalar::to_acc<T>(out[i * C + j]) / sum);
+  }
 
     this->output = Matrix<T>(out, x.shape);
     return std::make_shared<Tensor<T>>(this->output, this->shared_from_this());
@@ -107,7 +108,7 @@ void SoftmaxOperation<T>::backward(Matrix<T> grad)
         // dL/dx[i,j] = S[i,j] * (G[i,j] - dot)
         for (size_t j = 0; j < C; ++j)
             dx[i * C + j] = scalar::from_acc<T>(scalar::to_acc<T>(S.data[i * C + j]) * (scalar::to_acc<T>(grad.data[i * C + j]) - dot));
-    }
+     }
 
     this->t1->accumulate(Matrix<T>(dx, S.shape));
 }

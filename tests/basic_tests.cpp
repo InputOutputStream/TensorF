@@ -561,7 +561,6 @@ void nn_xor(Tensor_t<T> input, Tensor_t<T> labels, int iters)
 
         Op.step();
 
-        
         if(iter % 1000 == 0)
         {
             std:: cerr << "out" << out->val;

@@ -39,6 +39,9 @@
 #if !defined(MATRIX_USE_BLAS) && !defined(MATRIX_NO_BLAS)
     #define MATRIX_USE_BLAS 1
 #endif
+
+// #define MATRIX_IEEE_DIVISION
+
 // Real OpenBLAS (-DTENSORF_USE_OPENBLAS) or the portable shim; see tools/tensorf_blas.h.
 // Always included: the optimizer's level-1 calls need cblas_* even under MATRIX_NO_BLAS.
 #include "tools/tensorf_blas.h"
@@ -136,6 +139,34 @@ void gemm(const T* A, const T* B, T* C, size_t M, size_t N, size_t K) {
 #endif
     else
         gemm_loops<T>(A, B, C, M, N, K);
+}
+
+// C[M,N] = op(A) * op(B), row-major, contiguous, where op(X) is X or its transpose:
+//   trans_a == false: A is stored [M,K];  true: A is stored [K,M]   (op(A) = A^T)
+//   trans_b == false: B is stored [K,N];  true: B is stored [N,K]   (op(B) = B^T)
+// float / double go straight to the BLAS with transpose flags, so a gradient like G * B^T needs no transposed copy of B.
+// Other element types (low precision, int) materialise the transposes and call gemm(): same result as before.
+template <class T>
+void gemm_t(bool trans_a, bool trans_b, const T* A, const T* B, T* C, size_t M, size_t N, size_t K) {
+    if (!trans_a && !trans_b) { gemm<T>(A, B, C, M, N, K); return; }
+    if (M == 0 || N == 0) return;
+    if (K == 0) { std::fill(C, C + M * N, T(0)); return; }
+#ifdef MATRIX_USE_BLAS
+    if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+        const int lda = blas_int(trans_a ? M : K), ldb = blas_int(trans_b ? K : N);
+        const CBLAS_TRANSPOSE ta = trans_a ? CblasTrans : CblasNoTrans, tb = trans_b ? CblasTrans : CblasNoTrans;
+        if constexpr (std::is_same_v<T, float>)
+            cblas_sgemm(CblasRowMajor, ta, tb, blas_int(M), blas_int(N), blas_int(K), 1.0f, A, lda, B, ldb, 0.0f, C, blas_int(N));
+        else
+            cblas_dgemm(CblasRowMajor, ta, tb, blas_int(M), blas_int(N), blas_int(K), 1.0, A, lda, B, ldb, 0.0, C, blas_int(N));
+        return;
+    }
+#endif
+    std::vector<T> ta, tb;                                   // fallback: explicit transposes
+    const T* pa = A; const T* pb = B;
+    if (trans_a) { ta.resize(M * K); for (size_t k = 0; k < K; k++) for (size_t m = 0; m < M; m++) ta[m * K + k] = A[k * M + m]; pa = ta.data(); }
+    if (trans_b) { tb.resize(K * N); for (size_t n = 0; n < N; n++) for (size_t k = 0; k < K; k++) tb[k * N + n] = B[n * K + k]; pb = tb.data(); }
+    gemm<T>(pa, pb, C, M, N, K);
 }
 
 // sum_i a[i]*b[i]
@@ -250,10 +281,21 @@ class Matrix
 
     template <class F>
     Matrix<T> mapElems(F f) const {
-        std::vector<T> res;
-        res.reserve(data.size());
-        for (size_t i = 0; i < data.size(); i++) res.push_back(f(static_cast<T>(data[i])));
-        return Matrix<T>(std::move(res), shape);
+        if constexpr (std::is_same_v<T, bool>) {
+            // vector<bool> is bit-packed: no data(); the plain indexed loop is the only option.
+            std::vector<T> res;
+            res.reserve(data.size());
+            for (size_t i = 0; i < data.size(); i++) res.push_back(f(static_cast<T>(data[i])));
+            return Matrix<T>(std::move(res), shape);
+        } else {
+            std::vector<T> res(data.size());
+            // Capture f by value (not [&f]): a reference capture through this stack frame
+            // prevents GCC from inlining the lambda into map1's inner block, which
+            // costs vectorization at -O2. By value is a copy of a lambda — free.
+            vecmath::impl::map1(res.data(), data.data(), data.size(),
+                                [f](const T& x) { return f(static_cast<T>(x)); });
+            return Matrix<T>(std::move(res), shape);
+        }
     }
 
     std::vector<T> transpose_2D() const {
@@ -1040,7 +1082,53 @@ public:
     // Identical for a == 0 (the ReLU case).
     Matrix<T> maximum(const T a) const
     {
-        return mapElems([a](T x) { return (x < a) ? a : x; });
+        return mapElems([a](T x) {
+            return vecmath::impl::gt_q(a, x) ? a : x;
+        });
+    }
+
+    // ── Fused activation kernels ─────────────────────────────────────────────────────────────────────────────────
+    // The autograd ops used to build these from 4-6 Matrix expressions (each a pass, an allocation and, for the scalar
+    // operands, a materialised broadcast). Each is now one pass. Every intermediate is still rounded to T in the same
+    // order as the composite expression, so results are bit-identical for every T, float16 and FP8 included.
+
+    // 1 / (1 + exp(-x))
+    Matrix<T> sigmoid() const requires (!std::is_same_v<T, bool>)
+    {
+        std::vector<T> r(data.size());
+        vecmath::impl::map1(r.data(), data.data(), data.size(), [](const T& x) {
+            const T e = vecmath::impl::exp_k<T>((T)(T(-1) * x));
+            return (T)(T(1) / (T)(e + T(1)));
+        });
+        return Matrix<T>(std::move(r), shape);
+    }
+
+    // grad * (s * (1 + (-1 * s)))   with s = sigmoid(x)
+    static Matrix<T> sigmoid_backward(const Matrix<T>& grad, const Matrix<T>& s) requires (!std::is_same_v<T, bool>)
+    {
+        if (grad.shape != s.shape)                                    // never happens for a graph node; keep the general form
+            return grad * (s * (Matrix<T>(1) + (Matrix<T>(-1) * s)));
+        std::vector<T> r(s.data.size());
+        vecmath::impl::map2(r.data(), grad.data.data(), s.data.data(), s.data.size(), [](const T& g, const T& sv) {
+            const T m1 = (T)(T(-1) * sv);
+            const T m2 = (T)(T(1) + m1);
+            return (T)(g * (T)(sv * m2));
+        });
+        return Matrix<T>(std::move(r), s.shape);
+    }
+
+    // grad * (x > 0): the mask multiplies (it is not a select), so an infinite gradient still gives inf * 0 = NaN
+    static Matrix<T> relu_backward(const Matrix<T>& grad, const Matrix<T>& x) requires (!std::is_same_v<T, bool>)
+    {
+        if (grad.shape != x.shape) return grad * (x > (T)0);
+        std::vector<T> r(x.data.size());
+        // Two details decide the speed here (6.8 ns/elem -> 0.4): the comparison must be the QUIET one (a signalling `>`
+        // blocks vectorisation under -ftrapping-math and becomes a branch that mispredicts on random signs), and the
+        // mask must MULTIPLY rather than select so an infinite gradient still gives inf * 0 = NaN as before.
+        vecmath::impl::map2(r.data(), grad.data.data(), x.data.data(), x.data.size(), [](const T& g, const T& xv) {
+            return (T)(g * static_cast<T>(vecmath::impl::gt_q(xv, T(0))));
+        });
+        return Matrix<T>(std::move(r), x.shape);
     }
 
     void clear()

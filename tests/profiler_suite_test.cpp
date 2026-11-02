@@ -75,6 +75,7 @@ static void test_hot_device() {
     SECTION("hot device: the profile stops cleanly and says why");
     FakeRoot fx; fx.thermal("cpu-0-0", 62000);
     ProfileOptions o; o.sysroot = fx.root(); o.total_budget_s = 30;
+    o.thermal = ThermalLimits{};                    // the fixture reads 62 C: use the built-in limits, not --max-temp
     Stopwatch sw;
     Profile p = ProfilerSuite().run(o);
     CHECK(sw.elapsed() < 5.0);                                                      // nothing heavy ran
@@ -185,6 +186,7 @@ static void test_full_live(bool quick) {
 }
 
 int main(int argc, char** argv) {
+    tensorf::prof::parse_thermal_args(argc, argv);   // --max-temp=65 etc. apply to the live runs only
     const bool quick = argc > 1 && std::strcmp(argv[1], "--quick") == 0;
     test_hot_device();
     test_budgets();

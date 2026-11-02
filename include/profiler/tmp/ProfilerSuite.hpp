@@ -57,6 +57,7 @@ struct ProfileOptions {
     double probe_size_scale    = 1.0;
     bool   measure_memory      = true;     // stage 4 (needs the allocation hook)
     double min_stage_s         = 3.0;      // below this much remaining time a stage is skipped, not started
+    ThermalLimits thermal      = thermal_limits();   // --max-temp=C etc.; see ProfilerCommon.hpp
     std::string sysroot;                   // "" = this machine; tests point it at a fixture
     bool   verbose             = false;
 };
@@ -156,7 +157,7 @@ public:
         // Light (< 1 s) and thermally pre-checked.
         const std::string thermal_now = [&] {
             ThermalProbe tp(opt.sysroot);
-            return thermal_verdict(tp.read(), tp.hottest_c(), p.fp.battery.charging(), SuiteConfig{});
+            return thermal_verdict(tp.read(), tp.hottest_c(), p.fp.battery.charging(), [&] { SuiteConfig g; g.stop_cpu_c = opt.thermal.cpu_c; g.stop_battery_c = opt.thermal.battery_c; g.max_rise_c = opt.thermal.rise_c; return g; }());
         }();
         if (!opt.measure_memory) record("memory", "skipped", 0, "disabled by options");
         else if (!thermal_now.empty()) record("memory", "skipped", 0, "device too hot: " + thermal_now);
@@ -206,6 +207,7 @@ public:
                 Stopwatch sw;
                 SuiteConfig sc;
                 sc.time_budget_s = budget; sc.run_sustained = opt.capability_sustained; sc.sysroot = opt.sysroot; sc.verbose = false;
+                sc.stop_cpu_c = opt.thermal.cpu_c; sc.stop_battery_c = opt.thermal.battery_c; sc.max_rise_c = opt.thermal.rise_c;
                 p.cv = CapabilitySuite(sc).run(p.fp);
                 p.have_capability = p.cv.compute_best_gflops() > 0;
                 if (!p.cv.stopped_reason.empty()) {
@@ -230,6 +232,7 @@ public:
             wl::ProbeConfig pc;
             pc.time_budget_s = std::min(opt.probe_budget_s, remaining());
             pc.size_scale = opt.probe_size_scale; pc.sysroot = opt.sysroot; pc.guard.sysroot = opt.sysroot;
+            pc.guard.stop_cpu_c = opt.thermal.cpu_c; pc.guard.stop_battery_c = opt.thermal.battery_c; pc.guard.max_rise_c = opt.thermal.rise_c;
             p.probe = wl::run_probe(p.fp, p.cv, pc);
             p.have_probe = p.probe.usable > 0;
             const std::string note = std::to_string(p.probe.usable) + " cases usable; leave-one-out error " +

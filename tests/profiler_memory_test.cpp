@@ -509,7 +509,7 @@ static void test_census() {
 // ═════════════════════════════════════════════════════════════════════════════
 
 static void test_matmul_backward_temporaries() {
-    SECTION("E1 model vs measurement: matmul_grads temporaries = 3MK + 3KN + MN elements");
+    SECTION("E1 model vs measurement: matmul_grads temporaries = 2MK + 2KN elements");
     const size_t shapes[][3] = {{64, 64, 64}, {128, 32, 64}, {32, 200, 100}, {200, 16, 256}};
     for (const auto& sh : shapes) {
         const size_t M = sh[0], K = sh[1], N = sh[2];
@@ -521,8 +521,10 @@ static void test_matmul_backward_temporaries() {
         const double measured = (double)(snapshot().peak_total - base);
         wl::RunSpec r; r.mode = wl::Mode::TRAIN;
         const double modelled = wl::dense((double)M, (double)K, (double)N, r, "d", false).mem.scratch;
-        CHECK_REL(modelled, measured, 0.005);                                              // within half a percent
-        CHECK_REL(measured, (3.0 * M * K + 3.0 * K * N + 1.0 * M * N) * 4.0, 0.005);
+        // The layer model takes max(forward output M*N, backward temporaries); matmul_grads alone only has the latter.
+        CHECK_REL(modelled, std::max((double)M * N, 2.0 * M * K + 2.0 * K * N) * 4.0, 0.005);
+        CHECK(modelled >= measured * 0.995);                                               // never below what the hook saw
+        CHECK_REL(measured, (2.0 * M * K + 2.0 * K * N) * 4.0, 0.005);
     }
 }
 

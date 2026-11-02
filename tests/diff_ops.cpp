@@ -16,7 +16,7 @@ int main(){
   pr("add_bcast_row",a+r); pr("mul_bcast_col",a*col); pr("sub_col_row",col-r); pr("add3_2d",t3+gen({4,5}));
   pr("div",a/(c+M(100.f)));
   pr("matmul2d",a.matmul(b)); pr("matmul3d_2d",t3.matmul(gen({5,6}))); pr("matmul3d_3d",t3.matmul(t3b)); pr("dot_batched",t3.dot(t3b));
-  pr("dot2d_flat",a.dot(c)); pr("dot1d",r.dot(r));
+  pr("dot2d_flat",a.vdot(c)); pr("dot1d",r.dot(r));
   pr("T2",a.transpose()); pr("T3",t3.transpose()); pr("T3perm",t3.transpose({1,2,0})); pr("T4perm",t4.transpose({3,1,0,2}));
   pr("sum2_ax0",a.sum(0)); pr("sum2_ax1",a.sum(1)); pr("sum3_ax2",t3.sum(2)); pr("sum3_ax0",t3.sum(0)); pr("sum4_ax3",t4.sum(3)); pr("sum4_ax0",t4.sum(0));
   pr("mean2_ax0",a.mean(0)); pr("mean2_ax1",a.mean(1)); pr("var_ax1",a.var(1)); pr("std_ax0",a.std(0));

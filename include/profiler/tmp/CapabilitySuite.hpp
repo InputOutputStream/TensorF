@@ -63,11 +63,12 @@ struct SuiteConfig {
     int    max_scaling_threads = 16;
     bool   pin_threads     = true;
 
-    // Thermal guard. STARTING POINTS, unverified; calibrate per device.
-    double stop_cpu_c        = 45.0;   // hottest non-battery zone
-    double stop_battery_c    = 40.0;   // battery temperature while discharging
-    double charging_margin_c = 2.0;    // battery limit is lowered by this while charging
-    double max_rise_c        = 8.0;    // stop if the hottest sensor rose this far from the start
+    // Thermal guard. STARTING POINTS, unverified; calibrate per device. Defaults come from thermal_limits(), i.e. the
+    // built-ins, TENSORF_MAX_TEMP_C & co, or --max-temp=C on the command line (see ProfilerCommon.hpp).
+    double stop_cpu_c        = thermal_limits().cpu_c;       // hottest non-battery zone
+    double stop_battery_c    = thermal_limits().battery_c;   // battery temperature while discharging
+    double charging_margin_c = 2.0;                          // battery limit is lowered by this while charging
+    double max_rise_c        = thermal_limits().rise_c;      // stop if the hottest sensor rose this far from the start
 
     std::string sysroot;               // "" = real machine; tests point this at a fixture
     bool   verbose         = false;

@@ -11,7 +11,10 @@ STD   := -std=c++20
 # ARCH: -march value. native = fastest on THIS machine (binaries will not run on older CPUs). ARCH= (empty) = portable build.
 # Cross-compiling for Android? Use the NDK toolchain (CXX=aarch64-linux-android24-clang++ ARCH=) rather than this g++.
 ARCH  ?= native
-OPT   := -O3 $(if $(ARCH),-march=$(ARCH)) -Ofast
+# FAST=1 adds -ffast-math. Do NOT use it for the tests or the profilers: it lets the compiler assume no NaN/Inf, so
+# std::isnan/isinf/isfinite, Matrix::hasNaN, the fp8/fp16 codecs and the profiler JSON (NaN -> null) silently break.
+FAST  ?= 0
+OPT   := -O3 $(if $(ARCH),-march=$(ARCH)) -fno-math-errno -fno-trapping-math $(if $(filter 1,$(FAST)),-ffast-math)
 WARN  := -Wall -Wextra -Wno-unused-parameter
 DEBUG ?= 0
 
@@ -89,7 +92,7 @@ LDFLAGS  := $(LIBS) $(LSAN)
 $(shell mkdir -p $(BIN))
 
 # ══════════════════════════════════════════════════════════════════════════════
-.PHONY: lib install uninstall all gpt2 llama smollm transformer benchmark tests blas-check FORCE \
+.PHONY: lib install uninstall all gpt2 llama smollm transformer benchmark tests blas-check elementwise-check elementwise-bench  FORCE datasets gcn-bench \
         gateway run-gateway clean install-deps check-deps help # server client
 
 all: check-deps gpt2 smollm transformer benchmark tests gateway # server client
@@ -163,6 +166,26 @@ $(BIN)/coratrain: tests/coratrain.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 	@echo "[RUN] $(BIN)/coratrain"
 # 	$(BIN)/coratrain
+
+# ── Datasets + GCN benchmark ───────────────────────────────────────────────
+#   make datasets                          télécharge cora, citeseer, pubmed (et décompresse nell)
+#   make datasets DATASETS="cora pubmed"   seulement ceux-là
+#   make gcn-bench                         coratrain sur cora/citeseer/pubmed, 5 graines, résumé
+#   make gcn-bench BENCH_ARGS="-p 0"       sans arrêt anticipé (voir scripts/run_gcn_benchmarks.sh)
+# Citeseer et Pubmed n'existent qu'en pickles Planetoid : include/tools/planetoid2linqs.hpp les
+# convertit au format LINQS lu par load_linqs (outil en ligne de commande : include/tools/planetoid2linqs.cpp).
+DATASETS   ?=
+BENCH_ARGS ?=
+
+datasets: $(BIN)/planetoid2linqs
+	scripts/download_datasets.sh $(DATASETS)
+
+$(BIN)/planetoid2linqs: include/tools/planetoid2linqs.cpp include/tools/planetoid2linqs.hpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(STD) -O2 $(WARN) -Iinclude/data $< -o $@
+
+gcn-bench: $(BIN)/coratrain
+	scripts/run_gcn_benchmarks.sh $(BENCH_ARGS)
 
 # ── contract  ───────────────────────────────────────────────────────────
 
@@ -385,6 +408,24 @@ $(BIN)/blas_check: tests/blas_check.cpp
 	@echo "[CXX] $< → $@"
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 
+# ── Opérations élément par élément : équivalence bit à bit, précision de exp rapide, benchmark ─────────────
+#   make elementwise-check   équivalence (anciennes références scalaires) + précision de TENSORF_FAST_EXP
+#   make elementwise-bench   ns/élément des opérations Matrix/Tensor (ajouter CXXFLAGS=-DTENSORF_FAST_EXP pour comparer)
+elementwise-check: $(BIN)/elementwise_equiv_test $(BIN)/fast_exp_test
+	$(BIN)/elementwise_equiv_test | tail -1
+	$(BIN)/fast_exp_test | tail -1
+elementwise-bench: $(BIN)/elementwise_bench
+	$(BIN)/elementwise_bench
+$(BIN)/elementwise_equiv_test: tests/elementwise_equiv_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+$(BIN)/fast_exp_test: tests/fast_exp_test.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) -DTENSORF_FAST_EXP $< -o $@ $(LDFLAGS)
+$(BIN)/elementwise_bench: tests/elementwise_bench.cpp
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+
 # ── Le backend BLAS fait partie des dépendances de chaque binaire ─────────────
 # Sans ça, installer OpenBLAS (ou changer BLAS=) laisserait de vieux binaires « shim » en place.
 BLAS_STAMP := $(BIN)/.blas_stamp
@@ -396,7 +437,7 @@ BIN_TARGETS := gpt2 smollm transformer server client basic_tests gcntest spmmtes
                profiler_capability_test profiler_workload_test device_benchmark_test hw_fingerprint_test \
                memory_profiler_test algorithm_profiler_test hyperparam_advisor_test \
                profiler_memory_nohook_test profiler_memory_test profiler_advisor_test blas_check tensorf-gateway \
-               framework_bench_test profiler_suite_test profiler_suite_nohook_test
+               framework_bench_test profiler_suite_test profiler_suite_nohook_test elementwise_equiv_test fast_exp_test elementwise_bench
 # Headers are dependencies too: the profiler is header-only, so editing it must rebuild the tests.
 HEADERS := $(shell find include -name '*.hpp' -o -name '*.h' 2>/dev/null)
 $(addprefix $(BIN)/,$(BIN_TARGETS)): $(BLAS_STAMP) $(HEADERS)
@@ -493,7 +534,11 @@ help:
 # 	@echo "  make client         Client federated  (besoin de tests/GPT/client.cpp)"
 	@echo "  make benchmark      Profiler matériel"
 	@echo "  make tests          Tests unitaires"
+	@echo "  make elementwise-check   Opérations élément par élément : équivalence bit à bit + exp rapide"
+	@echo "  make elementwise-bench   ns/élément des opérations Matrix/Tensor"
 	@echo "  make gcntest        Test du gcn"
+	@echo "  make datasets       Télécharge cora, citeseer, pubmed (DATASETS=\"cora pubmed\" pour choisir)"
+	@echo "  make gcn-bench      coratrain sur cora/citeseer/pubmed, 5 graines (BENCH_ARGS=\"-p 0\" : sans arrêt anticipé)"
 	@echo "  make blas-check     Quel BLAS est lié ? résultats + GFLOP/s"
 	@echo "  make gateway        Web dashboard gateway (REST + WebSocket, gateway/src/main.cpp)"
 	@echo "  make run-gateway    Build + lance le gateway (PORT=8080 par défaut)"

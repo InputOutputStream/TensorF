@@ -43,15 +43,15 @@ class SigmoidOperation : public Operation<T>
     template <typename T>
     void SigmoidOperation<T>::backward(Matrix<T> grad)
     {
-        if (this->t1->requires_grad) this->t1->accumulate(grad * (this->tmp->val * (Matrix<T>(1) + (Matrix<T>(-1)*this->tmp->val))));
+        if (t1->requires_grad) this->t1->accumulate(Matrix<T>::sigmoid_backward(grad, this->tmp->val));
     }
 
     template<typename T>
     Tensor_t<T> SigmoidOperation<T>::forward()
     {
-        auto temp = (Matrix<T>(1) / ((T)1 + (Matrix<T>(-1)*this->t1->val).exponent()));
-        this->tmp = std::make_shared<Tensor<T>>(temp);
-        return std::make_shared<Tensor<T>>(temp, this->shared_from_this());
+        Matrix<T> temp = this->t1->val.sigmoid();
+        this->tmp = std::make_shared<Tensor<T>>(temp);                       // backward reads the activation from here (one copy)
+        return std::make_shared<Tensor<T>>(std::move(temp), this->shared_from_this());
     }
 
     template <typename T>

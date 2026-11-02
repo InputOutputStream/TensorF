@@ -204,9 +204,10 @@ static void test_matmul() {
     CHECK(M::ones({0, 3}).matmul(M::ones({3, 2})).shape == (S{0, 2}));
     // dot
     CHECK(near(M({1, 2, 3}).dot(M({4, 5, 6})).data[0], 32)); CHECK_THROWS(M({1, 2}).dot(M({1, 2, 3})));
-    CHECK(near(a.dot(a).data[0], 91));                        // [DECISION] 2D.2D = flattened inner product
+    CHECK(near(a.vdot(a).data[0], 91));                       // [DECISION] flattened inner product is vdot(); dot() is numpy-style
+    CHECK_THROWS(a.dot(a));                                   // (2,3).(2,3) is not matmul-compatible, so dot() refuses it
     CHECK_THROWS(a.dot(M({{1, 2, 3}})));                      // used to read out of bounds
-    CHECK(vnear(A3.dot(B2).data, r1.data)); CHECK_THROWS(a.dot(M({1, 2, 3}))); CHECK_THROWS(A3.dot(M::ones({4, 2})));
+    CHECK(vnear(A3.dot(B2).data, r1.data)); CHECK(a.dot(M({1, 2, 3})).shape == (S{2})); CHECK_THROWS(a.dot(M({1, 2})));   // (2,3).(3) is a valid matrix-vector product CHECK_THROWS(A3.dot(M::ones({4, 2})));
     // integer matmul (generic path) and double
     Matrix<int> ia({{1, 2}, {3, 4}}); CHECK(ia.matmul(ia).data == (std::vector<int>{7, 10, 15, 22}));
     MD da({{1, 2}, {3, 4}}); CHECK(da.matmul(da).data == (std::vector<double>{7, 10, 15, 22}));
@@ -240,7 +241,7 @@ static void test_storage() {
     const M c({{1, 2, 3}, {4, 5, 6}});
     (void)(c + c); (void)(c - c); (void)(c * c); (void)(c / c); (void)(-c); (void)(c == c); (void)c.row(0); (void)c.col(0); (void)c.at({0, 0});
     (void)c.sum(); (void)c.sum(0); (void)c.mean(); (void)c.mean(0); (void)c.variance(); (void)c.var(0); (void)c.std(0); (void)c.transpose(); (void)c.transpose({1, 0});
-    (void)c.dot(c); (void)c.matmul(c.transpose()); (void)c.reshape({3, 2}); (void)c.flatten(); (void)c.slice_row(0, 1); (void)c.slice_cols(0, 1); (void)c.slice_axis(0, 1, 0);
+    (void)c.vdot(c); (void)c.matmul(c.transpose()); (void)c.reshape({3, 2}); (void)c.flatten(); (void)c.slice_row(0, 1); (void)c.slice_cols(0, 1); (void)c.slice_axis(0, 1, 0);
     (void)c.sqrt(); (void)c.exponent(); (void)c.ln(); (void)c.cbrt(); (void)c.pow(2.f); (void)c.maximum(0.f); (void)c.get_data(); (void)c.get_size(); (void)c.get_ndims();
     { std::ostringstream os; c.print(os); os << c; }
     CHECK(vnear((c + c).data, {2, 4, 6, 8, 10, 12})); CHECK(vnear((c / c).data, {1, 1, 1, 1, 1, 1})); CHECK(c == c);
@@ -359,7 +360,7 @@ static void test_types() {
         CHECK(near_q(float(ones.sum()), 100.f, 0.07f));
         Matrix<Q>::manual_seed(3); Matrix<Q> rn = Matrix<Q>::randn({50}); CHECK(rn.data.size() == 50);
         Matrix<Q> ru = Matrix<Q>::random({50}); bool ok = true; for (auto v : ru.data) ok = ok && float(v) >= 0.f && float(v) <= 1.f; CHECK(ok);
-        Matrix<Q> dd = a.dot(a); CHECK(near_q(float(dd.data[0]), 30.f, 0.07f));
+        Matrix<Q> dd = a.vdot(a); CHECK(near_q(float(dd.data[0]), 30.f, 0.07f));
         CHECK(near_q(float(a.var(0).data[0]), 1.f, 0.07f));
         { std::ostringstream os; os << a; CHECK(os.str().find("[1,2,]") != std::string::npos); }
     }

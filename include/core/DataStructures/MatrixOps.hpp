@@ -100,7 +100,7 @@ namespace mxd {
  
 // Reduces a broadcast gradient back to `originalShape` (sums leading dims and dims that were size 1).
 template <typename T>
-Matrix<T> sumGradForBroadcast(const Matrix<T>& grad, const std::vector<size_t>& originalShape)
+Matrix<T> sumGradForBroadcast(Matrix<T> grad, const std::vector<size_t>& originalShape)
 {
     if (grad.shape == originalShape) return grad;
 

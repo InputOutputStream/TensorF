@@ -1,0 +1,794 @@
+➜  TensorF git:(main) ✗ ./bin/basic_tests
+=== 1D ===
+[PASS] 1D dot
+[PASS] 1D sum
+[PASS] 1D add
+[PASS] 1D sub
+
+=== 2D ===
+[PASS] 2D matmul square
+[PASS] 2D matmul rect
+[PASS] 2D transpose
+[PASS] 2D sum axis=0
+[PASS] 2D sum axis=1
+
+=== 3D ===
+[PASS] 3D matmul
+[PASS] 3D sum axis=0
+[PASS] 3D sum axis=1
+[PASS] 3D sum axis=2
+[PASS] 3D transpose
+
+=== 4D & non-uniform ===
+[PASS] 4D matmul
+[PASS] non-uniform sum axis=0 {3,2,4}
+[PASS] non-uniform sum axis=1 {3,2,4}
+[PASS] non-uniform sum axis=2 {3,2,4}
+[PASS] non-uniform transpose {2,3,4}
+[PASS] 3D add {2,3,4}
+[PASS] 3D mul {2,3,4}
+
+=== Broadcast forward ===
+[PASS] broadcast {3,1}+{1,3}
+[PASS] broadcast {2,3}+{3}
+[PASS] broadcast {2,2}+{1,1}
+[PASS] broadcast {2,1,3}+{2,4,3}
+[PASS] broadcast multiply {2,3}*{1,3}
+
+=== sumGradForBroadcast ===
+[PASS] sumGradForBroadcast {3,3}->{3,1}
+[PASS] sumGradForBroadcast {2,3}->{3}
+[PASS] sumGradForBroadcast no-op {2,3}->{2,3}
+[PASS] sumGradForBroadcast {3,3}->{1,3}
+
+=== Sigmoid test ===
+ [-0.196612,]
+ [0.393224,]
+ [-0.393224,]
+ [-0.589836,]
+ [0.196612,]
+
+=== nn xor test ===
+out[
+ [0.0123839,]
+ [0.984384,]
+ [0.984539,]
+ [0.0141454,]
+]iter: 1000 loss:  [0.0209094,]
+out[
+ [0.0065865,]
+ [0.991734,]
+ [0.991818,]
+ [0.00742519,]
+]iter: 2000 loss:  [0.00584475,]
+out[
+ [0.00434985,]
+ [0.994552,]
+ [0.994607,]
+ [0.00487493,]
+]iter: 3000 loss:  [0.00253631,]
+out[
+ [0.00310832,]
+ [0.996111,]
+ [0.996151,]
+ [0.00347051,]
+]iter: 4000 loss:  [0.00129107,]
+out[
+ [0.00230634,]
+ [0.997117,]
+ [0.997146,]
+ [0.002568,]
+]iter: 5000 loss:  [0.000709211,]
+out[
+ [0.00174606,]
+ [0.997819,]
+ [0.997841,]
+ [0.0019399,]
+]iter: 6000 loss:  [0.000405779,]
+out[
+ [0.00133702,]
+ [0.998331,]
+ [0.998347,]
+ [0.00148274,]
+]iter: 7000 loss:  [0.000237591,]
+out[
+ [0.00103064,]
+ [0.998714,]
+ [0.998726,]
+ [0.00114119,]
+]iter: 8000 loss:  [0.000141009,]
+out[
+ [0.000797623,]
+ [0.999005,]
+ [0.999015,]
+ [0.000881976,]
+]iter: 9000 loss:  [8.43688e-05,]
+out[
+ [0.000618779,]
+ [0.999228,]
+ [0.999236,]
+ [0.000683392,]
+]iter: 10000 loss:  [5.07298e-05,]
+
+=== nn test ===
+[Serializer] Loaded 6 tensors from Models/model.hge
+Train.....................................................................
+iter: 0 loss %:  [0.0471451,]
+
+iter: 10 loss %:  [0.0485983,]
+
+iter: 20 loss %:  [0.0477942,]
+
+iter: 30 loss %:  [0.0474892,]
+
+iter: 40 loss %:  [0.0472427,]
+
+iter: 50 loss %:  [0.0471599,]
+
+iter: 60 loss %:  [0.0471215,]
+
+iter: 70 loss %:  [0.0468865,]
+
+iter: 80 loss %:  [0.0468181,]
+
+iter: 90 loss %:  [0.04681,]
+
+[Serializer] Saved 6 tensors to Models/model.hge
+model: [
+ [1.60342e-10,1.76656e-14,0.999948,5.16081e-05,1.83135e-19,1.32764e-09,2.01963e-09,1.20862e-16,1.56658e-07,4.74419e-17,]
+ [6.85469e-09,0.997702,0.00146958,3.18386e-06,7.31658e-07,9.86793e-06,3.81028e-06,0.00073579,7.47932e-05,1.15018e-08,]
+ [0.999999,5.01662e-17,4.31956e-07,4.9729e-10,1.06405e-19,1.2481e-07,8.27834e-12,4.32971e-08,1.87359e-13,1.81045e-10,]
+ [2.10454e-10,4.33323e-09,5.48102e-07,9.53631e-11,0.999347,1.64317e-07,3.10585e-08,1.02754e-08,6.65403e-07,0.00065191,]
+ [1.14145e-12,0.999986,5.33738e-07,2.04175e-09,1.705e-08,3.03802e-08,9.95821e-10,1.32385e-05,1.94729e-08,1.89349e-11,]
+] y_test[
+ [0,0,1,0,0,0,0,0,0,0,]
+ [0,1,0,0,0,0,0,0,0,0,]
+ [1,0,0,0,0,0,0,0,0,0,]
+ [0,0,0,0,1,0,0,0,0,0,]
+ [0,1,0,0,0,0,0,0,0,0,]
+]
+
+=== Serialize test ===
+[Serializer] Loaded 6 tensors from Models/model.hge
+model predicted val: [
+ [0,1,0,0,0,0,0,0,0,0,]
+ [0,0,0,1,0,0,0,0,0,0,]
+ [0,0,0,0,0,0,1,0,0,0,]
+ [0,0,0,0,0,0,0,1,0,0,]
+ [0,0,1,0,0,0,0,0,0,0,]
+ [0,0,0,0,0,0,0,1,0,0,]
+ [0,1,0,0,0,0,0,0,0,0,]
+ [0,0,1,0,0,0,0,0,0,0,]
+ [0,1,0,0,0,0,0,0,0,0,]
+ [0,1,0,0,0,0,0,0,0,0,]
+] Actual val[
+ [0,1,0,0,0,0,0,0,0,0,]
+ [0,0,0,1,0,0,0,0,0,0,]
+ [0,0,0,0,1,0,0,0,0,0,]
+ [0,0,0,0,0,0,0,1,0,0,]
+ [0,0,1,0,0,0,0,0,0,0,]
+ [0,0,0,0,0,0,0,1,0,0,]
+ [0,1,0,0,0,0,0,0,0,0,]
+ [0,0,1,0,0,0,0,0,0,0,]
+ [0,1,0,0,0,0,0,0,0,0,]
+ [0,1,0,0,0,0,0,0,0,0,]
+]
+➜  TensorF git:(main) ✗ ./bin/gcntest 
+nodes=60 similarity edges=849 csr nnz=1758
+max |A - A^T| = 0
+epoch 0 loss 0.0777039 acc(all) 50%
+epoch 30 loss 6.338e-07 acc(all) 100%
+epoch 60 loss 1.76827e-07 acc(all) 100%
+epoch 90 loss 1.6292e-07 acc(all) 100%
+epoch 120 loss 1.58946e-07 acc(all) 100%
+epoch 150 loss 1.56959e-07 acc(all) 100%
+➜  TensorF git:(main) ✗ ./bin/spmmtest 
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss 0.000724, accuracy 100.000000%
+N=3000 nnz=14992  dense: 151.085 ms/iter (34.3323 MB for A)   sparse: 8.31361 ms/iter (117.125 KB for A)
+all passed, failures=0
+➜  TensorF git:(main) ✗ ./bin/coratrain 
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [279.676 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (165.913 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (145.697 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 148.867 ms
+➜  TensorF git:(main) ✗ ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [402.75 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (196.156 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (229.008 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 178.914 ms
+➜  TensorF git:(main) ✗ ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [276.918 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (177.345 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (269.76 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 171.533 ms
+➜  TensorF git:(main) ✗ ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [438.663 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (219.472 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (179.001 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 160.112 ms
+➜  TensorF git:(main) ✗ ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [305.714 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (158.967 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (145.562 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 158.237 ms
+➜  TensorF git:(main) ✗ OPENBLASS_NUM_THREADS=1 ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [252.525 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (133.916 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (113.698 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 130.233 ms
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [191.465 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (122.822 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (95.2198 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 91.4732 ms
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [184.972 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (113.18 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (89.7346 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 87.3594 ms
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [199.43 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (116.655 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (91.5957 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 91.3538 ms
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [206.367 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (115.305 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (105.421 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 95.1112 ms
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [191.007 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (115.165 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (94.2944 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 89.4811 ms
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [200.363 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (122.589 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (96.6673 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 93.4264 ms
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [197.828 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (118.537 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (95.2544 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 92.292 ms
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [215.631 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (125.066 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (96.1646 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 95.8629 ms
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [215.408 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (130.564 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (95.2993 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 96.3285 ms
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/coratrain
+loaded 2708 nodes, 1433 features, 7 classes, 5429 raw edges (0 skipped), csr nnz 13264  [228.294 ms]
+split: train 140 / val 500 / test 1000
+epoch 1  loss 1.94505  train 54.2857%  val 31.2%  (190.963 ms/epoch)
+epoch 10  loss 1.87558  train 80%  val 48.8%  (119.415 ms/epoch)
+
+final epoch:        val 50%  test 48.9%
+best val (epoch 5): val 52.2%  test 48.1%
+avg train step: 113.525 ms
+➜  TensorF git:(main) ✗ 
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/diff_ops 
+add shape(5,7,) n=35 : -4.43 -3.44 10.38 -9.72 2.22 -5.99 0.64 -4.77 3.07 2.22 -10.09 -6.58 3.54 -1.25 2.2 -4.57 -0.79 14.26 -6.5 1.56 15.2 0.889999 -0.3 1.29 3.89 11.16 12.52 -2.04 4.93 -7.4 -7.85 3.88 -7.93 16.08 14.77
+sub shape(5,7,) n=35 : -14.51 3.24 8.6 0.66 -3.06 5.41 1.72 -9.55 -0.71 5.84 6.97 -5.84 6.22 -15.75 10.24 -4.07 -8.71 3.62 0.16 16.12 4.08 -0.0100002 4.02 4.17 -2.33 -1.44 -5.42 14.4 7.61 -2.3 -4.17 -2.16 -7.11 -3.9 -1.61
+mul shape(5,7,) n=35 : -47.7288 0.334001 8.4461 23.5107 -1.1088 1.653 -0.6372 -17.1124 2.2302 -7.2943 13.3068 2.2977 -6.5392 -61.625 -25.0044 1.08 -18.81 47.5608 10.5561 -64.3552 53.5984 0.198 -4.0176 -3.9312 2.4258 30.618 31.8435 -50.7996 -8.4018 12.3675 11.0584 2.5972 3.0832 60.8391 53.8902
+neg shape(5,7,) n=35 : 9.47 0.1 -9.49 4.53 0.42 0.29 -1.18 7.16 -1.18 -4.03 1.56 6.21 -4.88 8.5 -6.22 4.32 4.75 -8.94 3.17 -8.84 -9.64 -0.44 -1.86 -2.73 -0.78 -4.86 -3.55 -6.18 -6.27 4.85 6.01 -0.86 7.52 -6.09 -6.58
+add_bcast_row shape(5,7,) n=35 : -6.37 -0.97 12.3 -0.0700002 -3.84 -4.09 1.14 -4.06 0.31 6.84 2.9 -9.63 1.08 -8.54 9.32 -5.19 -1.94 13.4 -6.59 5.04 9.6 3.54 0.99 5.54 5.24 1.44 -0.25 6.14 9.37 -5.72 -3.2 5.32 -10.94 2.29 6.54
+mul_bcast_col shape(5,7,) n=35 : 62.3126 0.658002 -62.4442 29.8074 2.7636 1.9082 -7.7644 4.296 -0.708001 -2.418 0.936001 3.726 -2.928 5.1 -1.1818 0.820798 0.902498 -1.6986 0.602299 -1.6796 -1.8316 -2.2132 -9.3558 -13.7319 -3.9234 -24.4458 -17.8565 -31.0854 -6.2073 4.8015 5.9499 -0.851399 7.4448 -6.0291 -6.5142
+sub_col_row shape(5,7,) n=35 : -9.68 -5.71 -9.39 -11.04 -3.16 -2.78 -6.54 -3.7 0.27 -3.41 -5.06 2.82 3.2 -0.56 -3.29 0.68 -3 -4.65 3.23 3.61 -0.15 -8.13 -4.16 -7.84 -9.49 -1.61 -1.23 -4.99 -4.09 -0.12 -3.8 -5.45 2.43 2.81 -0.95
+add3_2d shape(3,4,5,) n=60 : -9.79 14.53 -6.72 -1.52 -7.54 5.1 5.17 -13.6 -10.82 6.61 13.52 7.56 -5.16 -13.77 -1.81 6.27 -5.79 -2.45 -10.69 -12.94 0.45 6 -2.83 0.53 -10.36 -10.23 14.06 -11.27 2.79 8.04 12.18 -1.14 9.52 -0.48 -15.29 -4.06 -4.86 -4.13 0 -1.93 -13.82 -2.4 0.72 8.29 -7.3 -3.63 11.69 -1.02 5.96 5.71 5.04 6.31 13.45 -6.79 2.08 9.13 -12.97 -8.39 0.51 -0.45
+div shape(5,7,) n=35 : -0.0901561 -0.00103456 0.0940628 -0.0477798 -0.00409197 -0.00307529 0.0118641 -0.0699287 0.0115811 0.0410429 -0.0170548 -0.0623306 0.0494628 -0.0792541 0.0648052 -0.0433083 -0.0456907 0.0848842 -0.032792 0.0953408 0.0913225 0.00438028 0.0190106 0.0276989 0.00756473 0.0457197 0.0325778 0.0673349 0.0635516 -0.0497691 -0.0612266 0.00834789 -0.0755096 0.0553687 0.0608189
+matmul2d shape(5,3,) n=15 : 77.2021 28.393 8.4035 68.8767 62.3278 50.0238 -114.288 15.2436 -76.6376 50.1874 15.672 -110.56 -137.662 64.9548 41.7696
+matmul3d_2d shape(3,4,6,) n=72 : -38.8418 -33.677 -30.5464 60.193 -55.5752 -29.7174 218.242 111.417 74.7846 -35.8557 113.54 59.0427 176.801 19.5368 7.83402 13.0992 178.503 31.2438 -5.27111 -11.5869 6.4739 -22.8804 -3.64619 -72.7356 -6.77071 -24.6304 -22.4163 -71.0994 -68.231 -124.829 11.9407 -34.0749 -51.3647 200.384 113.276 205.146 -119.956 -117.209 -84.9312 -43.7593 -39.0886 -127.032 3.408 1.4534 -13.0298 138.82 61.6706 163.233 -93.7484 51.8276 19.7053 -11.4834 -236.546 9.25299 -70.7119 -85.86 -57.6222 115.781 108.922 78.6029 -43.4031 6.033 58.8951 21.3692 81.6956 -3.60721 179.825 50.1178 -2.6527 26.7587 145.833 152.788
+matmul3d_3d shape(3,4,2,) n=24 : -38.1946 -189.644 -82.2535 65.1236 -46.7768 -18.7188 -59.4502 -38.0009 11.0191 -43.6929 -77.72 77.4561 160.683 -9.14791 -49.4076 50.2668 55.8639 -78.231 -36.0561 134.622 75.8919 82.3108 -156.184 91.8325
+dot_batched shape(3,4,3,2,) n=72 : -38.1946 -189.644 -75.9372 -73.3634 95.827 -94.7728 -82.2535 65.1236 -188.219 44.5979 -29.2945 -16.5282 -46.7768 -18.7188 -186.424 38.7207 -34.9019 -1.7526 -59.4502 -38.0009 -47.1136 -63.7203 57.9399 -57.8413 -176.057 -46.2577 11.0191 -43.6929 31.0725 -121.913 236.853 -139.05 -77.72 77.4561 -37.5449 124.718 -54.6095 -7.624 160.683 -9.14791 -30.0445 -20.4344 190.907 -70.5337 -49.4076 50.2668 -17.8893 101.227 -45.9164 -39.539 101.057 -28.2036 55.8639 -78.231 211.936 -40.2206 31.1263 32.2323 -36.0561 134.622 152.596 57.2973 -56.2829 -85.9715 75.8919 82.3108 28.6847 79.3023 -57.3634 167.528 -156.184 91.8325
+dot2d_flat shape(1,) n=1 : 56.1292
+dot1d shape(1,) n=1 : 64.2926
+T2 shape(7,5,) n=35 : -9.47 -7.16 6.22 0.44 6.27 -0.1 1.18 -4.32 1.86 -4.85 9.49 4.03 -4.75 2.73 -6.01 -4.53 -1.56 8.94 0.78 0.86 -0.42 -6.21 -3.17 4.86 -7.52 -0.29 4.88 8.84 3.55 6.09 1.18 -8.5 9.64 6.18 6.58
+T3 shape(5,4,3,) n=60 : -5.68 4.56 -9.71 5.34 -9.99 -3.39 6.72 5.38 -1.76 1.61 -8.72 4.47 8.08 -0.45 -8.85 0.26 9.15 6.78 7.38 -1.32 6.13 3.81 4.74 -3.37 -7.28 -3.39 0.16 -8.46 -6.13 4.12 -9.34 5.34 9.27 -0.91 -2.59 -6.85 -8.28 -6.23 1.53 -8.48 5.13 8.3 -7.97 5.32 -0.99 -6.23 4.46 4.97 -7.14 -9.96 -6.9 6.93 8.36 6.03 4.67 -8.81 8.56 -3.3 7.71 9.19
+T3perm shape(4,5,3,) n=60 : -5.68 4.56 -9.71 8.08 -0.45 -8.85 -7.28 -3.39 0.16 -8.28 -6.23 1.53 -7.14 -9.96 -6.9 5.34 -9.99 -3.39 0.26 9.15 6.78 -8.46 -6.13 4.12 -8.48 5.13 8.3 6.93 8.36 6.03 6.72 5.38 -1.76 7.38 -1.32 6.13 -9.34 5.34 9.27 -7.97 5.32 -0.99 4.67 -8.81 8.56 1.61 -8.72 4.47 3.81 4.74 -3.37 -0.91 -2.59 -6.85 -6.23 4.46 4.97 -3.3 7.71 9.19
+T4perm shape(5,3,2,4,) n=120 : -2.85 -2.49 8.95 -9.03 -3.32 -8.32 5.99 6.29 -5.06 -5.85 -7.72 3.2 4.55 3.84 -1.1 -3.34 4.35 3.72 2.66 -6.13 5.21 -0.93 -2.13 -1.64 -0.18 7.95 1.33 1.4 -9.52 2.23 0.36 6.88 6.98 -8.77 6.04 -6.22 2.56 -8.55 -2.24 3.85 7.96 -3.57 -6.43 8.46 1.32 2.87 -3.81 -6.73 -2.93 9.47 7.66 9.87 -6.93 3.54 2.23 -7.14 -8.57 -2.51 1.39 -7.54 -3.27 4.92 9.01 -8.81 -0.41 0.83 2.79 3.21 8.84 -4.01 -8.34 -1.84 3.4 -2.07 -2.59 4.64 9.1 -8.98 5.21 3.72 0.67 -6.32 2.04 -3.12 5.36 8.15 -0.18 2.16 9.96 -6.55 5.45 -7.26 -0.26 -3.71 -0.55 -5.45 -5.9 7.67 -4.8 -2.64 6.38 3.77 -1.33 5.15 -0.1 -1.21 1.45 3.67 5.62 -5.7 9.66 3.61 -2.42 9.51 6.32 8.57 -8.06 4.74 -5.05 5.85
+sum2_ax0 shape(7,) n=7 : -3.7 -6.23 5.49 4.49 -12.46 23.07 15.08
+sum2_ax1 shape(5,) n=5 : -4.14 -13.34 21.4 20.4 1.42
+sum3_ax2 shape(3,4,) n=12 : -20.3 -4.41 1.46 -5.02 -15.47 6.52 5.91 5.6 -23.77 21.84 21.21 8.41
+sum3_ax0 shape(4,5,) n=20 : -10.83 -1.22 -10.51 -12.98 -24 -8.04 16.19 -10.47 4.95 21.32 10.34 12.19 5.27 -3.64 4.42 -2.64 5.18 -10.35 3.2 13.6
+sum4_ax3 shape(2,3,4,) n=24 : -8.46 20.53 10.55 4.24 -6.08 -24.66 3.2 -10.01 19.44 3.94 10.79 6.85 -4.29 -7.76 12.46 14.9 14.82 2.66 15.15 -2.53 7.05 -1.04 -19.88 -9.81
+sum4_ax0 shape(3,4,5,) n=60 : -6.17 -9.7 -9.86 12.5 0.479999 -10.81 10.18 13.01 -11.05 11.44 14.94 1.69 9.89 2.62 -6.13 -2.74 8.28 2.73 8.36 2.51 -0.51 9.54 -11.84 6.03 5.52 -2.01 -17.32 2.41 1.83 -6.91 -8.82 3.8 10.4 1.86 11.11 -0.14 -2.37 -16.35 -0.96 7.28 9.56 9.28 8.43 9.7 -10.48 2.79 -0.7 -3.18 -10.26 14.25 0.53 -10.24 -5.55 4.9 1.27 -7.77 1.73 1.37 -12.71 14.42
+mean2_ax0 shape(7,) n=7 : -0.74 -1.246 1.098 0.898 -2.492 4.614 3.016
+mean2_ax1 shape(5,) n=5 : -0.591429 -1.90571 3.05714 2.91429 0.202857
+var_ax1 shape(5,) n=5 : 28.4966 25.7913 39.3626 3.81108 33.7631
+std_ax0 shape(7,) n=7 : 6.57881 2.80301 5.76903 4.47647 4.42513 3.00964 6.36521
+sqrt shape(5,7,) n=35 : 0 0 3.08058 0 0 0 1.08628 0 1.08628 2.00749 0 0 2.20907 0 2.49399 0 0 2.98998 0 2.97321 3.10483 0.663325 1.36382 1.65227 0.883176 2.20454 1.88414 2.48596 2.504 0 0 0.927362 0 2.46779 2.56515
+exp shape(5,7,) n=35 : 154.47 0.035437 2.43513 0.00557201 14.0132 0.00334597 0.582748 10.9135 6.61937 0.163654 0.000197455 0.690734 0.261846 1408.1 0.017953 0.778801 52.4573 204.384 0.0357931 0.000689186 259.823 1.56831 0.115325 0.236928 22.421 544.571 7863.6 0.000269215 0.261846 0.0780817 0.158817 20.4913 0.66365 21807.3 3604.72
+cbrt shape(5,7,) n=35 : -2.11568 -0.464159 2.11717 -1.65462 -0.748887 -0.661911 1.05672 -1.9274 1.05672 1.59136 -1.15978 -1.83808 1.69619 -2.04083 1.83906 -1.62865 -1.68099 2.07545 -1.46899 2.06768 2.12826 0.76059 1.22981 1.39761 0.920516 1.69386 1.52549 1.83511 1.84398 -1.6927 -1.81813 0.950968 -1.95917 1.82616 1.87388
+ln shape(5,7,) n=35 : 4.50735 0.00995044 4.51152 3.06902 0.162459 0.0807502 0.872297 3.95634 0.872297 2.84728 1.23361 3.67792 3.21142 4.29388 3.68106 2.97871 3.15966 4.39351 2.40233 4.37129 4.54255 0.176974 1.49506 2.13451 0.47524 3.20354 2.61025 3.66848 3.69667 3.19959 3.61416 0.553655 4.05266 3.6399 3.7909
+slice_row shape(3,7,) n=21 : -7.16 1.18 4.03 -1.56 -6.21 4.88 -8.5 6.22 -4.32 -4.75 8.94 -3.17 8.84 9.64 0.44 1.86 2.73 0.78 4.86 3.55 6.18
+slice_cols shape(5,4,) n=20 : 9.49 -4.53 -0.42 -0.29 4.03 -1.56 -6.21 4.88 -4.75 8.94 -3.17 8.84 2.73 0.78 4.86 3.55 -6.01 0.86 -7.52 6.09
+slice_axis shape(3,4,2,) n=24 : 8.08 -7.28 0.26 -8.46 7.38 -9.34 3.81 -0.91 -0.45 -3.39 9.15 -6.13 -1.32 5.34 4.74 -2.59 -8.85 0.16 6.78 4.12 6.13 9.27 -3.37 -6.85
+row shape(1,7,) n=7 : 6.22 -4.32 -4.75 8.94 -3.17 8.84 9.64
+col shape(5,1,) n=5 : -4.53 -1.56 8.94 0.78 0.86
+concat0 shape(10,7,) n=70 : -9.47 -0.1 9.49 -4.53 -0.42 -0.29 1.18 -7.16 1.18 4.03 -1.56 -6.21 4.88 -8.5 6.22 -4.32 -4.75 8.94 -3.17 8.84 9.64 0.44 1.86 2.73 0.78 4.86 3.55 6.18 6.27 -4.85 -6.01 0.86 -7.52 6.09 6.58 5.04 -3.34 0.89 -5.19 2.64 -5.7 -0.54 2.39 1.89 -1.81 -8.53 -0.37 -1.34 7.25 -4.02 -0.25 3.96 5.32 -3.33 -7.28 5.56 0.45 -2.16 -1.44 3.11 6.3 8.97 -8.22 -1.34 -2.55 -1.84 3.02 -0.41 9.99 8.19
+concat1 shape(5,14,) n=70 : -9.47 -0.1 9.49 -4.53 -0.42 -0.29 1.18 5.04 -3.34 0.89 -5.19 2.64 -5.7 -0.54 -7.16 1.18 4.03 -1.56 -6.21 4.88 -8.5 2.39 1.89 -1.81 -8.53 -0.37 -1.34 7.25 6.22 -4.32 -4.75 8.94 -3.17 8.84 9.64 -4.02 -0.25 3.96 5.32 -3.33 -7.28 5.56 0.44 1.86 2.73 0.78 4.86 3.55 6.18 0.45 -2.16 -1.44 3.11 6.3 8.97 -8.22 6.27 -4.85 -6.01 0.86 -7.52 6.09 6.58 -1.34 -2.55 -1.84 3.02 -0.41 9.99 8.19
+concat_3d shape(3,8,5,) n=120 : -5.68 8.08 -7.28 -8.28 -7.14 5.34 0.26 -8.46 -8.48 6.93 6.72 7.38 -9.34 -7.97 4.67 1.61 3.81 -0.91 -6.23 -3.3 -5.68 8.08 -7.28 -8.28 -7.14 5.34 0.26 -8.46 -8.48 6.93 6.72 7.38 -9.34 -7.97 4.67 1.61 3.81 -0.91 -6.23 -3.3 4.56 -0.45 -3.39 -6.23 -9.96 -9.99 9.15 -6.13 5.13 8.36 5.38 -1.32 5.34 5.32 -8.81 -8.72 4.74 -2.59 4.46 7.71 4.56 -0.45 -3.39 -6.23 -9.96 -9.99 9.15 -6.13 5.13 8.36 5.38 -1.32 5.34 5.32 -8.81 -8.72 4.74 -2.59 4.46 7.71 -9.71 -8.85 0.16 1.53 -6.9 -3.39 6.78 4.12 8.3 6.03 -1.76 6.13 9.27 -0.99 8.56 4.47 -3.37 -6.85 4.97 9.19 -9.71 -8.85 0.16 1.53 -6.9 -3.39 6.78 4.12 8.3 6.03 -1.76 6.13 9.27 -0.99 8.56 4.47 -3.37 -6.85 4.97 9.19
+stack0 shape(10,7,) n=70 : -9.47 -0.1 9.49 -4.53 -0.42 -0.29 1.18 -7.16 1.18 4.03 -1.56 -6.21 4.88 -8.5 6.22 -4.32 -4.75 8.94 -3.17 8.84 9.64 0.44 1.86 2.73 0.78 4.86 3.55 6.18 6.27 -4.85 -6.01 0.86 -7.52 6.09 6.58 5.04 -3.34 0.89 -5.19 2.64 -5.7 -0.54 2.39 1.89 -1.81 -8.53 -0.37 -1.34 7.25 -4.02 -0.25 3.96 5.32 -3.33 -7.28 5.56 0.45 -2.16 -1.44 3.11 6.3 8.97 -8.22 -1.34 -2.55 -1.84 3.02 -0.41 9.99 8.19
+stack1 shape(5,14,) n=70 : -9.47 -0.1 9.49 -4.53 -0.42 -0.29 1.18 5.04 -3.34 0.89 -5.19 2.64 -5.7 -0.54 -7.16 1.18 4.03 -1.56 -6.21 4.88 -8.5 2.39 1.89 -1.81 -8.53 -0.37 -1.34 7.25 6.22 -4.32 -4.75 8.94 -3.17 8.84 9.64 -4.02 -0.25 3.96 5.32 -3.33 -7.28 5.56 0.44 1.86 2.73 0.78 4.86 3.55 6.18 0.45 -2.16 -1.44 3.11 6.3 8.97 -8.22 6.27 -4.85 -6.01 0.86 -7.52 6.09 6.58 -1.34 -2.55 -1.84 3.02 -0.41 9.99 8.19
+stack2 shape(5,7,2,) n=70 : -9.47 5.04 -0.1 -3.34 9.49 0.89 -4.53 -5.19 -0.42 2.64 -0.29 -5.7 1.18 -0.54 -7.16 2.39 1.18 1.89 4.03 -1.81 -1.56 -8.53 -6.21 -0.37 4.88 -1.34 -8.5 7.25 6.22 -4.02 -4.32 -0.25 -4.75 3.96 8.94 5.32 -3.17 -3.33 8.84 -7.28 9.64 5.56 0.44 0.45 1.86 -2.16 2.73 -1.44 0.78 3.11 4.86 6.3 3.55 8.97 6.18 -8.22 6.27 -1.34 -4.85 -2.55 -6.01 -1.84 0.86 3.02 -7.52 -0.41 6.09 9.99 6.58 8.19
+reshape shape(7,5,) n=35 : -9.47 -0.1 9.49 -4.53 -0.42 -0.29 1.18 -7.16 1.18 4.03 -1.56 -6.21 4.88 -8.5 6.22 -4.32 -4.75 8.94 -3.17 8.84 9.64 0.44 1.86 2.73 0.78 4.86 3.55 6.18 6.27 -4.85 -6.01 0.86 -7.52 6.09 6.58
+flatten shape(35,) n=35 : -9.47 -0.1 9.49 -4.53 -0.42 -0.29 1.18 -7.16 1.18 4.03 -1.56 -6.21 4.88 -8.5 6.22 -4.32 -4.75 8.94 -3.17 8.84 9.64 0.44 1.86 2.73 0.78 4.86 3.55 6.18 6.27 -4.85 -6.01 0.86 -7.52 6.09 6.58
+tril3 shape(3,3,) n=9 : 1 0 0 1 1 0 1 1 1
+triup4 shape(4,4,) n=16 : 1 1 1 1 0 1 1 1 0 0 1 1 0 0 0 1
+tril_sq shape(4,4,) n=16 : 8.21 0 0 0 -9.5 5.92 0 0 1.36 1.33 -4.6 0 -4.89 -6.86 6.95 -2.85
+triup_sq shape(4,4,) n=16 : 1.57 1.22 -4.17 9.38 0 5.62 -0.29 2.02 0 0 9.82 -6.98 0 0 0 -7.53
+zeros shape(2,3,) n=6 : 0 0 0 0 0 0
+ones shape(2,3,) n=6 : 1 1 1 1 1 1
+maximum0 shape(5,7,) n=35 : 0 0 9.49 0 0 0 1.18 0 1.18 4.03 0 0 4.88 0 6.22 0 0 8.94 0 8.84 9.64 0.44 1.86 2.73 0.78 4.86 3.55 6.18 6.27 0 0 0.86 0 6.09 6.58
+elemsAt shape(2,2,3,) n=12 : -9.95 -3.12 9.64 0.35 8.26 5.91 7.4 -0.17 -3.28 7.4 -0.17 -3.28
+onehot shape(3,3,) n=9 : 1 0 0 0 0 1 0 1 0
+pow2 shape(5,7,) n=35 : 89.6809 0.0100001 90.0601 20.5209 0.1764 0.0841 1.3924 51.2656 1.3924 16.2409 2.4336 38.5641 23.8144 72.25 38.6884 18.6624 22.5625 79.9236 10.0489 78.1456 92.9296 0.1936 3.4596 7.4529 0.6084 23.6196 12.6025 38.1924 39.3129 23.5225 36.1201 0.739599 56.5504 37.0881 43.2964
+pow3 shape(5,7,) n=35 : -849.278 -0.00100001 854.67 -92.9597 -0.074088 -0.024389 1.64303 -367.062 1.64303 65.4508 -3.79642 -239.483 116.214 -614.125 240.642 -80.6216 -107.172 714.517 -31.855 690.807 895.841 0.0851838 6.43485 20.3464 0.474551 114.791 44.7389 236.029 246.492 -114.084 -217.082 0.636055 -425.259 225.867 284.89
+where_mask shape(5,7,) n=35 : -9.47 -0.1 9.49 -4.53 -0.42 -0.29 1.18 -7.16 1.18 4.03 -1.56 -6.21 4.88 -8.5 6.22 -4.32 -4.75 8.94 -3.17 8.84 9.64 0.44 1.86 2.73 0.78 4.86 3.55 6.18 6.27 -4.85 -6.01 0.86 -7.52 6.09 6.58
+iadd shape(5,7,) n=35 : -4.43 -3.44 10.38 -9.72 2.22 -5.99 0.64 -4.77 3.07 2.22 -10.09 -6.58 3.54 -1.25 2.2 -4.57 -0.79 14.26 -6.5 1.56 15.2 0.889999 -0.3 1.29 3.89 11.16 12.52 -2.04 4.93 -7.4 -7.85 3.88 -7.93 16.08 14.77
+isub shape(5,7,) n=35 : -9.47 -0.1 9.49 -4.53 -0.42 -0.29 1.18 -7.16 1.18 4.03 -1.56 -6.21 4.88 -8.5 6.22 -4.32 -4.75 8.94 -3.17 8.84 9.64 0.44 1.86 2.73 0.78 4.86 3.55 6.18 6.27 -4.85 -6.01 0.86 -7.52 6.09 6.58
+imul shape(5,7,) n=35 : -47.7288 0.334001 8.4461 23.5107 -1.1088 1.653 -0.6372 -17.1124 2.2302 -7.2943 13.3068 2.2977 -6.5392 -61.625 -25.0044 1.08 -18.81 47.5608 10.5561 -64.3552 53.5984 0.198 -4.0176 -3.9312 2.4258 30.618 31.8435 -50.7996 -8.4018 12.3675 11.0584 2.5972 3.0832 60.8391 53.8902
+iadd_bc shape(5,7,) n=35 : -44.6288 -0.535999 11.2561 27.9707 -4.5288 -2.147 -0.6772 -14.0124 1.3602 -4.4843 17.7668 -1.1223 -10.3392 -61.665 -21.9044 0.21 -16 52.0208 7.1361 -68.1552 53.5584 3.298 -4.8876 -1.1212 6.8858 27.198 28.0435 -50.8396 -5.3018 11.4975 13.8684 7.0572 -0.336801 57.0391 53.8502
+scalar_mul shape(5,7,) n=35 : -18.94 -0.200001 18.98 -9.06 -0.84 -0.58 2.36 -14.32 2.36 8.06 -3.12 -12.42 9.76 -17 12.44 -8.64 -9.5 17.88 -6.34 17.68 19.28 0.879999 3.72 5.46 1.56 9.72 7.1 12.36 12.54 -9.7 -12.02 1.72 -15.04 12.18 13.16
+scalar_rdiv shape(5,7,) n=35 : 52.52 48.33 50.445 47.405 51.32 47.15 49.73 51.195 50.945 49.095 45.735 49.815 49.33 53.625 47.99 49.875 51.98 52.66 48.335 46.36 52.78 50.225 48.92 49.28 51.555 53.15 54.485 45.89 49.33 48.725 49.08 51.51 49.795 54.995 54.095
+scalar_add shape(5,7,) n=35 : -6.47 2.9 12.49 -1.53 2.58 2.71 4.18 -4.16 4.18 7.03 1.44 -3.21 7.88 -5.5 9.22 -1.32 -1.75 11.94 -0.17 11.84 12.64 3.44 4.86 5.73 3.78 7.86 6.55 9.18 9.27 -1.85 -3.01 3.86 -4.52 9.09 9.58
+scalar_sub shape(5,7,) n=35 : -10.97 -1.6 7.99 -6.03 -1.92 -1.79 -0.32 -8.66 -0.32 2.53 -3.06 -7.71 3.38 -10 4.72 -5.82 -6.25 7.44 -4.67 7.34 8.14 -1.06 0.36 1.23 -0.72 3.36 2.05 4.68 4.77 -6.35 -7.51 -0.64 -9.02 4.59 5.08
+expand shape(5,1,7,) n=35 : -9.47 -0.1 9.49 -4.53 -0.42 -0.29 1.18 -7.16 1.18 4.03 -1.56 -6.21 4.88 -8.5 6.22 -4.32 -4.75 8.94 -3.17 8.84 9.64 0.44 1.86 2.73 0.78 4.86 3.55 6.18 6.27 -4.85 -6.01 0.86 -7.52 6.09 6.58
+slice1 shape(5,) n=5 : -1.66 1.8 -1.59 7.15 -0.17
+sumGrad shape(5,3,) n=15 : 10.06 -12.95 -4.29 -2.59 18.37 -0.91 -3.5 19.88 -20.5 -1.52 2.82 -7.72 6.85 -1.79 -15.61
+sumGrad2 shape(1,5,1,) n=5 : 2.25 31.72 -5.97 -17.39 -5.98
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/contract 
+contract OK
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/matrix_tests 
+338/338 checks passed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/scope_test  
+scope OK
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/spmmtest  
+ok:   gradient check, non-symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=false (max diff 0.000000)
+ok:   gradient check, symmetric matrix, symmetric flag=true (max diff 0.000000)
+ok:   sparse GCN layer matches dense (output + weight/bias grads), diff 0.000000
+ok:   4 threads give bit-identical results to 1 thread
+ok:   sparse GCN trains: loss 0.000000, accuracy 100.000000%
+N=3000 nnz=14992  dense: 92.0162 ms/iter (34.3323 MB for A)   sparse: 3.89815 ms/iter (117.125 KB for A)
+all passed, failures=0
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/support_tests 
+support_tests: all asserts passed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/lowprec_tests 
+13989/13989 checks passed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/backprop_test 
+diamond x60: backward 0.6 ms, zero_grad 0.1 ms
+27/27 checks passed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/profiler_probe_test 
+[fit: a known 2x miss is recovered and held-out cases are priced within a few percent]
+  FAIL tests/profiler_probe_test.cpp:138  r.usable == 4
+  FAIL tests/profiler_probe_test.cpp:139  r.stopped_reason.empty()
+  FAIL tests/profiler_probe_test.cpp:140  r.calibration.calibrated((int)OpKind::DENSE)
+  FAIL tests/profiler_probe_test.cpp:141  r.calibration.factor_for(OpKind::DENSE) ~ 2.0 within 10%  (1 vs 2)
+  FAIL tests/profiler_probe_test.cpp:142  x.ok
+  FAIL tests/profiler_probe_test.cpp:142  x.ratio ~ 2.0 within 12%  (0 vs 2)
+  FAIL tests/profiler_probe_test.cpp:142  x.samples >= 3
+  FAIL tests/profiler_probe_test.cpp:142  x.ok
+  FAIL tests/profiler_probe_test.cpp:142  x.ratio ~ 2.0 within 12%  (0 vs 2)
+  FAIL tests/profiler_probe_test.cpp:142  x.samples >= 3
+  FAIL tests/profiler_probe_test.cpp:142  x.ok
+  FAIL tests/profiler_probe_test.cpp:142  x.ratio ~ 2.0 within 12%  (0 vs 2)
+  FAIL tests/profiler_probe_test.cpp:142  x.samples >= 3
+  FAIL tests/profiler_probe_test.cpp:142  x.ok
+  FAIL tests/profiler_probe_test.cpp:142  x.ratio ~ 2.0 within 12%  (0 vs 2)
+  FAIL tests/profiler_probe_test.cpp:142  x.samples >= 3
+  FAIL tests/profiler_probe_test.cpp:143  r.overall_loo_error < 0.15
+  FAIL tests/profiler_probe_test.cpp:144  r.overall_raw_error > 0.4
+  FAIL tests/profiler_probe_test.cpp:145  r.overall_loo_error < r.overall_raw_error * 0.5
+  FAIL tests/profiler_probe_test.cpp:151  cal.step_s / raw.step_s ~ 2.0 within 10%  (1 vs 2)
+  FAIL tests/profiler_probe_test.cpp:152  cal.calibrated
+[fit: factors are per kind; unprobed kinds fall back to the global median]
+  FAIL tests/profiler_probe_test.cpp:164  r.usable == 4
+  FAIL tests/profiler_probe_test.cpp:166  r.calibration.factor_for(OpKind::ELEMENTWISE) ~ 4.0 within 12%  (1 vs 4)
+  FAIL tests/profiler_probe_test.cpp:169  conv > 1.2 && conv < 3.8
+  FAIL tests/profiler_probe_test.cpp:171  r.kinds.size() == 2
+  FAIL tests/profiler_probe_test.cpp:172  r.global_factor > 1.2 && r.global_factor < 3.8
+[fit: a composite step is held out and priced layer by layer]
+  FAIL tests/profiler_probe_test.cpp:194  r.usable == 5
+  FAIL tests/profiler_probe_test.cpp:196  comp_r.ok
+  FAIL tests/profiler_probe_test.cpp:198  comp_r.ratio > 1.5
+  FAIL tests/profiler_probe_test.cpp:200  comp_r.loo_error < std::fabs(comp_r.predicted_s - comp_r.measured_s) / comp_r.measured_s * 0.5
+  FAIL tests/profiler_probe_test.cpp:203  comp_r.kind_s[(size_t)OpKind::DENSE] > 0 && comp_r.kind_s[(size_t)OpKind::ELEMENTWISE] > 0
+[guards: memory, exceptions, budget, thermal, bad prediction]
+  FAIL tests/profiler_probe_test.cpp:217  r.results[0].ok
+  FAIL tests/profiler_probe_test.cpp:218  !r.results[1].ok && r.results[1].note.find("skipped") != std::string::npos
+  FAIL tests/profiler_probe_test.cpp:219  *made == 1
+  FAIL tests/profiler_probe_test.cpp:220  r.usable == 1
+  FAIL tests/profiler_probe_test.cpp:233  !r.results[0].ok && r.results[0].note.find("boom make") != std::string::npos
+  FAIL tests/profiler_probe_test.cpp:234  !r.results[1].ok && r.results[1].note.find("boom step") != std::string::npos
+  FAIL tests/profiler_probe_test.cpp:235  r.results[2].ok
+  FAIL tests/profiler_probe_test.cpp:237  r.usable == 1
+  FAIL tests/profiler_probe_test.cpp:250  r.stopped_reason == "time budget exhausted"
+  FAIL tests/profiler_probe_test.cpp:251  *made < 6 && *made >= 1
+  FAIL tests/profiler_probe_test.cpp:254  r.usable >= 1
+  FAIL tests/profiler_probe_test.cpp:294  !r.results[0].ok && r.results[0].note.find("no prediction") != std::string::npos
+[measure: a slow case still gets min_samples, never a single noisy sample]
+  FAIL tests/profiler_probe_test.cpp:312  r.results[0].ok && r.results[0].samples == 4
+[fit_report: leave-one-out on hand-made results (no timing)]
+[output: JSON and printed report]
+
+Workload model validation  (blas: openblas, threads validated: 1, 0.0 s)
+  case                        predicted   measured   ratio  noise  LOO err
+  d1                          not run: thermal: thermal: zone 51.0 C >= 45.0 C limit
+  d2                          not run: thermal: thermal: zone 51.0 C >= 45.0 C limit
+  skipped "quoted"            not run: thermal: thermal: zone 51.0 C >= 45.0 C limit
+  per kind (factor = measured/predicted; LOO = error on a held-out case):
+    fallback     factor 1.00  (applied to kinds with no probe)
+  overall: raw median miss 0%, leave-one-out median miss 60%
+  not validated (no op to measure): conv2d particle
+
+Workload model validation  (blas: , threads validated: 1, 0.0 s)
+  case                        predicted   measured   ratio  noise  LOO err
+  per kind (factor = measured/predicted; LOO = error on a held-out case):
+    fallback     factor 1.00  (applied to kinds with no probe)
+  overall: raw median miss 0%, leave-one-out median miss 60%
+[reference cases: definitions]
+[reference cases: every step runs on real ops (tiny scale)]
+[real probe with a synthetic capability vector: mechanics, not accuracy]
+  FAIL tests/profiler_probe_test.cpp:440  r.usable == 14
+  FAIL tests/profiler_probe_test.cpp:441  r.stopped_reason.empty()
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+  FAIL tests/profiler_probe_test.cpp:443  x.ok && x.measured_s > 0 && x.predicted_s > 0
+  FAIL tests/profiler_probe_test.cpp:444  x.ratio > 0.01 && x.ratio < 500.0
+[real probe with a REAL capability vector]
+  (capability run stopped: thermal: zone 50.0 C >= 45.0 C limit (before overheads); skipping)
+
+231 checks, 74 failed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/profiler_capability_test 
+[ProfilerCommon: parsing helpers]
+[ProfilerCommon: JSON writer]
+[Fingerprint: big.LITTLE arm64 phone (Android)]
+[Fingerprint: armv7 Android 7 phone]
+[Fingerprint: x86 microarchitecture from family/model]
+[Fingerprint: Intel hybrid (P/E cores) and SMT]
+[Core grouping and classes (pure)]
+[Memory budget: cgroup + kernel reserve]
+[Level plan and latency on small caches]
+[Pointer chase is ONE cycle]
+[Thermal guard verdicts (pure)]
+[ThermalProbe on fixtures]
+[Kernels: GEMM correctness (shapes crossing the JB/KB block edges)]
+[Kernels: RNG, graph, barrier, window]
+[Kernels: measurements produce sane numbers]
+[Kernels: sustained run honours the stop callback]
+[Kernels: barrier-paced loop never deadlocks]
+[Real machine: fingerprint sanity]
+[Suite: hot device stops immediately]
+[Suite: full run under a 9 s budget]
+  (info) BLAS openblas f32 57.0 GFLOP/s (loops 8.9); f32 8.9 GFLOP/s, DRAM read 10.5 GB/s, noise 26%, used 7.0 s
+
+169 checks, 0 failed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/profiler_workload_test  
+[dense: flops, bytes, memory]
+[a transformer layer is ~12*E^2 parameters (the old advisor assumed 2*E^2)]
+[attention: quadratic scores, flash-style, cached decode]
+[spmm: gather is irregular]
+[recurrent: dependent chain]
+[particles: all pairs vs neighbour list]
+[embedding, norm, elementwise, optimizer]
+[memory: categories add, scratch is the max]
+[checkpointing: less activation memory, more flops]
+[totals: micro-steps repeat layers, not the optimizer]
+[calibration]
+[predict: compute-bound dense]
+[predict: GEMM layers use the measured BLAS rate, other work keeps the loop rate]
+[predict: gemm_frac, framework thread curve, BLAS that does not scale]
+[predict: measured per-op dispatch cost replaces the bare-call estimate]
+[predict: memory-bound elementwise]
+[predict: irregular access uses the gather rate]
+[predict: threads, width cap, assumed scaling]
+[predict: dependent chains pay a barrier per step]
+[predict: memory fit]
+[predict: calibration and micro-steps]
+[predict: degenerate inputs]
+[parallel_speedup]
+[Algorithm: tunables and rebuild per config]
+[same predictor, different algorithms, different bottlenecks]
+[prediction JSON]
+[live: real capability vector]
+  (capability run stopped: thermal: zone 51.0 C >= 45.0 C limit (before overheads); skipping)
+
+226 checks, 0 failed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/advisor_test 
+zsh: no such file or directory: ./bin/advisor_test
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/device_benchmark_test 
+---- quick run ----
+build: optimized, simd=avx2
+fma f32 52.8 GFLOP/s (1 thread), f64 24.0
+gemm(portable) f32_16   11.52 GFLOP/s (rsd 0.10)
+gemm(portable) f32_256  21.99 GFLOP/s (rsd 0.07)
+gemm(portable) f32_512  17.82 GFLOP/s (rsd 0.08)
+gemm(portable) f32_64   17.30 GFLOP/s (rsd 0.09)
+gemm(portable) f32_tall 15.12 GFLOP/s (rsd 0.04)
+gemm(portable) f64_256  7.29 GFLOP/s (rsd 0.02)
+framework Matrix::matmul, BLAS backend 'openblas', 1 thread:
+  fw gemm f32_16     8.49 GFLOP/s (rsd 0.17)
+  fw gemm f32_64     36.47 GFLOP/s (rsd 0.04)
+  fw gemm f32_256    54.77 GFLOP/s (rsd 0.08)
+  fw gemm f32_512    57.87 GFLOP/s (rsd 0.01)
+  fw gemm f32_tall   32.04 GFLOP/s (rsd 0.02)
+  fw gemm f32_skinny 10.47 GFLOP/s (rsd 0.07)
+  fw gemm f32_rect   43.62 GFLOP/s (rsd 0.04)
+  fw gemm f64_256    25.05 GFLOP/s (rsd 0.05)
+  fw gemm f32_gnn    26.48 GFLOP/s (rsd 0.06)
+  fw gemm f32_gnn_t  26.51 GFLOP/s (rsd 0.09)
+  fw threads  1: 52.6 GFLOP/s (x1.00, eff 1.00) | gnn-shape 26.3 GFLOP/s (x1.00), cpu/wall 1.0
+  fw threads  2: 52.5 GFLOP/s (x1.00, eff 0.50) | gnn-shape 18.3 GFLOP/s (x0.70), cpu/wall 2.0
+  fw threads  4: 53.0 GFLOP/s (x1.01, eff 0.25) | gnn-shape 21.9 GFLOP/s (x0.84), cpu/wall 3.0
+  fw best threads 1, more threads do NOT help
+working set      16 KB: latency    3.04 ns, stream   86.44 GB/s
+working set      64 KB: latency    6.67 ns, stream   29.61 GB/s
+working set     256 KB: latency   10.02 ns, stream   35.94 GB/s
+working set    1024 KB: latency   23.68 ns, stream   27.30 GB/s
+working set    4096 KB: latency   96.60 ns, stream   15.43 GB/s
+working set   16384 KB: latency  123.49 ns, stream   10.83 GB/s
+working set   65536 KB: latency  136.46 ns, stream   10.63 GB/s
+gather 11.0 M edges/s (1.41 GB/s, 0.13 of stream)
+conv 4.28 GFLOP/s, md 0.233 Ginteractions/s, rnn 85298 steps/s (11.25 GFLOP/s)
+fork-join 20.0 us, tiny call 28.1 ns
+threads  1: 3.4 GFLOP/s (eff 1.00), 8.3 GB/s
+threads  2: 6.1 GFLOP/s (eff 0.92), 10.8 GB/s
+threads  4: 5.9 GFLOP/s (eff 0.44), 11.0 GB/s
+sustained: peak 53.2, last third 39.9 GFLOP/s, fraction 0.75 (THROTTLED) over 1.0 s
+note: BLAS threads spin on narrow GEMMs (2 threads use 2.00 cores of CPU for 0.69x the speed): for GNN/small layers run BLAS on 1 thread (OPENBLAS_NUM_THREADS=1 or tensorf::blas::ScopedThreads(1))
+note: BLAS backend 'openblas' gained < 1.25x from more threads: it is single-threaded here (the shim, a build without threads, or OPENBLAS_NUM_THREADS=1). GEMM-bound layers are planned on one thread
+note: portable gemm loop reaches 38% of the framework's BLAS rate (22.0 vs 57.9 GFLOP/s, backend openblas): layers that run Matrix::matmul are priced with the framework rate
+note: single core class: per-class stage not needed
+total 4.49 s
+108/108 checks passed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/hw_fingerprint_test  
+---- real machine ----
+Linux Ubuntu 24.04.5 LTS (laptop)  
+x86_64 Intel(R) Core(TM) i5-6200U CPU @ 2.30GHz, 4/4 cpus online, 4 usable
+  class uniform: 4 cpu(s) 2800 MHz cap 1024 L1=32K L2=256K L3=3072K
+memory 19868 MB total, 11322 MB usable now
+80/80 checks passed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/profiler_memory_nohook_test 
+TensorF profiler step 3: no-hook behaviour
+12 checks, 0 failed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/profiler_memory_test       
+TensorF profiler step 3: memory accounting tests
+================================================
+[A1 hook: exact byte counts and categories]
+[A2 hook: scopes nest and restore]
+[A3 hook: a free is credited to the category the block was ALLOCATED under]
+[A4 hook: threads start in OTHER; cross-thread frees credit the right category]
+[A5 hook: peaks and reset_peaks]
+[A6 hook: every new/delete form, zero size, over-alignment]
+[A7 hook: failure paths]
+[A8 hook: 4 threads hammer alloc/free; counters balance exactly]
+[A9 hook: a pointer from malloc passed to operator delete is detected, not crashed on]
+[B1 process memory: /proc/self/status parsing (fixture)]
+[B2 process memory: this machine]
+[B3 process memory: resetting the kernel peak]
+  (info) real clear_refs reset works
+[C1 measure_memory: factor arithmetic on a controlled fixture]
+[C2 measure_memory: when the factor must NOT be trusted]
+[C3 measure_memory: a real 64 MB allocation on this machine]
+  (info) real overhead factor for a 64 MB buffer: 0.998 (RSS growth 67.0 MB vs tensor 67.1 MB, kernel peak reset yes)
+[D census: exact bytes by category on a real autograd graph]
+[E1 model vs measurement: matmul_grads temporaries = 2MK + 2KN elements]
+  FAIL tests/profiler_memory_test.cpp:527  measured ~ (2.0 * M * K + 2.0 * K * N) * 4.0 within 0.5%  (49272 vs 65536)
+  FAIL tests/profiler_memory_test.cpp:527  measured ~ (2.0 * M * K + 2.0 * K * N) * 4.0 within 0.5%  (41080 vs 49152)
+  FAIL tests/profiler_memory_test.cpp:527  measured ~ (2.0 * M * K + 2.0 * K * N) * 4.0 within 0.5%  (185648 vs 211200)
+  FAIL tests/profiler_memory_test.cpp:527  measured ~ (2.0 * M * K + 2.0 * K * N) * 4.0 within 0.5%  (45616 vs 58368)
+[E2 model vs measurement: a full MLP training step]
+  (info) MLP B=32 H=128: modelled 1.99 MB, measured peak 1.81 MB, measured/modelled 0.910
+  (info) MLP B=128 H=256: modelled 4.98 MB, measured peak 4.31 MB, measured/modelled 0.867
+  FAIL tests/profiler_memory_test.cpp:565  ratio > 0.90 && ratio < 1.10
+[E3 model vs measurement: the pre-hook estimate was off by 2.5x (regression guard)]
+
+166 checks, 5 failed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/profiler_advisor_test 
+[search: finds the same optimum as an independent brute force]
+[result-changing tunables are held at the base config unless allowed]
+[binding constraint: lift each in turn, report the one that matters]
+  FAIL tests/profiler_advisor_test.cpp:175  a.ok && a.binding == "memory"
+  FAIL tests/profiler_advisor_test.cpp:176  a.binding_gain > 0.5
+  FAIL tests/profiler_advisor_test.cpp:180  roomy.prediction.units_per_s / a.prediction.units_per_s - 1.0 ~ a.binding_gain within 1e-07%  (0.00591759 vs 0)
+[memory: when nothing fits, say so and say by how much]
+[large spaces: coordinate ascent, deterministic and sound]
+  (info) budget 4096 MB: coordinate ascent reached 100.0% of the exhaustive optimum in 16 of 45 evaluations
+  (info) budget 40 MB: coordinate ascent reached 100.0% of the exhaustive optimum in 13 of 45 evaluations
+[trials: measurement overrules the model]
+[factory: invalid combinations are infeasible, not fatal]
+[inputs: missing base values, threads convention, degenerate devices]
+[error range and what the model cannot vouch for]
+[error floor: the range is never tighter than the measured noise]
+[output: JSON and text]
+
+Advice  (exhaustive search, 45 configs evaluated)
+  config   : batch=128 ckpt=1 micro_batch=128 precision_bits=32 threads=4
+  speed    : 4831.3 /s  (range 3019.6 - 7730.1, error basis: model 60%)
+  memory   : 26.3 MB estimated (fits)
+  limited by: hardware: compute-bound
+  - result-changing tunables could raise throughput by about +2% (not searched: allow_altering is off)
+  - model is uncalibrated: no measurement backs the time prediction (error range 60%)
+  - framework GEMM not measured: dense rates come from portable kernels and may differ from Matrix::matmul (BLAS)
+  - the top candidates differ by less than the model's error: the ranking among them is not reliable (supply a trial to settle it)
+
+Advice: none (memory)
+  - no configuration fits: the smallest needs about 22 MB but the allowed budget is 7 MB (60% of the device's safe memory)
+
+Advice  (exhaustive search, 45 configs evaluated, confirmed by trial)
+  config   : batch=128 ckpt=1 micro_batch=128 precision_bits=32 threads=4
+  speed    : 6400.0 /s  (range 4821.8 - 8494.8, error basis: trials 33%)
+  memory   : 26.3 MB estimated (fits)
+  limited by: hardware: compute-bound
+  - result-changing tunables could raise throughput by about +2% (not searched: allow_altering is off)
+  - model is uncalibrated: no measurement backs the time prediction (error range 60%)
+  - framework GEMM not measured: dense rates come from portable kernels and may differ from Matrix::matmul (BLAS)
+
+161 checks, 3 failed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/framework_bench_test 
+---- framework bench on this build: backend 'openblas' ----
+  f32_16          2.19 GFLOP/s (rsd 0.72, 9 windows)
+  f32_64         13.96 GFLOP/s (rsd 0.09, 4 windows)
+  f32_256        21.20 GFLOP/s (rsd 0.16, 5 windows)
+  f32_512        59.60 GFLOP/s (rsd 0.09, 4 windows)
+  f32_tall       35.66 GFLOP/s (rsd 0.06, 5 windows)
+  f32_skinny     11.68 GFLOP/s (rsd 0.08, 4 windows)
+  f32_rect       49.80 GFLOP/s (rsd 0.15, 5 windows)
+  f64_256        30.01 GFLOP/s (rsd 0.03, 4 windows)
+  f32_gnn        27.49 GFLOP/s (rsd 0.07, 4 windows)
+  f32_gnn_t      27.21 GFLOP/s (rsd 0.09, 4 windows)
+  threads 1: 46.9 GFLOP/s x1.00 | gnn-shape x1.00, cpu/wall 1.00
+  threads 2: 99.1 GFLOP/s x2.11 | gnn-shape x1.00, cpu/wall 2.00
+  threads 4: 89.8 GFLOP/s x1.92 | gnn-shape x0.41, cpu/wall 3.43
+64/64 checks passed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/profiler_suite_test  
+[hot device: the profile stops cleanly and says why]
+
+══════════════════════════════════════════════════════
+  TensorF profile  (0.0 s)
+══════════════════════════════════════════════════════
+
+[ Device ]
+    (unknown)
+  4 logical / 4 physical cores, 1 cluster(s)
+  SIMD: 
+  cache: L1d 0 KB, L2 0 KB, L3 0 MB
+  memory: 0 MB total, safe budget 0 MB
+
+[ Stages ]
+  device      ok         0.00s   | unknown
+  memory      skipped    0.00s  device too hot: thermal: zone 62.0 C >= 45.0 C limit
+  capability  stopped    0.00s  thermal: zone 62.0 C >= 45.0 C limit (before overheads)
+  validation  skipped    0.00s  device too hot
+  STOPPED: thermal: zone 62.0 C >= 45.0 C limit (before overheads)
+[budgets: stages that cannot start are skipped with a reason]
+  FAIL tests/profiler_suite_test.cpp:123  p.have_capability && p.calibration() == nullptr
+  FAIL tests/profiler_suite_test.cpp:127  a.ok
+  FAIL tests/profiler_suite_test.cpp:128  has_note(a, "uncalibrated")
+  FAIL tests/profiler_suite_test.cpp:130  a.prediction.memory.overhead_factor == 1.25
+[a full live profile on this machine]
+
+══════════════════════════════════════════════════════
+  TensorF profile  (0.0 s)
+══════════════════════════════════════════════════════
+
+[ Device ]
+  Intel(R) Core(TM) i5-6200U CPU @ 2.30GHz  (intel_skylake)
+  4 logical / 2 physical cores, 1 cluster(s)
+  SIMD: sse2 avx avx2 fma
+  cache: L1d 32 KB, L2 256 KB, L3 3 MB
+  memory: 19868 MB total, safe budget 9381 MB
+
+[ Stages ]
+  device      ok         0.01s  Intel(R) Core(TM) i5-6200U CPU @ 2.30GHz | intel_skylake
+  memory      skipped    0.00s  device too hot: thermal: zone 46.0 C >= 45.0 C limit
+  capability  stopped    0.01s  thermal: zone 45.5 C >= 45.0 C limit (before overheads)
+  validation  skipped    0.00s  device too hot
+  STOPPED: thermal: zone 45.5 C >= 45.0 C limit (before overheads)
+  (profile stopped: thermal: zone 45.5 C >= 45.0 C limit (before overheads); skipping value checks)
+
+45 checks, 4 failed
+➜  TensorF git:(main) ✗ OPENBLAS_NUM_THREADS=1 ./bin/profiler_suite_nohook_test 
+TensorF profiler suite: no allocation hook
+  FAIL tests/profiler_suite_nohook_test.cpp:28  p.stage("memory")->note.find("hook not linked") != std::string::npos
+  FAIL tests/profiler_suite_nohook_test.cpp:30  p.stage("capability") && p.stage("capability")->status == "ok" && p.have_capability
+  FAIL tests/profiler_suite_nohook_test.cpp:41  a.ok
+  FAIL tests/profiler_suite_nohook_test.cpp:45  a.prediction.memory.overhead_factor == 1.25
+10 checks, 4 failed
+➜  TensorF git:(main) ✗ 
+

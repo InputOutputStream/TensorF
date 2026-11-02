@@ -96,8 +96,8 @@ static void test_dense() {
     CHECK_NEAR(tr.mem.optimizer, (K * N + N) * 4.0 * 2.0, 1e-6);   // Adam: m and v
     // saved input (for dW) + the retained gradient of the output (autograd keeps intermediate grads alive)
     CHECK_NEAR(tr.mem.activations, (M * K + M * N) * 4.0, 1e-6);
-    // backward temporaries of TensorF's matmul_grads, fitted with the allocation hook: 3MK + 3KN + MN elements
-    CHECK_NEAR(tr.mem.scratch, (3.0 * M * K + 3.0 * K * N + M * N) * 4.0, 1e-6);
+    // backward temporaries of TensorF's matmul_grads, fitted with the allocation hook: 2MK + 2KN elements
+    CHECK_NEAR(tr.mem.scratch, (2.0 * M * K + 2.0 * K * N) * 4.0, 1e-6);
     CHECK_NEAR(inf.mem.scratch, M * N * 4.0, 1e-6);          // inference only holds the output
     CHECK(tr.gemm_m == M);
 
@@ -236,7 +236,7 @@ static void test_memory_estimate() {
     CHECK_NEAR(m.grads, 4 * P, 1e-6);
     CHECK_NEAR(m.optimizer, 8 * P, 1e-6);
     CHECK_NEAR(m.activations, 4.0 * (64.0 * 64 + 64.0 * 64) * 4, 1e-6);   // per layer: saved input + retained output grad
-    CHECK_NEAR(m.scratch, (3.0 * 4096 + 3.0 * 4096 + 4096) * 4, 1e-6);    // the largest layer's backward temporaries, not the sum
+    CHECK_NEAR(m.scratch, (2.0 * 4096 + 2.0 * 4096) * 4, 1e-6);    // the largest layer's backward temporaries, not the sum
     CHECK_NEAR(m.tensor_total, m.params + m.grads + m.optimizer + m.activations + m.scratch, 1e-6);
     CHECK_NEAR(estimate_memory(w, 1.5).process_total, 1.5 * m.tensor_total, 1e-6);
     // Inference needs less than training for the same layers. With activations dominating (small shapes) the

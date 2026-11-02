@@ -15,13 +15,15 @@ class FeedForward: public Module<T>{
 
     public:
 
-    FeedForward(size_t in_features, size_t hidden, size_t out_features)
-    : up(hidden, in_features, true),
-      down(out_features, hidden, true)
-        {
-            this->register_module(&up);
-            this->register_module(&down);
-        }
+
+    FeedForward(size_t in_features, size_t hidden, size_t out_features,
+            std::optional<unsigned int> seed = std::nullopt)
+    : up(hidden, in_features, true, seed),
+      down(out_features, hidden, true, down(out_features, hidden, true, seed.has_value() ? std::optional<unsigned int>(*seed + 1) : std::nullopt))
+    {
+        this->register_module(&up);
+        this->register_module(&down);
+    }
 
     FeedForward(FeedForward&& other)
         : Module<T>(),          // fresh, empty submodules list

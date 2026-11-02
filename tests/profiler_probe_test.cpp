@@ -92,6 +92,7 @@ static ProbeConfig fast_cfg() {
     return c;
 }
 
+static SuiteConfig builtin_guard() { SuiteConfig g; g.stop_cpu_c = 45.0; g.stop_battery_c = 40.0; g.charging_margin_c = 2.0; g.max_rise_c = 8.0; return g; }   // fixture tests must not follow --max-temp
 // Fixture directory for the thermal guard.
 class FakeRoot {
 public:
@@ -255,7 +256,7 @@ static void test_guards() {
     {   // thermal: a hot device stops the probe before the first case allocates anything
         FakeRoot fx; fx.thermal(0, "cpu-0-0", 61000);
         auto made = std::make_shared<int>(0);
-        ProbeConfig c = fast_cfg(); c.sysroot = fx.root();
+        ProbeConfig c = fast_cfg(); c.sysroot = fx.root(); c.guard = builtin_guard();
         std::vector<ProbeCase> cs;
         cs.push_back(synth("a", (int)OpKind::DENSE, dense_w(96), 1.0, fp, cv, made));
         cs.push_back(synth("b", (int)OpKind::DENSE, dense_w(96), 1.0, fp, cv, made));
@@ -271,7 +272,7 @@ static void test_guards() {
         std::ofstream(d / "type") << "Battery\n"; std::ofstream(d / "temp") << 390 << "\n";   // 39.0 C
         DeviceFingerprint chg = make_fp(); chg.battery.present = true; chg.battery.status = "Charging";
         auto made = std::make_shared<int>(0);
-        ProbeConfig c = fast_cfg(); c.sysroot = fx.root();
+        ProbeConfig c = fast_cfg(); c.sysroot = fx.root(); c.guard = builtin_guard();
         std::vector<ProbeCase> cs; cs.push_back(synth("a", (int)OpKind::DENSE, dense_w(96), 1.0, chg, cv, made));
         ProbeReport r = measure_cases(std::move(cs), chg, cv, c);
         CHECK(r.stopped_reason.find("thermal") != std::string::npos && *made == 0);
@@ -471,6 +472,7 @@ static void test_real_probe_live(bool quick) {
 }
 
 int main(int argc, char** argv) {
+    tensorf::prof::parse_thermal_args(argc, argv);   // --max-temp=65 etc. apply to the live runs only
     const bool quick = argc > 1 && std::strcmp(argv[1], "--quick") == 0;
     test_recovers_known_factor();
     test_per_kind_factors_and_fallback();

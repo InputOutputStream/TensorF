@@ -355,4 +355,76 @@ private:
     void quote(const std::string& s) { os_ << '"' << escape(s) << '"'; }
 };
 
+// ─── Thermal limits (tunable) ────────────────────────────────────────────────
+// The guard stops a run when the hottest CPU-like sensor reaches `cpu_c`, the battery reaches `battery_c`, or the
+// hottest sensor rose `rise_c` above where the run started. The built-in numbers are conservative phone values; a
+// laptop that idles at 45 C needs more. Set them, highest priority first:
+//   1. code:        SuiteConfig::stop_cpu_c / stop_battery_c / max_rise_c, or ProfileOptions::thermal
+//   2. command line: --max-temp=65   --max-battery-temp=45   --max-rise=15      (parse_thermal_args, below)
+//   3. environment:  TENSORF_MAX_TEMP_C, TENSORF_MAX_BATTERY_TEMP_C, TENSORF_MAX_RISE_C
+// A value <= 0 for --max-temp / --max-rise disables that check; --no-thermal-guard disables all three.
+struct ThermalLimits {
+    double cpu_c     = 45.0;     // hottest non-battery zone
+    double battery_c = 40.0;     // battery temperature while discharging
+    double rise_c    = 8.0;      // rise from the start-of-run temperature
+};
+
+namespace detail_thermal {
+inline bool env_double(const char* name, double& out) {
+    const char* v = std::getenv(name);
+    if (!v || !*v) return false;
+    char* end = nullptr; const double d = std::strtod(v, &end);
+    if (end == v || *end) return false;
+    out = d; return true;
+}
+inline bool parse_double(const char* s, double& out) {
+    if (!s || !*s) return false;
+    char* end = nullptr; const double d = std::strtod(s, &end);
+    if (end == s || *end) return false;
+    out = d; return true;
+}
+}  // namespace detail_thermal
+
+// Process-wide defaults: built-ins, then the environment. parse_thermal_args() overrides them again.
+inline ThermalLimits& thermal_limits() {
+    static ThermalLimits t = [] {
+        ThermalLimits l;
+        detail_thermal::env_double("TENSORF_MAX_TEMP_C", l.cpu_c);
+        detail_thermal::env_double("TENSORF_MAX_BATTERY_TEMP_C", l.battery_c);
+        detail_thermal::env_double("TENSORF_MAX_RISE_C", l.rise_c);
+        return l;
+    }();
+    return t;
+}
+
+// Consumes --max-temp=C, --max-temp C, --max-battery-temp[=]C, --max-rise[=]C and --no-thermal-guard from argv
+// (compacting it and lowering argc), so the program's own argument handling does not see them. Returns the number
+// of arguments consumed; prints a message and ignores a flag whose value is not a number.
+inline int parse_thermal_args(int& argc, char** argv) {
+    ThermalLimits& L = thermal_limits();
+    const double inf = std::numeric_limits<double>::infinity();
+    int out = 1, consumed = 0;
+    for (int i = 1; i < argc; ++i) {
+        const char* a = argv[i];
+        double* target = nullptr; const char* val = nullptr;
+        auto match = [&](const char* flag, double& t) {
+            const size_t n = std::strlen(flag);
+            if (std::strncmp(a, flag, n) != 0) return false;
+            if (a[n] == '=') { target = &t; val = a + n + 1; return true; }
+            if (a[n] == '\0') { target = &t; val = (i + 1 < argc) ? argv[++i] : nullptr; return true; }
+            return false;
+        };
+        if (std::strcmp(a, "--no-thermal-guard") == 0) { L.cpu_c = L.battery_c = L.rise_c = inf; ++consumed; continue; }
+        if (match("--max-temp", L.cpu_c) || match("--max-battery-temp", L.battery_c) || match("--max-rise", L.rise_c)) {
+            double d;
+            if (detail_thermal::parse_double(val, d)) *target = d > 0 ? d : inf;
+            else std::fprintf(stderr, "ignoring %s: '%s' is not a number\n", a, val ? val : "");
+            ++consumed; continue;
+        }
+        argv[out++] = argv[i];
+    }
+    argc = out; if (argc >= 0) argv[argc] = nullptr;
+    return consumed;
+}
+
 }  // namespace tensorf::prof

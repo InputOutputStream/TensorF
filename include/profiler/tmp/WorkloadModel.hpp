@@ -207,12 +207,12 @@ inline LayerCost dense(double M, double K, double N, const RunSpec& r, std::stri
     }
     c.mem.scratch = M * N * e;
     if (r.train()) {
-        // TensorF's matmul_grads(A,B,G) holds, at its peak, 3*M*K + 3*K*N + 1*M*N elements of temporaries
-        // (value copies of A, B and G, two transposes, two products and their reshape copies). Fitted with the
-        // allocation hook over ten shapes, error < 0.1%. It computes BOTH gradients whether or not the inputs
+        // TensorF's matmul_grads(A,B,G) holds, at its peak, 2*M*K + 2*K*N elements of temporaries (the transposed
+        // operands; G is used in place). Fitted with the allocation hook over four shapes, error < 0.1% (the
+        // earlier backward held 3MK + 3KN + MN: it copied A, B and G before transposing). It computes BOTH gradients whether or not the inputs
         // require grad, so these temporaries and the 4*M*K*N flops are paid even for a first layer: describe
         // TensorF as it is (need_input_grad = true) unless a future op skips the work.
-        c.mem.scratch = std::max(c.mem.scratch, (3.0 * M * K + 3.0 * K * N + 1.0 * M * N) * e);
+        c.mem.scratch = std::max(c.mem.scratch, (2.0 * M * K + 2.0 * K * N) * e);
     }
     return c;
 }

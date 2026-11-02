@@ -38,18 +38,20 @@ class PowerOperation : public Operation<T>
  * Power Operation Implementation
 */
 
+
     template <typename T>
     void PowerOperation<T>::backward(Matrix<T> grad)
     {
-         // d/da (a^b) = b · a^(b-1)
-        if (this->t1->requires_grad)
-            this->t1->accumulate(grad * this->t2->val
-                                 * pow(this->t1->val, this->t2->val - Matrix<T>(1)));
+        const bool need_a = this->t1 && this->t1->requires_grad;
+        const bool need_b = this->t2 && this->t2->requires_grad;
+        if (!need_a && !need_b) return;
 
-        // d/db (a^b) = a^b · ln(a)   — real-valued only where a > 0
-        if (this->t2->requires_grad)
-            this->t2->accumulate(grad * this->tmp->val * this->t1->val.ln());
+        if (need_a)         // d/da (a^b) = b · a^(b-1)
+            this->t1->accumulate(grad * this->t2->val * pow(this->t1->val, this->t2->val - Matrix<T>(1)));
+        if (need_b)        // d/db (a^b) = a^b · ln(a)   — real-valued only where a > 0
+            this->t2->accumulate(grad * this->t1->val.ln() * pow(this->t1->val, this->t2->val));
     }
+
 
     template <typename T>
     Tensor_t<T> PowerOperation<T>::forward()

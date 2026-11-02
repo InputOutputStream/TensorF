@@ -5,6 +5,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <cstring>        // std::memcpy 
+#include <type_traits>    // std::is_same_v 
 
 #include "core/Types/shape.hpp"
 
@@ -55,25 +57,67 @@ inline bool broadcast_shapes(const shape_t& a, const shape_t& b, shape_t& out) {
 
 // Materialise `src` into `out_shape` walking with the given per-dimension element strides
 // (stride 0 repeats an element). Odometer increment: no per-element allocation, no div/mod.
+// Broadcast.hpp — replace the existing gather() with this
 template <typename T>
 std::vector<T> gather(const std::vector<T>& src, const shape_t& out_shape,
                       const std::vector<size_t>& es) {
     const size_t total = numel(out_shape);
-    std::vector<T> out;
-    out.reserve(total);
+    std::vector<T> out(total);      // single exact-size allocation
     if (total == 0) return out;
 
     const size_t r = out_shape.size();
     std::vector<size_t> idx(r, 0);
     size_t pos = 0;
-    for (size_t n = 0; n < total; n++) {
-        out.push_back(src[pos]);
-        for (size_t d = r; d-- > 0;) {
-            idx[d]++;
-            pos += es[d];
-            if (idx[d] < out_shape[d]) break;
-            pos -= es[d] * out_shape[d];
-            idx[d] = 0;
+
+    if constexpr (std::is_same_v<T, bool>) {
+        // vector<bool> is bit-packed: no data(); index through the proxies.
+        for (size_t n = 0; n < total; ++n) {
+            out[n] = src[pos];
+            for (size_t d = r; d-- > 0;) {
+                idx[d]++;
+                pos += es[d];
+                if (idx[d] < out_shape[d]) break;
+                pos -= es[d] * out_shape[d];
+                idx[d] = 0;
+            }
+        }
+    } else {
+        T* dst = out.data();
+        // Fast paths for the two patterns every hot call site produces:
+        //   run_step == 1  →  contiguous memcpy   (x + bias, transpose, reshape)
+        //   run_step == 0  →  broadcast fill      (x + scalar, x / N, mean)
+        const size_t run      = (r > 0) ? out_shape[r - 1] : 1;
+        const size_t run_step = (r > 0) ? es[r - 1]        : 0;
+        const size_t outer    = total / run;
+
+        if (run_step == 1) {
+            for (size_t n = 0; n < outer; ++n) {
+                std::memcpy(dst + n * run, src.data() + pos, run * sizeof(T));
+                for (size_t d = r - 1; d-- > 0;) {
+                    idx[d]++; pos += es[d];
+                    if (idx[d] < out_shape[d]) break;
+                    pos -= es[d] * out_shape[d]; idx[d] = 0;
+                }
+            }
+        } else if (run_step == 0) {
+            for (size_t n = 0; n < outer; ++n) {
+                std::fill(dst + n * run, dst + (n + 1) * run, src[pos]);
+                for (size_t d = r - 1; d-- > 0;) {
+                    idx[d]++; pos += es[d];
+                    if (idx[d] < out_shape[d]) break;
+                    pos -= es[d] * out_shape[d]; idx[d] = 0;
+                }
+            }
+        } else {
+            // General odometer — same as the old loop, no push_back.
+            for (size_t n = 0; n < total; ++n) {
+                dst[n] = src[pos];
+                for (size_t d = r; d-- > 0;) {
+                    idx[d]++; pos += es[d];
+                    if (idx[d] < out_shape[d]) break;
+                    pos -= es[d] * out_shape[d]; idx[d] = 0;
+                }
+            }
         }
     }
     return out;

@@ -59,7 +59,7 @@ endforeach()
   leave-one-out error. The advised range is additionally floored at the device's measured run-to-run noise
   (`ProfilerSuite::noise_floor`: median probe spread / 2.56, one standard deviation of one step).
 - **Memory.** Parameters, gradients and activations match real autograd to the byte for dense and elementwise
-  layers; matmul backward temporaries are `3MK + 3KN + MN` elements (fitted to <0.1%). The MLP training peak is
+  layers; matmul backward temporaries are `2MK + 2KN` elements (fitted to <0.1%). The MLP training peak is
   predicted within ~2%. Other layer kinds are analytic only.
 - **Thermal.** Stop limits (45 C CPU zone, 40 C battery, 2 C tighter while charging, +8 C rise) are starting
   points from the governor design, **not verified per device**.

@@ -339,7 +339,8 @@ static void test_level_plan_and_latency() {
 
 static void test_thermal_guard() {
     SECTION("Thermal guard verdicts (pure)");
-    SuiteConfig c;       // stop_cpu 45, battery 40 (38 while charging), rise 8
+    SuiteConfig c;       // stop_cpu 45, battery 40 (38 while charging), rise 8: set explicitly so --max-temp does not change this test
+    c.stop_cpu_c = 45.0; c.stop_battery_c = 40.0; c.charging_margin_c = 2.0; c.max_rise_c = 8.0;
     ThermalProbe::Reading cool; cool.ok = true; cool.max_cpu_like_c = 36; cool.battery_c = 33;
     CHECK(thermal_verdict(cool, 34, false, c).empty());
     ThermalProbe::Reading hot = cool; hot.max_cpu_like_c = 46;
@@ -564,6 +565,7 @@ static void test_real_machine(bool quick) {
 }
 
 int main(int argc, char** argv) {
+    tensorf::prof::parse_thermal_args(argc, argv);   // --max-temp=65 etc. apply to the live runs only
     const bool quick = argc > 1 && std::strcmp(argv[1], "--quick") == 0;
     test_common();
     test_arm_phone();
