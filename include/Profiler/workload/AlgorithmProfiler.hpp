@@ -48,8 +48,8 @@
 #include <string>
 #include <vector>
 
-#include "DeviceBenchmark.hpp"
-#include "MemoryProfiler.hpp"
+#include "Profiler/capability/DeviceBenchmark.hpp"
+#include "Profiler/memory/MemoryProfiler.hpp"
 
 namespace tensorf::profile {
 

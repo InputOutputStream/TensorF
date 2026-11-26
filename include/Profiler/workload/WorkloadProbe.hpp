@@ -55,7 +55,7 @@
 #include "DataStructures/Tensor.hpp"
 #include "DataStructures/Graph.hpp"
 
-#include "WorkloadModel.hpp"
+#include "Profiler/workload/WorkloadModel.hpp"
 
 namespace tensorf::prof::wl {
 

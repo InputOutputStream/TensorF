@@ -93,7 +93,7 @@ $(shell mkdir -p $(BIN))
 
 # ══════════════════════════════════════════════════════════════════════════════
 .PHONY: lib install uninstall all gpt2 llama smollm transformer benchmark tests blas-check elementwise-check elementwise-bench  FORCE datasets gcn-bench \
-        gateway run-gateway clean install-deps check-deps help # server client
+        gateway fed-mobile fed-mobile-test run-gateway clean install-deps check-deps help # server client
 
 all: check-deps gpt2 smollm transformer benchmark tests gateway # server client
 
@@ -130,6 +130,42 @@ client: $(BIN)/client
 $(BIN)/client: $(CLIENT_SRC)
 	@echo "[CXX] $< → $@"
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+
+# Optional METIS (Apache-2.0) for capacity-aware partitioning on the SERVER side; the phone never needs it.
+# Auto-detected (apt install libmetis-dev) or set METIS_ROOT=/path. Without it the builtin partitioner is used.
+METIS_ROOT ?= /usr
+ifneq ($(wildcard $(METIS_ROOT)/include/metis.h),)
+FED_METIS_CXX := -DTENSORF_WITH_METIS -I$(METIS_ROOT)/include
+FED_METIS_LD  := -L$(METIS_ROOT)/lib -Wl,-rpath,$(METIS_ROOT)/lib -lmetis
+endif
+
+# Optional Scotch (CeCILL-C; apt install libscotch-dev): maps onto a weighted target architecture.
+SCOTCH_INC ?= /usr/include/scotch
+ifneq ($(wildcard $(SCOTCH_INC)/scotch.h),)
+FED_METIS_CXX += -DTENSORF_WITH_SCOTCH -I$(SCOTCH_INC)
+FED_METIS_LD  += -lscotch -lscotcherr
+endif
+# Optional KaMinPar (MIT): set KAMINPAR_ROOT=/path/to/KaMinPar (source) after `cmake --build build --target KaMinPar` in it.
+KAMINPAR_ROOT ?=
+ifneq ($(KAMINPAR_ROOT),)
+KMP_BUILD ?= $(KAMINPAR_ROOT)/build
+FED_METIS_CXX += -DTENSORF_WITH_KAMINPAR -I$(KAMINPAR_ROOT)/include -I$(KMP_BUILD)
+FED_METIS_LD  += $(shell find $(KMP_BUILD) -name 'libKaMinPar*.a' -o -name 'libkaminpar*.a' 2>/dev/null | tr '\n' ' ') -ltbb -ltbbmalloc -lnuma
+endif
+
+# ── Mobile federated layer (model-agnostic, no BLAS needed) ───────────────────
+fed-mobile: $(BIN)/fed_mobile_sim $(BIN)/fed_mobile_server $(BIN)/fed_mobile_client $(BIN)/fed_gcn_baseline $(BIN)/fed_task_test $(BIN)/fed_partition_bench $(BIN)/ogb2tfg
+$(BIN)/fed_mobile_sim $(BIN)/fed_mobile_server $(BIN)/fed_mobile_client $(BIN)/fed_gcn_baseline $(BIN)/fed_task_test $(BIN)/fed_partition_bench: $(BIN)/%: tests/%.cpp $(wildcard include/net/Mobile/*.hpp include/net/Mobile/graph/*.hpp) include/net/Network/io_utils.hpp
+	@mkdir -p $(BIN)
+	@echo "[CXX] $< → $@"
+	$(CXX) $(CXXFLAGS) $(FED_METIS_CXX) -pthread $< -o $@ $(LDFLAGS) $(FED_METIS_LD)
+$(BIN)/ogb2tfg: tools/ogb2tfg.cpp include/net/Mobile/graph/TfgFormat.hpp
+	@mkdir -p $(BIN)
+	$(CXX) -std=c++17 -O2 -Iinclude $< -o $@
+
+fed-mobile-test: $(BIN)/fed_mobile_sim $(BIN)/fed_task_test
+	$(BIN)/fed_mobile_sim
+	$(BIN)/fed_task_test
 
 # ── Tests unitaires ───────────────────────────────────────────────────────────
 tests: $(BIN)/basic_tests

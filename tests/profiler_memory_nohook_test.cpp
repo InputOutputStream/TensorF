@@ -9,7 +9,7 @@
  */
 #include <cstdio>
 #include <vector>
-#include "profiler/tmp/TensorAccounting.hpp"
+#include "Profiler/memory/TensorAccounting.hpp"
 
 using namespace tensorf::prof;
 using namespace tensorf::prof::mem;

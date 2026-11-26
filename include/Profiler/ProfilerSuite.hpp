@@ -32,7 +32,7 @@
  *     unit). Without it the stage is skipped and the advisor keeps the default overhead factor, and says so.
  *   - Nothing here chooses a model size. Advice only searches the tunables an Algorithm declares.
  *
- * Needs the framework on the include path as well (it measures real ops): -Iinclude/core -Iinclude/tools.
+ * Needs the framework on the include path as well (it measures real ops): -Iinclude/core -Iinclude/
  */
 
 #include <chrono>
@@ -40,11 +40,11 @@
 #include <string>
 #include <vector>
 
-#include "Advisor.hpp"
-#include "CapabilitySuite.hpp"
-#include "DeviceFingerprint.hpp"
-#include "TensorAccounting.hpp"
-#include "WorkloadProbe.hpp"
+#include "Profiler/advice/Advisor.hpp"
+#include "Profiler/capability/CapabilitySuite.hpp"
+#include "Profiler/device/DeviceFingerprint.hpp"
+#include "Profiler/memory/TensorAccounting.hpp"
+#include "Profiler/workload/WorkloadProbe.hpp"
 
 namespace tensorf::prof {
 

@@ -42,10 +42,10 @@
 #include <string>
 #include <vector>
 
-#include "CapabilityKernels.hpp"
-#include "DeviceFingerprint.hpp"
-#include "FrameworkBench.hpp"
-#include "ProfilerCommon.hpp"
+#include "Profiler/capability/CapabilityKernels.hpp"
+#include "Profiler/device/DeviceFingerprint.hpp"
+#include "Profiler/capability/FrameworkBench.hpp"
+#include "Profiler/core/ProfilerCommon.hpp"
 
 namespace tensorf::prof {
 

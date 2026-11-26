@@ -17,7 +17,7 @@
 #include <cstring>
 #include <set>
 
-#include "profiler/tmp/Advisor.hpp"
+#include "Profiler/advice/Advisor.hpp"
 
 using namespace tensorf::prof;
 using namespace tensorf::prof::wl;

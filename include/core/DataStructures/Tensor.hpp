@@ -54,16 +54,16 @@
 // The val matrices are still computed — only the bookkeeping is skipped.
 // ────────────────────────────────────────────────────────────────────────────
 namespace mxd {
-inline thread_local bool g_no_grad = false;
+    inline thread_local bool g_no_grad = false;
 
-class NoGrad {
-    bool prev_;
-public:
-    NoGrad() noexcept : prev_(g_no_grad) { g_no_grad = true; }
-    ~NoGrad() { g_no_grad = prev_; }
-    NoGrad(const NoGrad&) = delete;
-    NoGrad& operator=(const NoGrad&) = delete;
-};
+    class NoGrad {
+        bool prev_;
+    public:
+        NoGrad() noexcept : prev_(g_no_grad) { g_no_grad = true; }
+        ~NoGrad() { g_no_grad = prev_; }
+        NoGrad(const NoGrad&) = delete;
+        NoGrad& operator=(const NoGrad&) = delete;
+    };
 } // namespace mxd
 
 template <typename T>

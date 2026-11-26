@@ -10,7 +10,7 @@
  *   ./bin/profiler_suite_test --quick    # ~3 s: fixtures and budgets only
  */
 #define TENSORF_MEMTRACK_IMPLEMENT
-#include "profiler/tmp/ProfilerSuite.hpp"
+#include "Profiler/ProfilerSuite.hpp"
 
 #include <cstdio>
 #include <cstring>

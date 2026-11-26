@@ -15,6 +15,9 @@
 #include <chrono>
 #include <deque>
 #include <functional>
+#include <algorithm>
+#include <csignal>
+#include <stdexcept>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -75,7 +78,16 @@ public:
     // Launch a binary with args, tagged with `kind` for the UI. Returns the new job id.
     std::string launch(const std::string& kind, const std::string& binary_path,
                         const std::vector<std::string>& args,
-                        std::function<void(const std::string&, const std::string&)> on_line) {
+                        std::function<void(const std::string&, const std::string&)> on_line,
+                        std::function<void(const std::shared_ptr<Job>&)> on_exit = nullptr) {
+        // Build argv BEFORE fork(): allocating in the child of a multithreaded
+        // process is not async-signal-safe (the 2nd job is forked while the
+        // 1st job's reader thread is alive).
+        std::vector<char*> argv;
+        argv.push_back(const_cast<char*>(binary_path.c_str()));
+        for (auto& a : args) argv.push_back(const_cast<char*>(a.c_str()));
+        argv.push_back(nullptr);
+
         int out_pipe[2];
         if (pipe(out_pipe) != 0) throw std::runtime_error("pipe() failed");
 
@@ -88,11 +100,9 @@ public:
             dup2(out_pipe[1], STDERR_FILENO);
             close(out_pipe[0]);
             close(out_pipe[1]);
-
-            std::vector<char*> argv;
-            argv.push_back(const_cast<char*>(binary_path.c_str()));
-            for (auto& a : args) argv.push_back(const_cast<char*>(a.c_str()));
-            argv.push_back(nullptr);
+            // Don't leak the gateway's listening/client sockets and other jobs'
+            // pipes into the child (a surviving child would keep the port bound).
+            for (int fd = 3; fd < 1024; ++fd) close(fd);
             execv(binary_path.c_str(), argv.data());
             _exit(127); // execv failed
         }
@@ -116,10 +126,11 @@ public:
         {
             std::lock_guard<std::mutex> lock(registry_mutex_);
             jobs_[job->id] = job;
+            prune_locked();
         }
 
         // reader thread: pull stdout/stderr, split into lines, push into job log
-        std::thread([this, job, fd = out_pipe[0]]() {
+        std::thread([this, job, on_exit, fd = out_pipe[0]]() {
             std::string buf;
             char chunk[4096];
             while (true) {
@@ -146,15 +157,22 @@ public:
 
             int status = 0;
             waitpid(job->pid, &status, 0);
-            job->running = false;
-            job->ended_at = std::chrono::system_clock::now();
-            if (WIFEXITED(status)) {
-                job->exit_code = WEXITSTATUS(status);
-                job->status = (job->exit_code == 0) ? JobStatus::Exited : JobStatus::Failed;
-            } else if (WIFSIGNALED(status)) {
-                job->exit_code = WTERMSIG(status);
-                job->status = JobStatus::Killed;
+            {
+                // status/exit_code/ended_at are read by job_to_json() under log_mutex
+                std::lock_guard<std::mutex> lk(job->log_mutex);
+                job->ended_at = std::chrono::system_clock::now();
+                if (WIFEXITED(status)) {
+                    job->exit_code = WEXITSTATUS(status);
+                    job->status = (job->exit_code == 0) ? JobStatus::Exited : JobStatus::Failed;
+                } else if (WIFSIGNALED(status)) {
+                    job->exit_code = WTERMSIG(status);
+                    job->status = JobStatus::Killed;
+                } else {
+                    job->status = JobStatus::Failed;
+                }
+                job->running = false;
             }
+            if (on_exit) on_exit(job);   // lets the gateway broadcast "job_exited"
         }).detach();
 
         return job->id;
@@ -200,6 +218,16 @@ public:
 
 private:
     JobManager() = default;
+    // Keep the registry (and its 5000-line log buffers) bounded: drop the oldest
+    // FINISHED jobs beyond MAX_FINISHED. Running jobs are never dropped.
+    void prune_locked() {
+        constexpr size_t MAX_FINISHED = 100;
+        std::vector<std::shared_ptr<Job>> done;
+        for (auto& [id, j] : jobs_) if (!j->running) done.push_back(j);
+        if (done.size() <= MAX_FINISHED) return;
+        std::sort(done.begin(), done.end(), [](auto& a, auto& b) { return a->started_at < b->started_at; });
+        for (size_t i = 0; i + MAX_FINISHED < done.size(); i++) jobs_.erase(done[i]->id);
+    }
     std::string generate_id() {
         static std::atomic<uint64_t> counter{0};
         auto now = std::chrono::system_clock::now().time_since_epoch().count();

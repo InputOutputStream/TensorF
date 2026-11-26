@@ -58,7 +58,7 @@
 #include <thread>
 #include <vector>
 
-#include "HardwareFingerprint.hpp"
+#include "Profiler/device/HardwareFingerprint.hpp"
 
 #if defined(__APPLE__)
   #include <mach/mach.h>

@@ -131,7 +131,7 @@ static void ensure_parent_dir(const std::string& path) {
 
 struct ServerOptions {
     uint16_t    port          = 8080;
-    size_t      min_clients   = 1;
+    size_t      min_clients   = 2;   // matches usage text and Server.hpp
     size_t      max_rounds    = 0;       // 0 = run forever
     std::string model_path    = "SLM/gpt2-small-f32.gguf";
     std::string prompt        = "The data type is int";

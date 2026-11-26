@@ -77,6 +77,9 @@ public:
     void send(const std::string& payload) {
         auto self = shared_from_this();
         net::post(ws_.get_executor(), [this, self, payload]() {
+            // A stuck dashboard must not make the gateway grow without bound:
+            // beyond the cap new messages are dropped for that session only.
+            if (outgoing_.size() >= MAX_QUEUE) return;
             outgoing_.push_back(payload);
             if (outgoing_.size() == 1) do_write();
         });
@@ -109,6 +112,7 @@ private:
             });
     }
 
+    static constexpr size_t MAX_QUEUE = 2000;
     websocket::stream<tcp::socket> ws_;
     beast::flat_buffer buffer_;
     std::deque<std::string> outgoing_;

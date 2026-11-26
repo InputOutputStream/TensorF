@@ -43,17 +43,19 @@ cmake -S "$ROOT" -B "$BUILD" -G "Unix Makefiles" \
   -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI="$ABI" -DANDROID_PLATFORM="android-$API" \
   -DCMAKE_BUILD_TYPE=Release ${BLAS:+-DTENSORF_BLAS=$BLAS} "$@"
-cmake --build "$BUILD" -j"$(nproc)" --target blas_check gcntest spmmtest coratrain algorithm_profiler_test memory_profiler_test device_benchmark_test hw_fingerprint_test profiler_capability_test  profiler_workload_test profiler_probe_test profiler_advisor_test hyperparam_advisor_test profiler_memory_nohook_test profiler_memory_test
+cmake --build "$BUILD" -j"$(nproc)" --target blas_check gcntest spmmtest coratrain algorithm_profiler_test memory_profiler_test device_benchmark_test hw_fingerprint_test profiler_capability_test  profiler_workload_test profiler_probe_test profiler_advisor_test hyperparam_advisor_test profiler_memory_nohook_test profiler_memory_test fed_mobile_sim fed_mobile_client
 
 adb get-state >/dev/null            # fails early if no device is connected/authorised
 echo "device ABI: $(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
 adb shell "mkdir -p $REMOTE"
 adb push "$BUILD/bin/blas_check" "$BUILD/bin/gcntest" "$BUILD/bin/spmmtest" "$BUILD/bin/coratrain" "$BUILD/bin/algorithm_profiler_test" "$BUILD/bin/memory_profiler_test" "$BUILD/bin/hw_fingerprint_test" "$REMOTE/"
 adb push "$BUILD/bin/device_benchmark_test" "$BUILD/bin/profiler_capability_test" "$BUILD/bin/profiler_workload_test" "$BUILD/bin/profiler_probe_test" "$REMOTE/"
+adb push "$BUILD/bin/fed_mobile_sim" "$BUILD/bin/fed_mobile_client" "$REMOTE/"
 adb push "$BUILD/bin/profiler_advisor_test" "$BUILD/bin/hyperparam_advisor_test" "$BUILD/bin/profiler_memory_nohook_test" "$BUILD/bin/profiler_memory_test" "$REMOTE/"
 
 adb shell "chmod +x $REMOTE/blas_check $REMOTE/gcntest $REMOTE/spmmtest $REMOTE/coratrain $REMOTE/algorithm_profiler_test $REMOTE/hw_fingerprint_test $REMOTE/memory_profiler_test"
 adb shell "chmod +x $REMOTE/device_benchmark_test $REMOTE/profiler_capability_test $REMOTE/profiler_workload_test $REMOTE/profiler_probe_test"
+adb shell "chmod +x $REMOTE/fed_mobile_sim $REMOTE/fed_mobile_client"
 adb shell "chmod +x $REMOTE/profiler_advisor_test $REMOTE/hyperparam_advisor_test $REMOTE/profiler_memory_nohook_test $REMOTE/profiler_memory_test"
 
 # Proves which BLAS is really in the binary on the device and that it computes correctly; aborts the run otherwise.
@@ -83,4 +85,24 @@ else
   echo "(skipping Cora: run ./scripts/download_cora.sh to enable)"
 fi
 
+# ── Federated (mobile) smoke test ────────────────────────────────────────────
+# Loopback protocol tests ON THE PHONE (fp16 codec on ARM, threads, sockets):
+echo "=== fed_mobile_sim (on device) ==="; adb shell "$REMOTE/fed_mobile_sim"
 
+# Optional: real phone <-> host federation over USB, no Wi-Fi needed.
+#   FED=1 ./scripts/run_android.sh      (needs `make bin/fed_mobile_server` on the host)
+# The host runs the coordinator; `adb reverse` lets the phone reach it as 127.0.0.1:9740.
+if [ "${FED:-0}" = "1" ]; then
+  SRV="$ROOT/bin/fed_mobile_server"
+  [ -x "$SRV" ] || { echo "build the host server first: make bin/fed_mobile_server"; exit 1; }
+  adb reverse tcp:9740 tcp:9740
+  "$SRV" --port 9740 --min-clients 2 --params 100000 --rounds 5 > /tmp/tensorf_fed_server.log 2>&1 &
+  SRV_PID=$!; sleep 1
+  # second participant: a synthetic client on the host
+  "$ROOT/bin/fed_mobile_client" --port 9740 --id host-sim --params 100000 --rounds 5 > /tmp/tensorf_fed_host_client.log 2>&1 &
+  echo "=== fed_mobile_client (phone <-> host) ==="
+  adb shell "$REMOTE/fed_mobile_client --server 127.0.0.1 --port 9740 --id phone-$(adb shell getprop ro.serialno | tr -d '\r') --params 100000 --rounds 5"
+  wait $SRV_PID 2>/dev/null || true
+  grep -c fed_round_done /tmp/tensorf_fed_server.log | sed 's/^/rounds completed on server: /'
+  adb reverse --remove tcp:9740
+fi

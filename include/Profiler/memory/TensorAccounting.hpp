@@ -74,7 +74,7 @@
 #include <unistd.h>
 #endif
 
-#include "ProfilerCommon.hpp"
+#include "Profiler/core/ProfilerCommon.hpp"
 #include "DataStructures/Tensor.hpp"
 
 namespace tensorf::prof::mem {

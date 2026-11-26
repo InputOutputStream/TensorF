@@ -508,7 +508,7 @@ without any LoRA involvement.
 | Local LoRA finetune           | —                                                | `--no-federated --lora`                         | nothing              | client (`--save-path`, adapters only) |
 | FedAvg                        | (default)                                        | (default)                                        | full weight deltas   | **server** — global model         |
 | FedAvg, N rounds              | `--rounds N`                                     | `--rounds N` (for a clean exit)                 | full weight deltas   | **server** — global model         |
-| FedAvg, LoRA                  | `--lora --lora-rank R --lora-alpha A`            | `--lora --lora-rank R --lora-alpha A` (must match) | adapter deltas only | **server** — global adapters      |
+| FedAvg, LoRA                  | `--lora --lora-rank R --lora-alpha A`            | `--lora --lora-rank R --lora-alpha A` (must match) | `student.parameters()` (adapters **plus** embeddings/LayerNorm; see docs/MOBILE_FEDERATED.md §Known issues) | **server** — global adapters      |
 | FedDistill                    | `--feddistill`                                   | `--feddistill`                                   | logits only           | **each client** — its own student |
 | FedDistill, heterogeneous     | `--feddistill`                                   | `--feddistill` + different `--model`             | logits only           | **each client** — its own student |
 | Compressed checkpoint         | `--quantize fp8\|fp4`                            | `--quantize fp8\|fp4`                            | unchanged              | same as above + a `.fp8`/`.fp4` file |

@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <fstream>
 #include <thread>
-#include "profiler/MemoryProfiler.hpp"
+#include "Profiler/memory/MemoryProfiler.hpp"
 using namespace tensorf::profile;
 
 static int fails = 0, checks = 0;

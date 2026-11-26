@@ -20,7 +20,7 @@
 #include <cstring>
 #include <string>
 
-#include "profiler/tmp/WorkloadModel.hpp"
+#include "Profiler/workload/WorkloadModel.hpp"
 
 using namespace tensorf::prof;
 using namespace tensorf::prof::wl;

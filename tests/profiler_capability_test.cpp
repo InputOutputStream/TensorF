@@ -29,7 +29,7 @@
 #include <string>
 #include <unistd.h>
 
-#include "profiler/tmp/CapabilitySuite.hpp"
+#include "Profiler/capability/CapabilitySuite.hpp"
 
 namespace fs = std::filesystem;
 using namespace tensorf::prof;

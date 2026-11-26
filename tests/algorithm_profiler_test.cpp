@@ -1,6 +1,6 @@
 #include <cstdio>
 #include <fstream>
-#include "profiler/AlgorithmProfiler.hpp"
+#include "Profiler/workload/AlgorithmProfiler.hpp"
 using namespace tensorf::profile;
 namespace fwbench = tensorf::fwbench;
 

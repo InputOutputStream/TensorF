@@ -69,8 +69,8 @@
 #include <thread>
 #include <vector>
 
-#include "HardwareFingerprint.hpp"
-#include "FrameworkBench.hpp"
+#include "Profiler/device/HardwareFingerprint.hpp"
+#include "Profiler/capability/FrameworkBench.hpp"
 
 #if defined(_WIN32)
   // windows.h already included through HardwareFingerprint.hpp

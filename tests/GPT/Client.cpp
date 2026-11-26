@@ -74,7 +74,7 @@
 #include "Tokenizer/GPT2Tokenizer.hpp"
 
 // Dataset
-#include "DataLoader/DataLoading.hpp"
+#include "data/DataLoading.hpp"
 
 // ─── TensorF profiler ────────────────────────────────────────────────────────
 #include "Profiler/Profiler.hpp"

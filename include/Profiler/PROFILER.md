@@ -25,7 +25,7 @@ heavy stages, because they leave freed pages resident and a later step would the
 
 ```cpp
 #define TENSORF_MEMTRACK_IMPLEMENT          // in exactly ONE .cpp of the program; optional, enables the memory stage
-#include "tools/Profiler/ProfilerSuite.hpp"
+#include "Profiler/ProfilerSuite.hpp"
 using namespace tensorf::prof;
 
 ProfilerSuite suite;
@@ -36,7 +36,7 @@ std::string payload = ProfilerSuite::to_json(p, &a);
 ProfilerSuite::print_summary(p);
 ```
 
-Build: `-std=c++20 -Iinclude -Iinclude/core -Iinclude/tools -pthread` (the validation stage runs real framework ops).
+Build: `-std=c++20 -Iinclude -Iinclude/core -Iinclude/ -pthread` (the validation stage runs real framework ops).
 
 CMake, one target per test (the include paths above are the only requirement):
 
@@ -44,7 +44,7 @@ CMake, one target per test (the include paths above are the only requirement):
 foreach(t profiler_capability_test profiler_workload_test profiler_probe_test profiler_memory_test
           profiler_memory_nohook_test profiler_advisor_test profiler_suite_test profiler_suite_nohook_test)
   add_executable(${t} tests/${t}.cpp)
-  target_include_directories(${t} PRIVATE include include/core include/tools)
+  target_include_directories(${t} PRIVATE include include/core include/
   target_compile_features(${t} PRIVATE cxx_std_20)
   find_package(Threads REQUIRED)
   target_link_libraries(${t} PRIVATE Threads::Threads)
@@ -54,7 +54,7 @@ endforeach()
 ## What the numbers mean
 
 - **Calibration** is per build and per device. `ProbeReport::blas` records which BLAS was measured (`openblas`, `shim` = the
-  portable loop in `include/tools/cblas_shim.h`, or `none`). The probe pins OpenBLAS to one thread while it measures.
+  portable loop in `include/cblas_shim.h`, or `none`). The probe pins OpenBLAS to one thread while it measures.
 - **Error range.** Uncalibrated predictions carry 60%. After validation each layer kind carries its measured
   leave-one-out error. The advised range is additionally floored at the device's measured run-to-run noise
   (`ProfilerSuite::noise_floor`: median probe spread / 2.56, one standard deviation of one step).
@@ -126,7 +126,7 @@ Platform behaviour:
 | macOS / iOS / Windows | skipped, recorded in `notes` | numbers are unpinned |
 
 Disable with `-DTENSORF_FWBENCH_DISABLE`; it is also off automatically when `DataStructures/Matrix.hpp`
-or `tools/tensorf_blas.h` cannot be included. JSON: `capability.framework` (schema `tensorf.profile/2`)
+or `tensorf_blas.h` cannot be included. JSON: `capability.framework` (schema `tensorf.profile/2`)
 and `framework` in the device-benchmark JSON.
 
 ### The profile follows the build's BLAS choice
@@ -139,3 +139,21 @@ prints its name (`framework (openblas)` / `framework (shim)`). The *portable* GE
 Narrow GNN-shaped GEMMs (`f32_gnn`, `f32_gnn_t`, 2708x16x1433) are timed at every BLAS thread count with the
 process CPU/wall ratio. If threads give < 1.15x while burning > 1.5x the CPU, a note says BLAS is spinning and
 recommends `OPENBLAS_NUM_THREADS=1` / `tensorf::blas::ScopedThreads(1)` for small layers.
+
+## Fused layout (one profiler, one directory per kind of information)
+
+```
+Profiler.hpp                 umbrella (TENSORF_PROFILER_NO_LEGACY, TENSORF_PROFILER_NO_FRAMEWORK_STAGES)
+ProfilerSuite.hpp            orchestrator, tensorf.profile/2
+core/        ProfilerCommon
+device/      DeviceFingerprint | HardwareFingerprint (legacy)
+capability/  CapabilityKernels, CapabilitySuite, FrameworkBench | DeviceBenchmark (legacy)
+workload/    WorkloadModel, WorkloadProbe | AlgorithmProfiler (legacy)
+memory/      TensorAccounting | MemoryProfiler (legacy)
+advice/      Advisor | HyperparamAdvisor (legacy)
+<Name>.hpp   forwarders at the root: every pre-fusion include path still resolves
+```
+Contracts kept: all 16 header names, both namespaces (`tensorf::prof`, `tensorf::profile`), `tensorf::fwbench`, the JSON
+schemas. Only `#include` lines were changed inside the moved files. Checked: all non-framework headers compile together
+in one TU (-Wall -Wextra clean) through both old and new paths, and both fingerprints run. Not checked: TensorAccounting,
+WorkloadProbe and ProfilerSuite (need the framework headers), and your test targets.

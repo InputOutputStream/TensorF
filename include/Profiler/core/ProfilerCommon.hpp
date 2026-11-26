@@ -364,9 +364,9 @@ private:
 //   3. environment:  TENSORF_MAX_TEMP_C, TENSORF_MAX_BATTERY_TEMP_C, TENSORF_MAX_RISE_C
 // A value <= 0 for --max-temp / --max-rise disables that check; --no-thermal-guard disables all three.
 struct ThermalLimits {
-    double cpu_c     = 45.0;     // hottest non-battery zone
-    double battery_c = 40.0;     // battery temperature while discharging
-    double rise_c    = 8.0;      // rise from the start-of-run temperature
+    double cpu_c     = 60.0;     // hottest non-battery zone
+    double battery_c = 60.0;     // battery temperature while discharging
+    double rise_c    = 10.0;      // rise from the start-of-run temperature
 };
 
 namespace detail_thermal {

@@ -54,9 +54,9 @@
 #include <utility>
 #include <vector>
 
-#include "CapabilitySuite.hpp"
-#include "DeviceFingerprint.hpp"
-#include "ProfilerCommon.hpp"
+#include "Profiler/capability/CapabilitySuite.hpp"
+#include "Profiler/device/DeviceFingerprint.hpp"
+#include "Profiler/core/ProfilerCommon.hpp"
 
 namespace tensorf::prof::wl {
 

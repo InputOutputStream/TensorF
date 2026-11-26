@@ -1,8 +1,14 @@
 #pragma once
 
 #include <unistd.h>
+#include <cerrno>
 #include <cstddef>
+#include <cstdint>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <atomic>
 #include <mutex>
 #include <unordered_map>
@@ -78,12 +84,14 @@ inline void net_forget_fd(int fd) {
     g_net_per_fd.erase(fd);
 }
 
-/// Read exactly `len` bytes from `fd`, retrying on partial reads.
-/// Returns false if the connection drops before all bytes are received.
+/// Read exactly `len` bytes from `fd`, retrying on partial reads and EINTR.
+/// Returns false if the connection drops (or a SO_RCVTIMEO timeout fires)
+/// before all bytes are received.
 inline bool read_exact(int fd, void* buf, size_t len) {
     size_t done = 0;
     while (done < len) {
         ssize_t r = ::read(fd, static_cast<char*>(buf) + done, len - done);
+        if (r < 0 && errno == EINTR) continue;      // interrupted by a signal: not a failure
         if (r <= 0) return false;
         done += static_cast<size_t>(r);
     }
@@ -95,12 +103,19 @@ inline bool read_exact(int fd, void* buf, size_t len) {
     return true;
 }
 
-/// Write exactly `len` bytes to `fd`, retrying on partial writes.
-/// Returns false if the connection drops before all bytes are sent.
+/// Write exactly `len` bytes to `fd`, retrying on partial writes and EINTR.
+/// Uses send(MSG_NOSIGNAL) on sockets so a peer that vanished (very common on
+/// mobile links) yields EPIPE -> `false` instead of a process-killing SIGPIPE.
+/// Falls back to write() for non-socket fds (pipes/files, used by some tests).
 inline bool write_exact(int fd, const void* buf, size_t len) {
     size_t done = 0;
+    bool is_sock = true;
     while (done < len) {
-        ssize_t w = ::write(fd, static_cast<const char*>(buf) + done, len - done);
+        ssize_t w = is_sock
+            ? ::send(fd, static_cast<const char*>(buf) + done, len - done, MSG_NOSIGNAL)
+            : ::write(fd, static_cast<const char*>(buf) + done, len - done);
+        if (w < 0 && errno == EINTR) continue;
+        if (w < 0 && errno == ENOTSOCK && is_sock) { is_sock = false; continue; }
         if (w <= 0) return false;
         done += static_cast<size_t>(w);
     }
@@ -110,6 +125,28 @@ inline bool write_exact(int fd, const void* buf, size_t len) {
         g_net_per_fd[fd].sent += len;
     }
     return true;
+}
+
+// ── Socket hygiene helpers (timeouts / keepalive) ──────────────────────────
+/// SO_RCVTIMEO / SO_SNDTIMEO in milliseconds (0 = no timeout). A blocked
+/// read_exact()/write_exact() then fails instead of hanging forever on a
+/// phone that walked out of Wi-Fi range.
+inline void set_socket_timeouts(int fd, int recv_ms, int send_ms) {
+    timeval r{recv_ms / 1000, (recv_ms % 1000) * 1000};
+    timeval w{send_ms / 1000, (send_ms % 1000) * 1000};
+    ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &r, sizeof(r));
+    ::setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &w, sizeof(w));
+}
+/// TCP keepalive so half-dead connections (NAT drop, sleeping phone) are
+/// detected: first probe after `idle_s`, then every `intvl_s`, give up after `cnt`.
+inline void set_socket_keepalive(int fd, int idle_s = 30, int intvl_s = 10, int cnt = 3) {
+    int one = 1;
+    ::setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof(one));
+#ifdef TCP_KEEPIDLE
+    ::setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &idle_s, sizeof(idle_s));
+    ::setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &intvl_s, sizeof(intvl_s));
+    ::setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &cnt, sizeof(cnt));
+#endif
 }
 
 // ── Chunked parameter streaming ─────────────────────────────────────────────

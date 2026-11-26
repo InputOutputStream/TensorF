@@ -3,7 +3,7 @@
 
 #include "Types/types.hpp"
 #include "DataStructures/Matrix.hpp"
-#include "DataLoader/Quantizer.hpp"
+#include "tools/Quantizer.hpp"
 
 #include <functional>
 #include <iostream>

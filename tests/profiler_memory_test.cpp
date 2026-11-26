@@ -21,8 +21,8 @@
  */
 
 #define TENSORF_MEMTRACK_IMPLEMENT
-#include "profiler/tmp/TensorAccounting.hpp"
-#include "profiler/tmp/WorkloadProbe.hpp"
+#include "Profiler/memory/TensorAccounting.hpp"
+#include "Profiler/workload/WorkloadProbe.hpp"
 
 #include <cstdio>
 #include <cstring>

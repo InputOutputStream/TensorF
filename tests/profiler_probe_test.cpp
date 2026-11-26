@@ -27,7 +27,7 @@
 #include <filesystem>
 #include <fstream>
 
-#include "profiler/tmp/WorkloadProbe.hpp"
+#include "Profiler/workload/WorkloadProbe.hpp"
 
 using namespace tensorf::prof;
 using namespace tensorf::prof::wl;

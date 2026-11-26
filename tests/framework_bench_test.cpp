@@ -16,8 +16,8 @@
 #include <cstring>
 #include <set>
 #include <thread>
-#include "profiler/FrameworkBench.hpp"
-#include "profiler/DeviceBenchmark.hpp"
+#include "Profiler/capability/DeviceBenchmark.hpp"
+#include "Profiler/capability/FrameworkBench.hpp"
 
 using namespace tensorf::fwbench;
 

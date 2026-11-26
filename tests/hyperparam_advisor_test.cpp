@@ -1,6 +1,6 @@
 #include <cstdio>
 #include <fstream>
-#include "profiler/HyperparamAdvisor.hpp"
+#include "Profiler/advice/HyperparamAdvisor.hpp"
 using namespace tensorf::profile;
 
 static int fails = 0, checks = 0;

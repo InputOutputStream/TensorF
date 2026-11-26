@@ -45,7 +45,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "AlgorithmProfiler.hpp"
+#include "Profiler/workload/AlgorithmProfiler.hpp"
 
 namespace tensorf::profile {
 

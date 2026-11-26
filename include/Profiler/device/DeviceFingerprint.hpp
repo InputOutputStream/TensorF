@@ -41,7 +41,7 @@
 #include <thread>
 #include <vector>
 
-#include "ProfilerCommon.hpp"
+#include "Profiler/core/ProfilerCommon.hpp"
 
 #if defined(__linux__)
 #include <dirent.h>
@@ -263,6 +263,14 @@ inline std::string x86_microarch(Vendor v, uint32_t family, uint32_t model, cons
         return f.avx2 ? "intel_avx2_unknown" : "intel_pre_haswell";
     }
     return "unknown";
+}
+
+inline bool is_android(const std::string& root) {
+#if defined(__ANDROID__)
+    if (root.empty()) return true;   // live device; a non-empty root is a fake/mounted tree
+#endif
+    if (!read_file(root + "/system/build.prop").empty()) return true;
+    return read_file(root + "/proc/sys/kernel/osrelease").find("android") != std::string::npos;
 }
 
 // ─── /proc/cpuinfo parsing ───────────────────────────────────────────────────
@@ -692,7 +700,7 @@ inline DeviceFingerprint detect_device_linux(const std::string& root = "") {
     DeviceFingerprint fp;
     using namespace linux_adapter;
 
-    fp.os   = is_android(root) ? OS::Android : OS::Linux;
+    fp.os   = tensorf::prof::linux_adapter::is_android(root) ? OS::Android : OS::Linux;
     fp.arch = compiled_arch();
     fp.compiler = 
 #if defined(__VERSION__)

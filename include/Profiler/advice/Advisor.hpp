@@ -48,7 +48,7 @@
 #include <utility>
 #include <vector>
 
-#include "WorkloadModel.hpp"
+#include "Profiler/workload/WorkloadModel.hpp"
 
 namespace tensorf::prof::adv {
 

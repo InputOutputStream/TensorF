@@ -9,7 +9,7 @@
  *       tests/profiler_suite_nohook_test.cpp -o bin/profiler_suite_nohook_test -pthread
  */
 #include <cstdio>
-#include "profiler/tmp/ProfilerSuite.hpp"
+#include "Profiler/ProfilerSuite.hpp"
 
 using namespace tensorf::prof;
 namespace A = tensorf::prof::adv;

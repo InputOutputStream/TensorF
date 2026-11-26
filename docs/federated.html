@@ -71,8 +71,8 @@ TCP protocol designed to keep peak memory bounded regardless of model size.</p>
 <h2 id="modes">FedAvg vs. FedDistill</h2>
 <table>
 <tr><th></th><th>FedAvg</th><th>FedDistill</th></tr>
-<tr><td>What crosses the wire</td><td>Full model weight deltas (or the full flat weight vector)</td><td>Soft-label logit vectors over a shared probe batch</td></tr>
-<tr><td>Aggregation math</td><td>Elementwise mean of client deltas, applied to the global model</td><td>Elementwise mean of client logits → a consensus target tensor</td></tr>
+<tr><td>What crosses the wire</td><td>The full flat parameter vector (named "deltas" in the code, but not a difference)</td><td>Soft-label logit vectors over each client's own local batch (no shared probe batch is distributed yet)</td></tr>
+<tr><td>Aggregation math</td><td>Unweighted elementwise mean of client parameter vectors</td><td>Elementwise mean of client logits → a consensus target tensor</td></tr>
 <tr><td>Where aggregation runs</td><td><code>Server::round_accum</code> directly (chunked, streamed)</td><td><code>Trainer::aggregate_logits()</code></td></tr>
 <tr><td>Client update</td><td>Receives the new global weights, overwrites local model</td><td>Receives the consensus logits, trains locally against them (<code>Trainer::distill_logits()</code>)</td></tr>
 <tr><td>Bandwidth per round</td><td>O(model size) — every parameter, every round</td><td>O(probe_batch × vocab_size) — usually far smaller than full weights, and independent of model depth</td></tr>
@@ -202,30 +202,29 @@ handshake with the server (the <code>Profiler::to_json()</code> payload describe
 <h2 id="running">Running a small cluster</h2>
 <div class="code-title">terminal 1 — server</div>
 <pre><code>make server
-./bin/server --port 9000 --min_clients 2 --mode fedavg \
-              --model SLM/gpt2-small-f32.gguf</code></pre>
+./bin/server --port 8080 --clients 2 [--feddistill] [--lora --lora-rank R --lora-alpha A] ...</code></pre>
 <div class="code-title">terminal 2+ — each client</div>
 <pre><code>make client
-./bin/client --server 127.0.0.1 --port 9000 --data Dataset/</code></pre>
-<p class="dim">Flags shown are illustrative of the parameters <code>Server</code>/<code>Client</code> expose
-(host/port, minimum clients to start a round, training mode, model/data paths); check
-<code>include/net/Network/Server.cpp</code>/<code>Client.cpp</code>'s <code>main()</code> for the exact CLI
-surface in your checked-out revision, since <code>Server.hpp</code>/<code>Client.hpp</code> define the
-reusable class and the <code>.cpp</code> files define the actual executable entry points.</p>
+./bin/client --server 127.0.0.1 --port 8080 --dataset &lt;path&gt; ...</code></pre>
+<p class="dim">The real flags are <code>--port</code> (default 8080), <code>--clients</code> (minimum clients per round),
+<code>--feddistill</code> (logit mode) and, on the client, <code>--server</code>, <code>--dataset</code>. The entry points are
+<code>tests/GPT/Server.cpp</code> and <code>tests/GPT/Client.cpp</code> (not <code>include/net/Network/</code>, which only
+holds the reusable <code>Server.hpp</code>/<code>Client.hpp</code>). <strong>Build status:</strong> these two binaries currently depend on
+a <code>Profiler/Profiler.hpp</code> header that no longer exists in the tree, so they do not build until that is restored or removed.
+For phones and unreliable links use the <a href="../docs/MOBILE_FEDERATED.md">mobile federated layer</a>
+(<code>include/net/Mobile/</code>), which is self-contained and tested.</p>
 
-<h2 id="round-lifecycle">One FedAvg round, end to end</h2>
+<h2 id="round-lifecycle">One FedAvg round, end to end (legacy Server/Client)</h2>
 <ol>
-  <li>Client connects, sends its <a href="api/profiler.html">hardware profile</a> (Protocol/ handshake).</li>
-  <li>Server waits until <code>min_clients</code> are connected, then broadcasts current global weights
-  (chunked protocol) to each client.</li>
-  <li>Each client runs local training steps via <code>Trainer::finetune()</code> for a configured number of
-  local epochs/steps.</li>
-  <li>Each client computes its weight delta and streams it back (<code>sendChunked</code>).</li>
-  <li>Server accumulates every client's delta into <code>round_accum</code> as it streams in — no need to
-  hold all clients' full deltas in memory simultaneously.</li>
-  <li>Once every expected client has reported, the server averages <code>round_accum</code> and applies it to
-  the global model.</li>
-  <li>Repeat from step 2 for the next round.</li>
+  <li>Client connects and performs the LoRA-config handshake (<code>sendLoraConfig</code>/<code>receiveLoraAck</code>).
+  There is no hardware-profile handshake: <code>include/net/Protocol/</code> is not used by <code>Server</code>/<code>Client</code>.</li>
+  <li>Each client trains locally first (<code>Trainer::finetune()</code>); the server does <em>not</em> broadcast weights before the first round,
+  so every client starts from its own checkpoint.</li>
+  <li>Each client streams its <em>full parameter vector</em> (not a delta) with <code>sendChunked</code>.</li>
+  <li>The server adds each stream into <code>round_accum</code> as it arrives.</li>
+  <li>When <code>min_clients</code> clients have finished, the server divides by the client count (unweighted), overwrites the global model and
+  broadcasts it. Known issue: a client still streaming when the round fires can corrupt the accumulator &mdash; fixed in the mobile
+  coordinator by a fixed cohort.</li>
 </ol>
 
 <div class="pagefoot">

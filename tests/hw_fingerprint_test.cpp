@@ -1,7 +1,7 @@
 #include <cassert>
 #include <cstdio>
 #include <fstream>
-#include "profiler/HardwareFingerprint.hpp"
+#include "Profiler/device/HardwareFingerprint.hpp"
 using namespace tensorf::profile;
 using namespace tensorf::profile::detail;
 

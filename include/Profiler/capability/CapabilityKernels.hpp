@@ -50,8 +50,8 @@
 #include <sched.h>
 #endif
 
-#include "ProfilerCommon.hpp"
-#include "tools/tensorf_blas.h"      // the framework's BLAS backend (OpenBLAS / shim); see framework_gemm below
+#include "Profiler/core/ProfilerCommon.hpp"
+#include "tensorf_blas.h"      // the framework's BLAS backend (OpenBLAS / shim); see framework_gemm below
 
 namespace tensorf::prof::kernels {
 

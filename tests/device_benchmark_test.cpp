@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <fstream>
 #include <set>
-#include "profiler/DeviceBenchmark.hpp"
+#include "Profiler/capability/DeviceBenchmark.hpp"
 using namespace tensorf::profile;
 using namespace tensorf::profile::kernels;
 namespace fwbench = tensorf::fwbench;
